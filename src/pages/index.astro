@@ -4,11 +4,8 @@
  * writing table, then updates + now); a 245px sidebar beside it (portrait,
  * info & links, todo, note). Everything comes from site.config.json.
  */
-import { existsSync } from 'node:fs';
-import { resolve } from 'node:path';
 import BaseLayout from '../layouts/BaseLayout.astro';
-import AsciiArt from '../components/AsciiArt.astro';
-import InkImage from '../components/InkImage.astro';
+import VisualCard from '../components/VisualCard.astro';
 import PostFeed from '../components/PostFeed.astro';
 import { SITE } from '../site.config';
 import { getPosts } from '../utils/posts';
@@ -17,7 +14,6 @@ const posts = await getPosts();
 const p = SITE.profile;
 const dotDate = (d: string) => d.replace(/-/g, '.');
 // Portrait: the ASCII drawing if there is one, otherwise the front-page image.
-const hasAscii = existsSync(resolve(process.cwd(), 'public', SITE.frontpageAscii.replace(/^\//, '')));
 const currently = [
   ['reading', p.currently.reading],
   ['building', p.currently.building],
@@ -31,7 +27,7 @@ const hasNow = SITE.status.mood || SITE.status.thought || currently.length > 0;
 
   <div class="portal home">
     <div class="portal-main">
-      <section class="panel" aria-labelledby="about-h">
+      <section class="panel panel--primary" aria-labelledby="about-h">
         <div class="panel-bar"><h2 class="panel-title" id="about-h">about</h2></div>
         <div class="panel-body intro">
           <p>{SITE.intro}</p>
@@ -47,25 +43,41 @@ const hasNow = SITE.status.mood || SITE.status.thought || currently.length > 0;
         (SITE.updates.length > 0 || hasNow) && (
           <div class="portal-split">
             {SITE.updates.length > 0 && (
-              <section class="panel" aria-labelledby="updates-h">
+              <section class="panel panel--primary" aria-labelledby="updates-h" data-shade="updates">
                 <div class="panel-bar">
                   <h2 class="panel-title" id="updates-h">updates</h2>
+                  <span class="panel-tools">
+                    <button type="button" class="shade-btn bevel" data-shade-toggle aria-expanded="true" aria-controls="updates-body" aria-label="Roll up updates" title="Roll up">
+                      _
+                    </button>
+                  </span>
                 </div>
-                <ul class="panel-body log">
-                  {SITE.updates.map((u) => (
-                    <li>
-                      <span class="d">{dotDate(u.date)}</span> — {u.text}
-                    </li>
-                  ))}
-                </ul>
+                <div class="shade" id="updates-body">
+                  <div class="shade-inner">
+                  <ul class="panel-body log">
+                    {SITE.updates.map((u) => (
+                      <li>
+                        <span class="d">{dotDate(u.date)}</span> — {u.text}
+                      </li>
+                    ))}
+                  </ul>
+                  </div>
+                </div>
               </section>
             )}
             {hasNow && (
-              <section class="panel" aria-labelledby="now-h">
+              <section class="panel panel--primary" aria-labelledby="now-h" data-shade="now">
                 <div class="panel-bar">
                   <h2 class="panel-title" id="now-h">now</h2>
-                  {SITE.status.updated && <span>{dotDate(SITE.status.updated)}</span>}
+                  <span class="panel-tools">
+                    {SITE.status.updated && <span>{dotDate(SITE.status.updated)}</span>}
+                    <button type="button" class="shade-btn bevel" data-shade-toggle aria-expanded="true" aria-controls="now-body" aria-label="Roll up now" title="Roll up">
+                      _
+                    </button>
+                  </span>
                 </div>
+                <div class="shade" id="now-body">
+                <div class="shade-inner">
                 <div class="panel-body mood">
                   {SITE.status.mood && <p class="mood-now">mood: {SITE.status.mood}</p>}
                   {SITE.status.thought && (
@@ -87,6 +99,8 @@ const hasNow = SITE.status.mood || SITE.status.thought || currently.length > 0;
                     </dl>
                   )}
                 </div>
+                </div>
+                </div>
               </section>
             )}
           </div>
@@ -95,23 +109,7 @@ const hasNow = SITE.status.mood || SITE.status.thought || currently.length > 0;
     </div>
 
     <aside class="portal-side" aria-label="About the author">
-      <section class="panel" aria-labelledby="portrait-h">
-        <div class="panel-bar">
-          <h2 class="panel-title" id="portrait-h">@{SITE.authorHandle}</h2>
-          <span class="panel-ctl" aria-hidden="true"><i></i></span>
-        </div>
-        {
-          hasAscii ? (
-            <button type="button" class="portrait-frame portrait-zoom" data-ascii-open aria-label="Enlarge the drawing">
-              <AsciiArt width="100cqi" />
-            </button>
-          ) : (
-            <div class="portrait-frame">
-              <InkImage src={SITE.frontpageImage} alt="" loading="eager" />
-            </div>
-          )
-        }
-      </section>
+      <VisualCard />
 
       <section class="panel" aria-labelledby="info-h">
         <div class="panel-bar"><h2 class="panel-title" id="info-h">info</h2></div>
@@ -142,24 +140,33 @@ const hasNow = SITE.status.mood || SITE.status.thought || currently.length > 0;
 
       {
         SITE.todo.length > 0 && (
-          <section class="panel" aria-labelledby="todo-h">
+          <section class="panel" aria-labelledby="todo-h" data-shade="todo">
             <div class="panel-bar">
               <h2 class="panel-title" id="todo-h">todo</h2>
-              <span>
-                {SITE.todo.filter((t) => t.done).length}/{SITE.todo.length}
+              <span class="panel-tools">
+                <span>
+                  {SITE.todo.filter((t) => t.done).length}/{SITE.todo.length}
+                </span>
+                <button type="button" class="shade-btn bevel" data-shade-toggle aria-expanded="true" aria-controls="todo-body" aria-label="Roll up todo" title="Roll up">
+                  _
+                </button>
               </span>
             </div>
-            <div class="panel-body">
-              <ul class="check-list check-list--mini">
-                {SITE.todo.map((t) => (
-                  <li>
-                    <span class="box" aria-hidden="true">
-                      {t.done ? '[x]' : '[ ]'}
-                    </span>
-                    <span class:list={{ done: t.done }}>{t.text}</span>
-                  </li>
-                ))}
-              </ul>
+            <div class="shade" id="todo-body">
+              <div class="shade-inner">
+              <div class="panel-body">
+                <ul class="check-list check-list--mini">
+                  {SITE.todo.map((t) => (
+                    <li>
+                      <span class="box" aria-hidden="true">
+                        {t.done ? '[x]' : '[ ]'}
+                      </span>
+                      <span class:list={{ done: t.done }}><span class="sr-only">{t.done ? 'Done: ' : 'To do: '}</span>{t.text}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              </div>
             </div>
           </section>
         )
@@ -167,46 +174,66 @@ const hasNow = SITE.status.mood || SITE.status.thought || currently.length > 0;
 
       {
         SITE.notice && (
-          <section class="panel" aria-labelledby="note-h">
+          <section class="panel" aria-labelledby="note-h" data-shade="note">
             <div class="panel-bar">
               <h2 class="panel-title" id="note-h">note</h2>
+              <span class="panel-tools">
+                <button type="button" class="shade-btn bevel" data-shade-toggle aria-expanded="true" aria-controls="note-body" aria-label="Roll up note" title="Roll up">
+                  _
+                </button>
+              </span>
             </div>
-            <p class="panel-body note">{SITE.notice}</p>
+            <div class="shade" id="note-body">
+              <div class="shade-inner">
+                <p class="panel-body note">{SITE.notice}</p>
+              </div>
+            </div>
           </section>
         )
       }
     </aside>
   </div>
 
-  {
-    hasAscii && (
-      <dialog class="win ascii-viewer" data-ascii-viewer aria-labelledby="ascii-viewer-title">
-        <div class="win-bar">
-          <span class="win-title" id="ascii-viewer-title">
-            drawing
-          </span>
-          <form method="dialog">
-            <button class="ctl ctl-close" aria-label="Close">
-              ×
-            </button>
-          </form>
-        </div>
-        <div class="ascii-viewer-body">
-          <AsciiArt width="min(28rem, calc(100vw - 72px))" />
-        </div>
-      </dialog>
-    )
-  }
 </BaseLayout>
 
 <script>
   import { onPage } from '../scripts/lifecycle';
 
-  // Click the portrait to see the drawing at full size (up to 9px characters).
+  const SHADE = (key: string) => `shade:${key}`;
+
   onPage((signal) => {
-    const viewer = document.querySelector<HTMLDialogElement>('[data-ascii-viewer]');
-    document.querySelector('[data-ascii-open]')?.addEventListener('click', () => viewer?.showModal(), { signal });
-    viewer?.addEventListener('click', (e) => e.target === viewer && viewer.close(), { signal });
+    // [ _ ] window shades: roll a panel up into its title bar (remembered for this visit).
+    document.querySelectorAll<HTMLElement>('[data-shade]').forEach((panel) => {
+      const key = panel.dataset.shade!;
+      const btn = panel.querySelector<HTMLButtonElement>('[data-shade-toggle]');
+      const name = panel.querySelector('.panel-title')?.textContent?.trim() ?? key;
+      const set = (rolled: boolean) => {
+        panel.classList.toggle('is-rolled', rolled);
+        btn?.setAttribute('aria-expanded', String(!rolled));
+        btn?.setAttribute('aria-label', `${rolled ? 'Roll down' : 'Roll up'} ${name}`);
+        btn?.setAttribute('title', rolled ? 'Roll down' : 'Roll up');
+        if (btn) btn.textContent = rolled ? '▭' : '_';
+      };
+      let rolled = false;
+      try {
+        rolled = sessionStorage.getItem(SHADE(key)) === '1';
+      } catch {}
+      // Restore without animating.
+      panel.querySelector<HTMLElement>('.shade')?.style.setProperty('transition', 'none');
+      set(rolled);
+      requestAnimationFrame(() => panel.querySelector<HTMLElement>('.shade')?.style.removeProperty('transition'));
+      btn?.addEventListener(
+        'click',
+        () => {
+          rolled = !panel.classList.contains('is-rolled');
+          set(rolled);
+          try {
+            sessionStorage.setItem(SHADE(key), rolled ? '1' : '0');
+          } catch {}
+        },
+        { signal },
+      );
+    });
   });
 </script>
 
@@ -319,27 +346,4 @@ const hasNow = SITE.status.mood || SITE.status.thought || currently.length > 0;
     }
   }
 
-  /* The portrait is a button that opens the large view. */
-  .portrait-zoom {
-    width: calc(100% - 12px);
-    font: inherit;
-    color: inherit;
-    cursor: zoom-in;
-  }
-
-  .ascii-viewer {
-    max-width: min(560px, calc(100vw - 32px));
-    max-height: calc(100vh - 32px);
-    padding: 0;
-    color: var(--ink);
-  }
-
-  .ascii-viewer::backdrop {
-    background: color-mix(in srgb, var(--canvas) 70%, transparent);
-  }
-
-  .ascii-viewer-body {
-    padding: 12px;
-    overflow: auto;
-  }
 </style>

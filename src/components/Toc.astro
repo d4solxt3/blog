@@ -34,9 +34,14 @@ const labelId = `toc-label-${variant}`;
 {
   variant === 'sidebar' ? (
     <nav class="toc toc-sidebar dot-box" aria-labelledby={labelId}>
-      <p class="lsl lsl--bracket" id={labelId}>
-        contents<span class="close" />
-      </p>
+      <div class="toc-head">
+        <p class="lsl lsl--bracket" id={labelId}>
+          contents<span class="close" />
+        </p>
+        <button type="button" class="toc-hide bevel" data-toc-toggle="hidden" aria-label="Hide contents" title="Hide contents">
+          hide ×
+        </button>
+      </div>
       <ol class="toc-list">
         {items.map((item) => (
           <li class="toc-h2">
@@ -98,6 +103,28 @@ const labelId = `toc-label-${variant}`;
 }
 
 <style>
+  .toc-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .toc-head .lsl {
+    flex: 1;
+    margin-bottom: 0;
+  }
+
+  .toc-hide {
+    flex: none;
+    min-height: 18px;
+    padding: 0 6px;
+    font: 10.5px/1 var(--font-mono);
+  }
+
+  .toc-head + .toc-list {
+    margin-top: 0.5rem;
+  }
+
   .toc-list,
   .toc-list ol {
     margin: 0;
@@ -149,7 +176,7 @@ const labelId = `toc-label-${variant}`;
     font-family: var(--font-mono);
     font-size: 0.625rem;
     letter-spacing: 0.08em;
-    color: var(--faint);
+    color: var(--muted);
     font-variant-numeric: tabular-nums;
   }
 

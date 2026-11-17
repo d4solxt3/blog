@@ -4,6 +4,10 @@ import { join, resolve } from 'node:path';
 
 export const POSTS_DIR = resolve(process.cwd(), 'content/posts');
 
+// These small files travel with the posts, including across deployments.
+export const retiredPath = (slug) => `content/retired-posts/${slug}.txt`;
+export const isRetiredLocally = (slug) => existsSync(resolve(process.cwd(), retiredPath(slug)));
+
 export function slugify(title) {
   return (
     String(title)
@@ -60,11 +64,11 @@ export function createPost(title) {
   mkdirSync(POSTS_DIR, { recursive: true });
   const slug = slugify(title);
   const file = join(POSTS_DIR, `${slug}.mdx`);
-  if (existsSync(file)) {
-    const err = new Error(`A post called "${slug}" already exists.`);
+  if (isRetiredLocally(slug) || existsSync(file) || existsSync(join(POSTS_DIR, `${slug}.md`))) {
+    const err = new Error(`The address "${slug}" is in use or retired. Choose a different title.`);
     err.code = 'EEXIST';
     throw err;
   }
-  writeFileSync(file, postTemplate(title), 'utf8');
+  writeFileSync(file, postTemplate(title), { encoding: 'utf8', flag: 'wx' });
   return { slug, file };
 }

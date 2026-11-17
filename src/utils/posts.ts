@@ -1,4 +1,5 @@
 import { getCollection, type CollectionEntry } from 'astro:content';
+import { isRetiredLocally } from '../../scripts/post-template.mjs';
 import { SITE } from '../site.config';
 
 export type Post = CollectionEntry<'posts'>;
@@ -6,6 +7,8 @@ export type Post = CollectionEntry<'posts'>;
 /** Published posts: pinned first, then newest. Drafts appear in `npm run dev` only. */
 export async function getPosts(): Promise<Post[]> {
   const posts = await getCollection('posts', ({ data }) => import.meta.env.DEV || !data.draft);
+  const conflict = posts.find((post) => isRetiredLocally(post.id));
+  if (conflict) throw new Error(`The address "${conflict.id}" is retired. Rename the new Markdown file to give it its own discussion.`);
   return posts.sort((a, b) => Number(b.data.pinned) - Number(a.data.pinned) || b.data.date.valueOf() - a.data.date.valueOf());
 }
 

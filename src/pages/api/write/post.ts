@@ -9,6 +9,7 @@ import type { APIRoute } from 'astro';
 import { isOwner, json, ownerOnly } from '../../../lib/auth';
 import {
   deleteDraft,
+  editPost,
   MODE,
   parsePost,
   publish,
@@ -74,7 +75,14 @@ export const PUT: APIRoute = async ({ request }) => {
   const doc = body && readDoc(body);
   if (!doc) return json({ error: 'Bad draft.' }, 400);
   const basis = typeof body!.basis === 'string' ? body!.basis : null;
-  return json({ savedAt: saveDraft({ ...doc, basis }) });
+  try {
+    return await editPost(doc.slug, async () => {
+      if (!readDraft(doc.slug) && !(await readPublished(doc.slug))) return json({ error: 'This post was deleted.' }, 410);
+      return json({ savedAt: saveDraft({ ...doc, basis }) });
+    });
+  } catch {
+    return json({ error: 'Could not save the draft.' }, 502);
+  }
 };
 
 export const POST: APIRoute = async ({ request }) => {
@@ -85,12 +93,14 @@ export const POST: APIRoute = async ({ request }) => {
   if (!doc.fields.title.trim()) return json({ error: 'Give the post a title first.', field: 'title' }, 400);
   if (!doc.fields.description.trim()) return json({ error: 'Add a description (one or two sentences for the front page).', field: 'description' }, 400);
   try {
-    const result = await publish(doc);
-    deleteDraft(doc.slug);
-    return json({ result });
+    return await editPost(doc.slug, async () => {
+      const result = await publish(doc);
+      deleteDraft(doc.slug);
+      return json({ result });
+    });
   } catch (err) {
     const status = (err as { status?: number }).status;
-    return json({ error: err instanceof Error ? err.message : 'Could not publish.' }, status === 503 ? 503 : 502);
+    return json({ error: err instanceof Error ? err.message : 'Could not publish.' }, status === 503 || status === 410 ? status : 502);
   }
 };
 

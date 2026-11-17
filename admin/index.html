@@ -9,7 +9,8 @@
       (function () {
         var t = null;
         try { t = localStorage.getItem('theme'); } catch (e) {}
-        if (t !== 'light' && t !== 'dark') t = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        if (t === 'light' || t === 'dark') t = t === 'dark' ? 'cyber' : 'paper';
+        if (t !== 'paper' && t !== 'cyber') t = 'paper';
         document.documentElement.setAttribute('data-theme', t);
       })();
     </script>
@@ -46,7 +47,19 @@
       .check input { margin-top: 0.2rem; accent-color: var(--ink); }
       .art-row { display: grid; grid-template-columns: 72px minmax(0, 1fr); gap: 0.6rem; align-items: center; }
       .art-row img, .ascii-src img { width: 72px; height: 72px; object-fit: contain; border: 1px solid var(--rule); background: var(--surface); mix-blend-mode: multiply; }
-      :root[data-theme='dark'] .art-row img, :root[data-theme='dark'] .ascii-src img { filter: invert(1) brightness(0.886); mix-blend-mode: screen; }
+      .drop-zone { padding: 0.9rem; border: 1px dashed var(--border-hairline); background: var(--surface-recessed); font: 0.75rem var(--font-mono); color: var(--muted); text-align: center; }
+      .drop-zone.is-over { border-color: var(--accent); color: var(--ink); }
+      .drop-pick { color: var(--ink); text-decoration: underline; cursor: pointer; }
+      .side-ascii { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0.5rem; }
+      .side-ascii textarea { font: 11px/1.15 var(--font-mono); white-space: pre; overflow: auto; tab-size: 2; }
+      #side-ascii-preview { margin: 0; padding: 0.5rem; display: grid; place-items: center; overflow: auto; border: 1px solid var(--border-hairline); background: var(--surface-main); font: 11px/1.15 var(--font-mono); color: var(--art-ink, var(--ink)); white-space: pre; font-variant-ligatures: none; }
+      .side-ascii-tools { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+      .avatar-row { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 0.6rem; align-items: start; }
+      /* checkerboard behind the preview so transparency is visible */
+      #avatar-thumb { width: 96px; height: 96px; object-fit: contain; border: 1px solid var(--border-hairline);
+        background: repeating-conic-gradient(var(--surface-recessed) 0% 25%, var(--surface-main) 0% 50%) 0 0 / 12px 12px; }
+      .theme-row { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+      .theme-row .field { flex: 1 1 10rem; }
 
       /* ascii_art.exe: controls on the left, a big preview on the right */
       .ascii-win { grid-column: 1 / -1; }
@@ -101,7 +114,7 @@
           <section id="tab-settings" role="tabpanel">
             <p class="intro">&gt; everything here is saved to <b>site.config.json</b>. press save, and any open tab of the site reloads by itself.</p>
             <form id="settings" class="settings" autocomplete="off">
-              <section class="win"><div class="win-bar"><span class="win-title">identity.cfg</span><span class="win-ctl"></span></div>
+              <section class="win"><div class="win-bar"><span class="win-title">identity.cfg</span></div>
                 <div class="win-body fields">
                   <label class="field"><span>Site name</span><input type="text" data-key="siteName" placeholder="my notebook" /><small>the wordmark, the window bar, browser tabs and the footer all use this</small></label>
                   <label class="field"><span>Site subtitle</span><textarea data-key="siteSubtitle" rows="2"></textarea><small>one line about the site, for search engines and RSS readers</small></label>
@@ -112,7 +125,7 @@
                 </div>
               </section>
 
-              <section class="win ascii-win"><div class="win-bar"><span class="win-title">ascii_art.exe — front-page drawing</span><span class="win-ctl"></span></div>
+              <section class="win ascii-win"><div class="win-bar"><span class="win-title">ascii_art.exe — sidebar ascii drawing</span></div>
                 <div class="win-body ascii-body">
                   <div class="fields win-body" style="padding: 0; display: grid; gap: 0.95rem">
                     <div class="field"><span>Source drawing (PNG)</span>
@@ -137,7 +150,7 @@
                 </div>
               </section>
 
-              <section class="win"><div class="win-bar"><span class="win-title">look.cfg</span><span class="win-ctl"></span></div>
+              <section class="win"><div class="win-bar"><span class="win-title">look.cfg</span></div>
                 <div class="win-body fields">
                   <div class="field"><span>Avatar image (about page)</span>
                     <div class="art-row"><img id="art-thumb" alt="" /><div class="field">
@@ -146,23 +159,59 @@
                     </div></div>
                     <small>pick a file to upload it into public/images and use it</small>
                   </div>
-                  <label class="check"><input type="checkbox" data-key="invertFrontpageImageInDarkMode" /> invert the image in dark mode (for black-on-white drawings)</label>
-                  <label class="check"><input type="checkbox" data-key="banner.show" /> show the banner strip under the menu (front page, writing, about)</label>
-                  <div class="field"><span>Banner image</span>
-                    <input type="text" data-key="banner.image" placeholder="(blank = the built-in dithered horizon)" />
-                    <input type="file" id="banner-file" accept="image/png,image/jpeg,image/gif,image/webp" />
-                    <small>a wide picture works best; it's cropped to an 88px strip and shown in grayscale with a halftone screen</small>
+                  <div class="field"><span>Themes</span>
+                    <div class="theme-row">
+                      <label class="field"><span>Preview this editor in</span><select id="admin-theme"><option value="paper">paper (archival, the default)</option><option value="cyber">cyber (icy blue &amp; white)</option></select></label>
+                      <label class="field"><span>Switch label: paper</span><input type="text" data-key="themeLabels.paper" placeholder="paper" /></label>
+                      <label class="field"><span>Switch label: cyber</span><input type="text" data-key="themeLabels.cyber" placeholder="cyber" /></label>
+                    </div>
+                    <small>visitors switch with the paper / cyber button in the window bar; their choice is remembered</small>
                   </div>
+                  <label class="check"><input type="checkbox" data-key="banner.show" /> show the banner strip under the menu (front page, writing, about)</label>
+                  <label class="field"><span>Banner style</span>
+                    <select data-key="bannerMode"><option value="dither-horizon">dither-horizon: 1-bit sky, drifting clouds, halftone field</option><option value="wireframe">wireframe: globe, oscilloscope that follows the pointer, barcode</option><option value="image">image: your own picture or looping GIF (below)</option></select>
+                  </label>
+                  <div class="field"><span>Custom banner image / GIF</span>
+                    <div class="drop-zone" id="banner-drop" tabindex="0">drop a wide image, .gif or .mp4 here, or <label class="drop-pick">choose a file<input type="file" id="banner-file" accept="image/png,image/jpeg,image/gif,image/webp,video/mp4,video/webm" hidden /></label></div>
+                    <input type="text" data-key="customBannerUrl" placeholder="/images/my-banner.gif" />
+                    <small>cropped to an 88px strip: crisp grayscale on paper, a cobalt duotone on cyber. GIFs keep moving. pick "image" above to use it</small>
+                  </div>
+                  <div class="field"><span>Sidebar picture (top of the left column)</span>
+                    <div class="drop-zone" id="side-drop" tabindex="0">drop an image, .gif or .mp4 here, or <label class="drop-pick">choose a file<input type="file" id="side-file" accept="image/png,image/jpeg,image/gif,image/webp,video/mp4,video/webm" hidden /></label></div>
+                    <input type="text" data-key="sidebarImageUrl" placeholder="(blank = a built-in dithered sky)" />
+                  </div>
+                  <label class="check"><input type="checkbox" data-key="sidebarImageTint" /> tint the sidebar picture to the theme (off = keep its full colours)</label>
+                  <div class="field"><span>Sidebar "wire" view: your own picture / GIF (optional)</span>
+                    <div class="drop-zone" id="wire-drop" tabindex="0">drop a wireframe .gif / .mp4 / image here, or <label class="drop-pick">choose a file<input type="file" id="wire-file" accept="image/png,image/jpeg,image/gif,image/webp,video/mp4,video/webm" hidden /></label></div>
+                    <input type="text" data-key="sidebarWireUrl" placeholder="(blank = the built-in rotating cube)" />
+                  </div>
+                  <label class="check"><input type="checkbox" data-key="sidebarWireTint" /> tint the wire picture to the theme (off = keep its own colours)</label>
+                  <label class="check"><input type="checkbox" data-key="sidebarWireInvert" /> it has light lines on a dark background (flip it so it sits on the card)</label>
+                  <div class="field"><span>Sidebar "ascii" view</span>
+                    <div class="side-ascii">
+                      <textarea id="side-ascii" rows="14" spellcheck="false" wrap="off"></textarea>
+                      <pre id="side-ascii-preview" aria-label="ASCII preview"></pre>
+                    </div>
+                    <div class="side-ascii-tools">
+                      <button class="btn" id="side-ascii-save" type="button">[ save ascii ]</button>
+                      <button class="btn" id="side-ascii-cube" type="button">[ load the cube ]</button>
+                    </div>
+                    <small>this is the drawing in public/images/frontpage-ascii.txt: ascii_art.exe above writes it too. type or paste any monospace art and press [ save ascii ]; it's fitted to the card</small>
+                  </div>
+                  <label class="field"><span>Sidebar card starts on</span>
+                    <select data-key="defaultVisualView"><option value="image">image (the picture above)</option><option value="wireframe">wire (rotating wireframe cube)</option><option value="ascii">ascii (cube glyph)</option></select>
+                  </label>
                   <label class="field"><span>Motion for new visitors</span>
-                    <select data-key="motion"><option value="quiet">quiet: only page transitions move</option><option value="full">full: also the ticking clock, ticker, blinking cursor, HUD ring</option></select>
+                    <select data-key="motion"><option value="quiet">quiet: only page transitions move</option><option value="full">full: also the ticking clock, ticker, blinking cursor, HUD ring (the tab-title emoticons run in both)</option></select>
                     <small>visitors can switch with "quiet / full" in the window bar; their choice is remembered</small>
                   </label>
                   <label class="field"><span>Tab title emoticons</span>
                     <select data-key="tabAnimation.preset"><option value="kaomoji">kaomoji (´･ω･`)</option><option value="stream">stream ·▸·· (a signal down the residual stream)</option><option value="moon">moon ◐ ◓ ◑ ◒</option><option value="cyber-hud">cyber-hud [▮▮▮  ]</option><option value="classic-blink">classic-blink &gt;&gt;</option><option value="off">off</option></select>
-                    <small>cycles in front of the page title; pauses while the tab is hidden or with reduced motion. the page and site name always stay in the tab</small>
+                    <small>cycles in front of the page title while motion is "full" (quiet keeps the title still); pauses while the tab is hidden or with reduced motion</small>
                   </label>
                   <label class="field"><span>Emoticon speed (ms per frame)</span><input type="number" min="400" max="10000" step="50" data-key="tabAnimation.intervalMs" /></label>
                   <label class="field"><span>Your own emoticons (optional)</span><textarea data-key="tabAnimation.frames" data-type="lines" rows="3" placeholder="(´･_･`)&#10;(´･ω･`)"></textarea><small>one per line; replaces the preset's frames. leave empty to use the preset</small></label>
+                  <label class="check"><input type="checkbox" data-key="defaultShowToc" /> show the contents panel when a post opens, then tuck it away after a few seconds (off = it starts closed; readers can open it with "contents +")</label>
                   <label class="field"><span>Default reading font</span>
                     <select data-key="defaultFont"><option value="sans">sans (IBM Plex Sans)</option><option value="serif">serif (Newsreader)</option><option value="mono">mono (JetBrains Mono)</option></select>
                     <small>posts can override with font: in their frontmatter; readers can switch with Aa</small>
@@ -172,7 +221,7 @@
                 </div>
               </section>
 
-              <section class="win"><div class="win-bar"><span class="win-title">comments.cfg</span><span class="win-ctl"></span></div>
+              <section class="win"><div class="win-bar"><span class="win-title">comments.cfg</span></div>
                 <div class="win-body fields">
                   <label class="check"><input type="checkbox" data-key="inlineAnnotations" /> let readers highlight a passage and comment on it</label>
                   <label class="field"><span>Comment system</span>
@@ -185,7 +234,7 @@
                 </div>
               </section>
 
-              <section class="win"><div class="win-bar"><span class="win-title">front_page.txt</span><span class="win-ctl"></span></div>
+              <section class="win"><div class="win-bar"><span class="win-title">front_page.txt</span></div>
                 <div class="win-body fields">
                   <label class="field"><span>Intro (2–3 lines)</span><textarea data-key="intro" rows="3"></textarea><small>the casual hello at the top of the front page</small></label>
                   <label class="field"><span>Status: mood</span><input type="text" data-key="status.mood" placeholder="tired but curious" /></label>
@@ -197,12 +246,21 @@
                 </div>
               </section>
 
-              <section class="win"><div class="win-bar"><span class="win-title">profile.txt</span><span class="win-ctl"></span></div>
+              <section class="win"><div class="win-bar"><span class="win-title">profile.txt</span></div>
                 <div class="win-body fields">
                   <label class="field"><span>Status badge</span><select data-key="profile.status"><option>online</option><option>away</option><option>offline</option></select></label>
                   <label class="field"><span>Timezone</span><input type="text" data-key="profile.timezone" placeholder="UTC+0 (london)" /></label>
                   <label class="field"><span>Here since</span><input type="text" data-key="profile.joined" placeholder="2026.10" /></label>
-                  <label class="field"><span>Avatar image</span><input type="text" data-key="profile.avatar" placeholder="(blank = front-page image)" /></label>
+                  <div class="field"><span>Avatar image (about page)</span>
+                    <div class="avatar-row">
+                      <img id="avatar-thumb" alt="" />
+                      <div class="field">
+                        <div class="drop-zone" id="avatar-drop" tabindex="0">drop a PNG (transparent is fine), JPG, GIF or WebP here, or <label class="drop-pick">choose a file<input type="file" id="avatar-file" accept="image/png,image/jpeg,image/gif,image/webp,image/svg+xml" hidden /></label></div>
+                        <input type="text" data-key="profile.avatar" placeholder="(blank = front-page image)" />
+                      </div>
+                    </div>
+                    <small>transparent areas stay see-through: the panel colour shows behind them in both themes. press save to use it</small>
+                  </div>
                   <label class="field"><span>Currently into</span><input type="text" data-key="profile.currently.into" /></label>
                   <label class="field"><span>Currently reading</span><input type="text" data-key="profile.currently.reading" /></label>
                   <label class="field"><span>Currently building</span><input type="text" data-key="profile.currently.building" /></label>
@@ -210,7 +268,7 @@
                 </div>
               </section>
 
-              <section class="win"><div class="win-bar"><span class="win-title">bio.txt</span><span class="win-ctl"></span></div>
+              <section class="win"><div class="win-bar"><span class="win-title">bio.txt</span></div>
                 <div class="win-body fields">
                   <label class="field"><span>Bio</span><textarea data-key="profile.bio" data-type="paragraphs" rows="6"></textarea><small>leave a blank line between paragraphs</small></label>
                   <label class="field"><span>Interests</span><textarea data-key="profile.interests" data-type="lines" rows="3"></textarea><small>one per line</small></label>
@@ -225,17 +283,17 @@
           <section id="tab-posts" role="tabpanel" hidden>
             <p class="intro">&gt; posts live in <b>content/posts</b>. new posts start as drafts: they show on your computer only until you set <b>draft: false</b>.</p>
             <div class="posts">
-              <section class="win"><div class="win-bar"><span class="win-title">posts.dir</span><span class="win-ctl"></span></div>
+              <section class="win"><div class="win-bar"><span class="win-title">posts.dir</span></div>
                 <div style="padding: 0.6rem"><button class="btn ghost" id="new-post" type="button" style="width: 100%">[ + new post ]</button></div>
                 <ul class="post-list" id="post-list"></ul>
               </section>
-              <section class="win editor-win"><div class="win-bar"><span class="win-title" id="editor-title">editor.exe</span><span class="win-ctl"></span></div>
+              <section class="win editor-win"><div class="win-bar"><span class="win-title" id="editor-title">editor.exe</span></div>
                 <div class="editor-tools"><span id="editor-status">&gt; pick a post on the left</span>
                   <span style="display: flex; gap: 0.5rem"><a id="open-post" href="/" target="_blank" rel="noopener" hidden>open ↗</a><button class="btn" id="save-post" type="button" disabled>[ save ]</button></span>
                 </div>
                 <textarea id="editor" spellcheck="true" disabled placeholder="markdown goes here…"></textarea>
               </section>
-              <section class="win preview-win"><div class="win-bar"><span class="win-title">preview.exe</span><span class="win-ctl"></span></div>
+              <section class="win preview-win"><div class="win-bar"><span class="win-title">preview.exe</span></div>
                 <iframe id="preview" title="Live preview"></iframe>
               </section>
             </div>
@@ -311,6 +369,7 @@
             const done = /^\[x\]\s*/i.test(line);
             return { text: line.replace(/^\[[x ]?\]\s*/i, ''), done };
           });
+        if (type === 'raw') return el.value.replace(/\s+$/, '');
         return el.value.trim();
       };
       const thumb = () => ($('#art-thumb').src = $('[data-key="frontpageImage"]').value || '');
@@ -320,6 +379,7 @@
         document.querySelectorAll('#settings [data-key]').forEach((el) => toField(el, getPath(config, el.dataset.key)));
         thumb();
         $('#settings-status').textContent = '> loaded site.config.json';
+        document.querySelector('[data-key="profile.avatar"]')?.dispatchEvent(new Event('input'));
       }
       $('[data-key="frontpageImage"]').addEventListener('input', thumb);
       $('#art-file').addEventListener('change', async (e) => {
@@ -334,17 +394,64 @@
           $('#settings-status').textContent = `> uploaded ${path} — press save to use it`;
         } catch (err) { $('#settings-status').textContent = `> ${err.message}`; }
       });
-      $('#banner-file').addEventListener('change', async (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
+      // Custom banner: pick or drop a file → saved into public/images → customBannerUrl.
+      async function uploadTo(file, key, done) {
+        if (!file || !/^(image|video)\//.test(file.type)) return;
+        $('#settings-status').textContent = '> uploading…';
+        const data = await new Promise((ok) => { const r = new FileReader(); r.onload = () => ok(r.result); r.readAsDataURL(file); });
+        try {
+          const { path } = await api('upload', { method: 'POST', body: JSON.stringify({ name: file.name, data }) });
+          $(`[data-key="${key}"]`).value = path;
+          done?.();
+          $('#settings-status').textContent = `> uploaded ${path}: press save to use it`;
+        } catch (err) { $('#settings-status').textContent = `> ${err.message}`; }
+      }
+      const dropInto = (zone, onFile) => {
+        ['dragenter', 'dragover'].forEach((t) => zone.addEventListener(t, (e) => { e.preventDefault(); zone.classList.add('is-over'); }));
+        ['dragleave', 'drop'].forEach((t) => zone.addEventListener(t, () => zone.classList.remove('is-over')));
+        zone.addEventListener('drop', (e) => { e.preventDefault(); onFile(e.dataTransfer.files[0]); });
+      };
+      const uploadSide = (file) => uploadTo(file, 'sidebarImageUrl');
+      const avatarThumb = () => ($('#avatar-thumb').src = $('[data-key="profile.avatar"]').value || $('[data-key="frontpageImage"]').value || '');
+      const uploadAvatar = (file) => uploadTo(file, 'profile.avatar', avatarThumb);
+      $('#avatar-file').addEventListener('change', (e) => uploadAvatar(e.target.files[0]));
+      dropInto($('#avatar-drop'), uploadAvatar);
+      $('[data-key="profile.avatar"]').addEventListener('input', avatarThumb);
+      const uploadWire = (file) => uploadTo(file, 'sidebarWireUrl');
+      $('#wire-file').addEventListener('change', (e) => uploadWire(e.target.files[0]));
+      dropInto($('#wire-drop'), uploadWire);
+      const sideAscii = $('#side-ascii');
+      const previewSideAscii = () => ($('#side-ascii-preview').textContent = sideAscii.value.replace(/\s+$/, '') || '(empty: the built-in cube is used)');
+      sideAscii.addEventListener('input', previewSideAscii);
+      const CUBE = "           +           \n        .-' '-.        \n     .-'       '-.     \n  +-'      o      '-+  \n  |'-.           .-'|  \n  |   '-.     .-'   |  \n  |      '-+-'      |  \n  | ::     |     :: |  \n  | ::     |     :: |  \n  |        |        |  \n  +-.      |      .-+  \n     '-.   |   .-'     \n        '-.|.-'        \n           +";
+      $('#side-ascii-cube').addEventListener('click', () => { sideAscii.value = CUBE; previewSideAscii(); $('#settings-status').textContent = '> cube loaded: press [ save ascii ] to use it'; });
+      $('#side-ascii-save').addEventListener('click', async () => {
+        try {
+          const { columns, rows } = await api('ascii-text', { method: 'PUT', body: JSON.stringify({ text: sideAscii.value }) });
+          showAscii(sideAscii.value.replace(/\s+$/, ''));
+          $('#settings-status').textContent = `> ascii saved (${columns} × ${rows}): reload the front page to see it`;
+        } catch (err) { $('#settings-status').textContent = `> ${err.message}`; }
+      });
+      // Start from whatever is in the file now.
+      fetch('/images/frontpage-ascii.txt', { cache: 'no-store' }).then((r) => (r.ok ? r.text() : '')).then((t) => { sideAscii.value = t.replace(/\s+$/, ''); previewSideAscii(); }).catch(() => {});
+      $('#side-file').addEventListener('change', (e) => uploadSide(e.target.files[0]));
+      dropInto($('#side-drop'), uploadSide);
+      async function uploadBanner(file) {
+        if (!file || !/^(image|video)\//.test(file.type)) return;
         $('#settings-status').textContent = '> uploading banner…';
         const data = await new Promise((ok) => { const r = new FileReader(); r.onload = () => ok(r.result); r.readAsDataURL(file); });
         try {
           const { path } = await api('upload', { method: 'POST', body: JSON.stringify({ name: file.name, data }) });
-          $('[data-key="banner.image"]').value = path;
-          $('#settings-status').textContent = `> uploaded ${path} — press save to use it`;
+          $('[data-key="customBannerUrl"]').value = path;
+          $('[data-key="bannerMode"]').value = 'image';
+          $('#settings-status').textContent = `> uploaded ${path}, banner set to image: press save to use it`;
         } catch (err) { $('#settings-status').textContent = `> ${err.message}`; }
-      });
+      }
+      $('#banner-file').addEventListener('change', (e) => uploadBanner(e.target.files[0]));
+      const drop = $('#banner-drop');
+      ['dragenter', 'dragover'].forEach((t) => drop.addEventListener(t, (e) => { e.preventDefault(); drop.classList.add('is-over'); }));
+      ['dragleave', 'drop'].forEach((t) => drop.addEventListener(t, () => drop.classList.remove('is-over')));
+      drop.addEventListener('drop', (e) => { e.preventDefault(); uploadBanner(e.dataTransfer.files[0]); });
       // ---- ascii_art.exe: pick a PNG, adjust detail, preview + save ----
       let asciiSource = '/images/ascii-source.png';
       let asciiTimer = 0;
@@ -364,7 +471,9 @@
         try {
           const { art, columns, rows } = await api('ascii', { method: 'POST', body: JSON.stringify({ image: asciiSource, columns: Number($('#ascii-cols').value) }) });
           showAscii(art);
-          $('#settings-status').textContent = `> ascii art saved (${columns} × ${rows}) — reload the front page to see it`;
+          const box = document.querySelector('#side-ascii');
+          if (box) { box.value = art; box.dispatchEvent(new Event('input')); }
+          $('#settings-status').textContent = `> ascii art saved (${columns} × ${rows}): reload the front page to see it`;
         } catch (err) { $('#settings-status').textContent = `> ${err.message}`; }
       };
       $('#ascii-cols').addEventListener('input', (e) => {
@@ -466,6 +575,15 @@
         } catch (err) { $('#editor-status').textContent = `> could not save: ${err.message}`; }
         $('#save-post').disabled = false;
       }
+
+      // Theme preview: same stored choice as the site's paper / cyber switch.
+      const themePick = $('#admin-theme');
+      themePick.value = document.documentElement.dataset.theme === 'cyber' ? 'cyber' : 'paper';
+      themePick.addEventListener('change', () => {
+        document.documentElement.dataset.theme = themePick.value;
+        try { localStorage.setItem('theme', themePick.value); } catch (e) {}
+        if (editor.value) renderPreview();
+      });
 
       async function renderPreview() {
         try {

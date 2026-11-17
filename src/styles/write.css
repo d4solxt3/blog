@@ -9,6 +9,20 @@
   padding: 0 var(--gutter) 3rem;
 }
 
+/* Focused fields and in-page jumps land below the sticky bar, never behind it. */
+:root:has(.studio) {
+  scroll-padding-top: 64px;
+}
+
+/* Banners, details and canvas share one column, measured in the reading font
+   (66ch of the post text), so the details panel is as wide as the writing. */
+.studio-col {
+  max-width: 66ch;
+  margin: 0 auto;
+  font-family: var(--font-read);
+  font-size: var(--read-size);
+}
+
 /* ---- top bar ---- */
 .studio-bar {
   position: sticky;
@@ -37,7 +51,7 @@
 }
 
 .sb-slug {
-  color: var(--faint);
+  color: var(--muted);
 }
 
 /* Save states: server copy · compared with the published file · this browser. */
@@ -50,7 +64,7 @@
 
 .sb-pub,
 .sb-local {
-  color: var(--faint);
+  color: var(--muted);
 }
 
 .sb-pub[data-state='changed'] {
@@ -120,14 +134,101 @@
   cursor: progress;
 }
 
+/* Phones and touch screens: same small labels, but 40px-tall tap areas, the
+   brackets dropped to save room, Publish set apart, and no [ keys ] (no keyboard). */
+@media (pointer: coarse), (max-width: 700px) {
+  :root:has(.studio) {
+    scroll-padding-top: 104px;
+  }
+
+  .studio-bar {
+    padding-block: 4px;
+    row-gap: 2px;
+  }
+
+  .sb-slug {
+    display: none;
+  }
+
+  .sb-tools {
+    flex: 1 1 100%;
+    gap: 6px;
+    margin-left: 0;
+  }
+
+  .sb-tools button {
+    min-height: 40px;
+    padding: 0 10px;
+    border: 1px solid var(--rule);
+  }
+
+  .sb-tools .br,
+  .sb-tools [data-act='keys'] {
+    display: none;
+  }
+
+  .sb-tools .sb-publish {
+    margin-left: auto;
+    padding-inline: 14px;
+    border-color: var(--ink);
+  }
+
+  .studio-col {
+    font-size: var(--read-size);
+  }
+
+  .meta {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 10px;
+  }
+
+  .meta-row .narrow {
+    flex-basis: 4.5rem;
+  }
+
+  .pick {
+    min-height: 32px;
+  }
+}
+
+@media (max-width: 480px) {
+  .sb-state {
+    gap: 0 6px;
+    font-size: 10px;
+  }
+
+  .sb-pub::before,
+  .sb-local::before {
+    margin-right: 6px;
+  }
+
+  :root:has(.studio) {
+    scroll-padding-top: 116px;
+  }
+}
+
+/* Smallest phones: tighter padding so all four fit on one row (Publish still set apart). */
+@media (max-width: 360px) {
+  .sb-tools {
+    gap: 4px;
+  }
+
+  .sb-tools button {
+    padding: 0 7px;
+  }
+
+  .sb-tools .sb-publish {
+    padding-inline: 10px;
+  }
+}
+
 /* ---- banners (restore, notices) ---- */
 .studio-banner {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
   gap: 4px 12px;
-  margin: 10px auto 0;
-  max-width: 66ch;
+  margin: 10px 0 0;
   padding: 6px 10px;
   border: 1px dashed var(--line);
   font-family: var(--font-mono);
@@ -142,11 +243,10 @@
 /* ---- metadata drawer ---- */
 .meta {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
-  gap: 8px 14px;
-  max-width: 66ch;
-  margin: 12px auto 0;
-  padding: 10px 12px;
+  grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
+  gap: 10px 16px;
+  margin: 12px 0 0;
+  padding: 12px 14px;
   border: 1px solid var(--line);
   background: var(--wash);
   font-family: var(--font-mono);
@@ -184,7 +284,9 @@
 }
 
 .meta textarea {
+  min-height: 3.4em;
   resize: vertical;
+  field-sizing: content;
 }
 
 .meta .row {
@@ -290,11 +392,7 @@
 
 /* ---- canvas ---- */
 .canvas {
-  max-width: 66ch;
-  margin: 0 auto;
   padding-top: clamp(1.4rem, 4vw, 2.4rem);
-  font-family: var(--font-read);
-  font-size: var(--read-size);
 }
 
 .w-title,
@@ -337,7 +435,7 @@
 .w-title::placeholder,
 .w-subtitle::placeholder,
 .w-body::placeholder {
-  color: var(--faint);
+  color: var(--muted);
   opacity: 1;
 }
 
@@ -596,11 +694,71 @@
 
 .studio-list li {
   display: grid;
-  grid-template-columns: 76px minmax(0, 1fr) auto;
+  grid-template-columns: 76px minmax(0, 1fr) auto auto;
   gap: 10px;
   align-items: baseline;
   padding: 5px 0;
   border-bottom: 1px dotted var(--rule);
+}
+
+.studio-delete {
+  min-height: 24px;
+  padding: 0 6px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font: 11px var(--font-mono);
+  cursor: pointer;
+}
+.studio-delete:hover, .studio-delete:focus-visible { color: var(--ink); text-decoration: underline; }
+.delete-result:not(:empty) { padding: 6px 10px; }
+
+.studio-confirm {
+  width: min(24rem, calc(100% - 2rem));
+  max-height: calc(100% - 2rem);
+  margin: auto;
+  padding: 0;
+  color: var(--ink);
+  box-shadow: 3px 3px 0 var(--line);
+}
+
+.studio-confirm::backdrop {
+  background: color-mix(in srgb, var(--canvas) 65%, transparent);
+}
+
+.studio-confirm .win-title,
+.studio-confirm-body p { margin: 0; }
+
+.studio-confirm-body {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  font: 0.875rem/1.5 var(--font-sans);
+}
+
+.studio-confirm-title {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.studio-confirm-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.studio-confirm-actions button {
+  min-height: 32px;
+}
+
+@media (max-width: 580px) {
+  .studio-list li { grid-template-columns: minmax(0, 1fr) auto; gap: 2px 8px; }
+  .studio-list a.t { grid-area: 1 / 1; white-space: normal; }
+  .studio-list .d { grid-area: 2 / 1; }
+  .studio-list .flags { grid-area: 2 / 2; }
+  .studio-delete { grid-area: 1 / 2; justify-self: end; }
 }
 
 .studio-list li:last-child {

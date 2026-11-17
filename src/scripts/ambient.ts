@@ -2,8 +2,8 @@
  * Small ambient touches in the window bar, governed by the quiet / full motion
  * switch (html[data-motion], remembered in localStorage):
  *  - a clock: HH:MM in quiet, ticking HH:MM:SS in full;
- *  - emoticon frames before the tab title (site.config.json → tabAnimation,
- *    on by default); the page and site name always stay in the title.
+ *  - emoticon frames before the tab title (site.config.json → tabAnimation),
+ *    in both quiet and full (reduced motion keeps a stable title).
  * Everything stops while the tab is hidden, and never animates with
  * prefers-reduced-motion (the clock then just shows HH:MM).
  * CSS handles the rest of "full": cursor blink, ticker, HUD ring and pulses.
@@ -44,6 +44,8 @@ function stopTitle() {
 
 function startTitle() {
   stopTitle();
+  // Runs in quiet and full alike (it's in the browser tab, not the page);
+  // only reduced motion and a hidden tab stop it.
   if (!anim.enabled || !anim.frames.length || reduced.matches || document.hidden) return;
   const step = () => {
     frame = (frame + 1) % anim.frames.length;

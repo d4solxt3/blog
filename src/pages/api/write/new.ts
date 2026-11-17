@@ -2,7 +2,7 @@
 import type { APIRoute } from 'astro';
 import { slugify } from '../../../../scripts/post-template.mjs';
 import { isOwner, json, ownerOnly } from '../../../lib/auth';
-import { newDoc, readDraft, readPublished, saveDraft } from '../../../lib/content';
+import { editPost, isRetired, newDoc, readDraft, readPublished, saveDraft } from '../../../lib/content';
 
 export const prerender = false;
 
@@ -13,10 +13,15 @@ export const POST: APIRoute = async ({ request }) => {
   if (!title) return json({ error: 'Type a title first.' }, 400);
   const base = slugify(title);
   try {
-    let slug = base;
-    for (let n = 2; readDraft(slug) || (await readPublished(slug)); n += 1) slug = `${base.slice(0, 74)}-${n}`;
-    saveDraft({ ...newDoc(slug, title), basis: null });
-    return json({ slug });
+    for (let n = 1; ; n++) {
+      const slug = n === 1 ? base : `${base.slice(0, 74)}-${n}`;
+      const created = await editPost(slug, async () => {
+        if (readDraft(slug) || (await readPublished(slug)) || (await isRetired(slug))) return false;
+        saveDraft({ ...newDoc(slug, title), basis: null });
+        return true;
+      });
+      if (created) return json({ slug });
+    }
   } catch (err) {
     return json({ error: err instanceof Error ? err.message : 'Could not start the post.' }, 502);
   }

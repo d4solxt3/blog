@@ -12,8 +12,9 @@
  */
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import YAML from 'yaml';
+import { isRetiredLocally, retiredPath } from '../../scripts/post-template.mjs';
 import raw from '../../site.config.json';
 import { DATA_DIR, DEV } from './auth';
 
@@ -146,18 +147,27 @@ async function github(path: string, init: RequestInit = {}) {
   return data as any;
 }
 
+async function repoFile(path: string, ref: string) {
+  try {
+    return await github(`/contents/${path}?ref=${encodeURIComponent(ref)}`);
+  } catch (err) {
+    if ((err as { status?: number }).status === 404) return null;
+    throw err;
+  }
+}
+
+export async function isRetired(slug: string, ref = PUBLISHING.branch): Promise<boolean> {
+  return MODE === 'github' ? !!(await repoFile(retiredPath(slug), ref)) : isRetiredLocally(slug);
+}
+
 type Published = { ext: 'md' | 'mdx'; source: string; sha: string };
 
 /** The current published file for a slug: GitHub on the live site, the local file otherwise. */
 export async function readPublished(slug: string): Promise<Published | null> {
   for (const ext of ['md', 'mdx'] as const) {
     if (MODE === 'github') {
-      try {
-        const data = await github(`/contents/content/posts/${slug}.${ext}?ref=${encodeURIComponent(PUBLISHING.branch)}`);
-        return { ext, source: Buffer.from(data.content, 'base64').toString('utf8'), sha: data.sha };
-      } catch (err) {
-        if ((err as { status?: number }).status !== 404) throw err;
-      }
+      const data = await repoFile(`content/posts/${slug}.${ext}`, PUBLISHING.branch);
+      if (data) return { ext, source: Buffer.from(data.content, 'base64').toString('utf8'), sha: data.sha };
     } else {
       const file = join(POSTS_DIR, `${slug}.${ext}`);
       if (existsSync(file)) {
@@ -192,7 +202,62 @@ export function deleteDraft(slug: string) {
   rmSync(draftFile(slug), { force: true });
 }
 
-export type Listing = { slug: string; title: string; date: string; draft: boolean; unsaved: boolean; savedAt: number | null };
+// Recheck each mutation after earlier writes for the same post finish.
+const pending = new Map<string, Promise<unknown>>();
+
+export async function editPost<T>(slug: string, action: () => Promise<T>): Promise<T> {
+  const previous = pending.get(slug) ?? Promise.resolve();
+  const next = previous.catch(() => {}).then(action);
+  pending.set(slug, next);
+  try {
+    return await next;
+  } finally {
+    if (pending.get(slug) === next) pending.delete(slug);
+  }
+}
+
+export async function removePost(slug: string, version: string) {
+  const pub = await readPublished(slug);
+  const draft = readDraft(slug);
+  if (!pub && !draft) throw Object.assign(new Error('This post is already gone. Refresh the studio.'), { status: 404 });
+  if (version !== postVersion(pub?.sha ?? null, draft?.savedAt ?? null)) {
+    throw Object.assign(new Error('This post changed. Refresh the studio and review it before deleting.'), { status: 409 });
+  }
+
+  if (pub) {
+    if (MODE === 'off') throw Object.assign(new Error('Enable GitHub publishing in settings to delete a post file.'), { status: 503 });
+    const name = `${slug}.${pub.ext}`;
+    const marker = retiredPath(slug);
+    if (MODE === 'local') {
+      const markerFile = join(ROOT, marker);
+      mkdirSync(dirname(markerFile), { recursive: true });
+      const alreadyReserved = existsSync(markerFile);
+      writeAtomic(markerFile, slug + '\n');
+      try {
+        rmSync(join(POSTS_DIR, name));
+      } catch (err) {
+        if (!alreadyReserved) rmSync(markerFile, { force: true });
+        throw err;
+      }
+    } else {
+      const parent = await branchHead();
+      const path = `content/posts/${name}`;
+      if ((await repoFile(path, parent))?.sha !== pub.sha) {
+        throw Object.assign(new Error('The file changed. Refresh the studio before deleting.'), { status: 409 });
+      }
+      await commitTree(parent, [
+        { path, mode: '100644', type: 'blob', sha: null },
+        { path: marker, mode: '100644', type: 'blob', content: slug + '\n' },
+      ], `Delete ${name} and reserve its address`);
+    }
+  }
+  deleteDraft(slug);
+  return { rebuild: !!pub && MODE === 'github' };
+}
+
+export const postVersion = (sha: string | null, savedAt: number | null) => `"${sha ?? 'draft'}:${savedAt ?? 0}"`;
+
+export type Listing = { publishedSha: string | null; slug: string; title: string; date: string; draft: boolean; unsaved: boolean; savedAt: number | null };
 
 /** Posts on disk plus server drafts (for the studio list and [[ autocomplete). */
 export function listPosts(): Listing[] {
@@ -201,8 +266,9 @@ export function listPosts(): Listing[] {
     for (const file of readdirSync(POSTS_DIR)) {
       const m = file.match(POST_FILE);
       if (!m || file.startsWith('_')) continue;
-      const doc = parsePost(m[1], m[2] as 'md' | 'mdx', readFileSync(join(POSTS_DIR, file), 'utf8'));
-      out.set(m[1], { slug: m[1], title: doc.fields.title || m[1], date: doc.fields.date, draft: doc.fields.draft, unsaved: false, savedAt: null });
+      const source = readFileSync(join(POSTS_DIR, file), 'utf8');
+      const doc = parsePost(m[1], m[2] as 'md' | 'mdx', source);
+      out.set(m[1], { publishedSha: blobSha(source), slug: m[1], title: doc.fields.title || m[1], date: doc.fields.date, draft: doc.fields.draft, unsaved: false, savedAt: null });
     }
   }
   if (existsSync(DRAFTS_DIR)) {
@@ -213,6 +279,7 @@ export function listPosts(): Listing[] {
       if (!d) continue;
       const prev = out.get(slug);
       out.set(slug, {
+        publishedSha: prev?.publishedSha ?? null,
         slug,
         title: d.fields.title || prev?.title || slug,
         date: d.fields.date || prev?.date || '',
@@ -340,13 +407,34 @@ function referencedMedia(slug: string, body: string) {
 
 export type PublishResult = { mode: 'local' | 'github'; commit?: string; path: string; created: boolean; sha: string };
 
+async function branchHead(): Promise<string> {
+  const ref = await github(`/git/ref/heads/${encodeURIComponent(PUBLISHING.branch)}`);
+  return ref.object.sha;
+}
+
+type TreeChange = { path: string; mode: string; type: string } & ({ sha: string | null } | { content: string });
+
+async function commitTree(parent: string, changes: TreeChange[], message: string): Promise<string> {
+  const base = await github(`/git/commits/${parent}`);
+  const tree = await github('/git/trees', { method: 'POST', body: JSON.stringify({ base_tree: base.tree.sha, tree: changes }) });
+  const commit = await github('/git/commits', {
+    method: 'POST',
+    body: JSON.stringify({ message, tree: tree.sha, parents: [parent] }),
+  });
+  await github(`/git/refs/heads/${encodeURIComponent(PUBLISHING.branch)}`, { method: 'PATCH', body: JSON.stringify({ sha: commit.sha }) });
+  return commit.sha;
+}
+
 export async function publish(doc: Doc): Promise<PublishResult> {
   if (MODE === 'off') {
     throw Object.assign(new Error('Publishing from the live site needs GITHUB_TOKEN. See CUSTOMIZING.md → "Writing on the live site".'), {
       status: 503,
     });
   }
+  const parent = MODE === 'github' ? await branchHead() : '';
+  if (await isRetired(doc.slug, parent)) throw Object.assign(new Error('This address is retired. Start a post with a new address.'), { status: 410 });
   const existing = await readPublished(doc.slug);
+  if (!existing && !readDraft(doc.slug)) throw Object.assign(new Error('This post was deleted. Start a new draft to keep writing.'), { status: 410 });
   const ext = existing?.ext ?? doc.ext;
   const path = `content/posts/${doc.slug}.${ext}`;
   const source = serializePost(doc);
@@ -362,21 +450,13 @@ export async function publish(doc: Doc): Promise<PublishResult> {
   for (const { file, media } of referencedMedia(doc.slug, doc.body)) {
     files.push({ path: `public/images/posts/${doc.slug}/${file}`, content: media!.buf });
   }
-  const ref = await github(`/git/ref/heads/${encodeURIComponent(PUBLISHING.branch)}`);
-  const parent = ref.object.sha as string;
-  const base = await github(`/git/commits/${parent}`);
   const tree = await Promise.all(
     files.map(async (f) => {
       const blob = await github('/git/blobs', { method: 'POST', body: JSON.stringify({ content: f.content.toString('base64'), encoding: 'base64' }) });
       return { path: f.path, mode: '100644', type: 'blob', sha: blob.sha };
     }),
   );
-  const newTree = await github('/git/trees', { method: 'POST', body: JSON.stringify({ base_tree: base.tree.sha, tree }) });
   const verb = existing ? 'Update' : 'Publish';
-  const commit = await github('/git/commits', {
-    method: 'POST',
-    body: JSON.stringify({ message: `${verb} "${doc.fields.title.trim()}" from the writing studio`, tree: newTree.sha, parents: [parent] }),
-  });
-  await github(`/git/refs/heads/${encodeURIComponent(PUBLISHING.branch)}`, { method: 'PATCH', body: JSON.stringify({ sha: commit.sha }) });
-  return { mode: 'github', commit: String(commit.sha).slice(0, 7), path, created: !existing, sha: blobSha(source) };
+  const commit = await commitTree(parent, tree, `${verb} "${doc.fields.title.trim()}" from the writing studio`);
+  return { mode: 'github', commit: commit.slice(0, 7), path, created: !existing, sha: blobSha(source) };
 }

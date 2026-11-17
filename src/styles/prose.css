@@ -150,16 +150,16 @@
 /* ---- Links -------------------------------------------------------------- */
 
 .prose a {
-  color: inherit;
+  color: var(--link, inherit);
   text-decoration: underline;
   text-decoration-thickness: 1px;
   text-underline-offset: 0.22em;
-  text-decoration-color: var(--faint);
+  text-decoration-color: var(--link-underline, var(--faint));
   transition: text-decoration-color var(--fast) var(--ease);
 }
 
 .prose a:hover {
-  text-decoration-color: var(--ink);
+  text-decoration-color: var(--link, var(--ink));
 }
 
 .prose a[href^='http']:not(.heading-anchor)::after {
@@ -299,20 +299,20 @@
   --shiki-token-changed: #3c3c41;
 }
 
-:root[data-theme='dark'] {
-  --shiki-foreground: #e4e4e2;
-  --shiki-token-keyword: #f0f0ee;
-  --shiki-token-constant: #c9c9c7;
-  --shiki-token-string: #a6a6ad;
-  --shiki-token-string-expression: #a6a6ad;
-  --shiki-token-comment: #6c6c74;
-  --shiki-token-function: #f0f0ee;
-  --shiki-token-parameter: #c9c9c7;
-  --shiki-token-punctuation: #7c7c84;
-  --shiki-token-link: #f0f0ee;
-  --shiki-token-inserted: #f0f0ee;
-  --shiki-token-deleted: #7c7c84;
-  --shiki-token-changed: #c9c9c7;
+:root[data-theme='cyber'] {
+  --shiki-foreground: #102038;
+  --shiki-token-keyword: #1d4f8c;
+  --shiki-token-constant: #2b6cb0;
+  --shiki-token-string: #3a5a80;
+  --shiki-token-string-expression: #3a5a80;
+  --shiki-token-comment: #486488;
+  --shiki-token-function: #102038;
+  --shiki-token-parameter: #2b4a72;
+  --shiki-token-punctuation: #486488;
+  --shiki-token-link: #2b6cb0;
+  --shiki-token-inserted: #1d4f8c;
+  --shiki-token-deleted: #486488;
+  --shiki-token-changed: #2b4a72;
 }
 
 /* .code-frame is added by the shiki transformer in astro.config.mjs: the frame
@@ -463,10 +463,6 @@
   color: var(--muted);
 }
 
-.prose .dd-label::before {
-  content: '// ';
-  color: var(--faint);
-}
 
 /* ---- Footnotes ---------------------------------------------------------- */
 
@@ -822,8 +818,9 @@
   transition: background-color var(--fast) var(--ease);
 }
 
-:root[data-theme='dark'] .prose mark.anno {
-  background: rgb(226 226 224 / 0.1);
+:root[data-theme='cyber'] .prose mark.anno {
+  background: rgb(43 108 176 / 0.09);
+  border-bottom-color: var(--accent);
 }
 
 .prose mark.anno:hover,
@@ -831,9 +828,13 @@
   background: rgb(26 26 28 / 0.14);
 }
 
-:root[data-theme='dark'] .prose mark.anno:hover,
-:root[data-theme='dark'] .prose mark.anno.is-active {
-  background: rgb(226 226 224 / 0.16);
+:root[data-theme='cyber'] .prose mark.anno:hover,
+:root[data-theme='cyber'] .prose mark.anno.is-active {
+  background: rgb(43 108 176 / 0.16);
+}
+
+:root[data-theme='cyber'] .prose mark.anno.is-active {
+  border-bottom: 1px solid var(--signal);
 }
 
 .prose .anno-badge {

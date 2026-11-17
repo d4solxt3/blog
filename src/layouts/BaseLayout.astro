@@ -74,6 +74,21 @@ const showBanner = frame === 'hub' && banner && SITE.banner.show;
   </head>
   <body data-tab-animation={JSON.stringify(SITE.tabAnimation)}>
     <a class="skip-link" href="#main">Skip to content</a>
+    <!-- Duotone filters for the cyber theme: black → cobalt-navy #14294a, white →
+         porcelain #f8fbff (drawings), and a softer cobalt → ice pair (banner). -->
+    <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+      <filter id="duo-navy" color-interpolation-filters="sRGB">
+        <feColorMatrix type="matrix" values="0.190 0.640 0.065 0 0.078  0.175 0.589 0.059 0 0.161  0.151 0.508 0.051 0 0.290  0 0 0 1 0" />
+      </filter>
+      <!-- Ink: dark pixels → cobalt-navy, light pixels → transparent (so the
+           card's own background shows through, whatever its colour). -->
+      <filter id="ink-navy" color-interpolation-filters="sRGB">
+        <feColorMatrix type="matrix" values="0 0 0 0 0.078  0 0 0 0 0.161  0 0 0 0 0.290  -0.2126 -0.7152 -0.0722 1 0" />
+      </filter>
+      <filter id="duo-banner" color-interpolation-filters="sRGB">
+        <feColorMatrix type="matrix" values="0.172 0.579 0.058 0 0.114  0.144 0.484 0.049 0 0.310  0.106 0.358 0.036 0 0.549  0 0 0 1 0" />
+      </filter>
+    </svg>
     <slot name="before-frame" />
     <div class="shell" id="top" data-frame={frame}>
       <HudBackdrop />
@@ -89,18 +104,17 @@ const showBanner = frame === 'hub' && banner && SITE.banner.show;
         },
       }}>
         <div class="titlebar">
-          <span class="title">{SITE.name}<span class="bar-cursor" aria-hidden="true">▮</span><time class="bar-clock" data-clock aria-hidden="true"></time></span>
+          <span class="title"><a href="/" aria-label={`${SITE.name}, home`}>{SITE.name}</a><span class="bar-cursor" aria-hidden="true">▮</span><time class="bar-clock" data-clock aria-hidden="true"></time></span>
           <span class="bar-right">
-            <button type="button" class="motion-switch" data-motion-toggle aria-pressed="false" title="Background motion: quiet or full">
+            <button type="button" class="motion-switch bevel" data-motion-toggle aria-pressed="false" title="Background motion: quiet or full">
               <span class="sr-only">Full motion</span>
               <span class="opt opt-quiet" aria-hidden="true">quiet</span><span class="sep" aria-hidden="true">/</span><span class="opt opt-full" aria-hidden="true">full</span>
             </button>
             <ThemeToggle />
-            <span class="squares" aria-hidden="true"><i>_</i><i class="max"></i></span>
           </span>
         </div>
-        <Header />
         {showBanner && <Banner />}
+        <Header />
         <main id="main" tabindex="-1">
           <slot />
         </main>

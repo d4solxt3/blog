@@ -1,0 +1,398 @@
+---
+/**
+ * Sidebar visual card with three views, switched by [ image | wireframe | ascii ]
+ * in its title bar:
+ *   image     — sidebarImageUrl (a picture or GIF) on the matte, tinted to the
+ *               theme unless sidebarImageTint is false; "" = a built-in dithered sky
+ *   wireframe — an isometric wireframe cube inside an orbit ring (turns slowly
+ *               in "full" motion, still in "quiet"), or your own picture / GIF
+ *               (sidebarWireUrl; sidebarWireTint, sidebarWireInvert)
+ *   ascii     — public/images/frontpage-ascii.txt (ascii_art.exe or the text
+ *               box in /_admin), drawn sharp on a canvas and fitted to the
+ *               square; the built-in cube glyph if there's no file
+ * The default comes from "defaultVisualView" in site.config.json; a visitor's
+ * pick is remembered (localStorage "visual-view") and applied before first
+ * paint by ThemeScript as html[data-visual].
+ */
+import AsciiArt from './AsciiArt.astro';
+import LoopMedia from './LoopMedia.astro';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { SITE } from '../site.config';
+import cubeAscii from '../assets/cube-ascii.txt?raw';
+
+const views = ['image', 'wireframe', 'ascii'] as const;
+const src = SITE.sidebarImageUrl;
+const wireSrc = SITE.sidebarWireUrl;
+// ascii view: the drawing in public/images/frontpage-ascii.txt (made with
+// ascii_art.exe or typed in /_admin), or the built-in cube if there's none.
+let fileArt = '';
+try {
+  fileArt = readFileSync(resolve(process.cwd(), 'public', SITE.frontpageAscii.replace(/^\//, '')), 'utf8').replace(/\s+$/, '');
+} catch {}
+const ascii = (fileArt || cubeAscii).replace(/\s+$/, '');
+const asciiCols = Math.max(1, ...ascii.split('\n').map((l) => l.length));
+const asciiRows = Math.max(1, ascii.split('\n').length);
+// Fit the whole drawing in the square: cells are 0.6 wide × 1 tall.
+const asciiWidth = `min(100cqw, calc(100cqh * ${((asciiCols * 0.6) / asciiRows).toFixed(4)}))`;
+
+// Isometric cube: rotate about Y by `turn`, tilt about X by atan(1/√2), project.
+const C = { x: 100, y: 98, s: 44 };
+const TILT = Math.atan(1 / Math.SQRT2);
+const V = [-1, 1].flatMap((x) => [-1, 1].flatMap((y) => [-1, 1].map((z) => [x, y, z])));
+const E: [number, number][] = [];
+V.forEach((a, i) => V.forEach((b, j) => j > i && a.filter((v, k) => v !== b[k]).length === 1 && E.push([i, j])));
+const project = (turn: number) =>
+  V.map(([x, y, z]) => {
+    const x1 = x * Math.cos(turn) + z * Math.sin(turn);
+    const z1 = -x * Math.sin(turn) + z * Math.cos(turn);
+    const y1 = y * Math.cos(TILT) - z1 * Math.sin(TILT);
+    return [C.x + x1 * C.s, C.y + y1 * C.s];
+  });
+const START = 0.42; // a little off the isometric axis so all 12 edges read
+const P = project(START);
+
+// Built-in dithered sky (used when sidebarImageUrl is empty).
+const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
+const cells = (k: number) => BAYER.map((v, i) => (v < k ? `M${(i % 4) * 2} ${Math.floor(i / 4) * 2}h2v2h-2z` : '')).join('');
+const skyBands = [1, 1, 2, 2, 3, 4, 6, 8];
+---
+
+<section class="panel panel--primary visual" aria-labelledby="visual-h" data-visual-card>
+  <div class="panel-bar">
+    <h2 class="panel-title" id="visual-h">@{SITE.authorHandle}</h2>
+    <span class="panel-tools vv-switch" role="group" aria-label="Picture view">
+      {
+        views.map((v) => (
+          <button type="button" class="vv-btn bevel" data-vv={v} aria-pressed={String(v === SITE.defaultVisualView)}>
+            {v === 'wireframe' ? 'wire' : v}
+          </button>
+        ))
+      }
+    </span>
+  </div>
+  <div class="portrait-frame">
+    <div class="vv-mat">
+      <div class="vv vv--image">
+        {
+          src ? (
+            <LoopMedia videoView="image" src={src} class={['vv-img', SITE.sidebarImageTint && 'vv-img--tint'].filter(Boolean).join(' ')} loading="eager" />
+          ) : (
+            <svg class="vv-sky" viewBox="0 0 200 200" shape-rendering="crispEdges" aria-hidden="true" focusable="false">
+              <defs>
+                {[1, 2, 3, 4, 6, 8, 12].map((k) => (
+                  <pattern id={`vs-${k}`} width="8" height="8" patternUnits="userSpaceOnUse">
+                    <path d={cells(k)} fill="currentColor" />
+                  </pattern>
+                ))}
+              </defs>
+              {skyBands.map((k, i) => (
+                <rect y={i * 18} width="200" height="18" fill={`url(#vs-${k})`} />
+              ))}
+              <circle cx="128" cy="144" r="26" fill="url(#vs-12)" />
+              <rect y="144" width="200" height="56" fill="url(#vs-1)" />
+              <path d="M0 144.5H200" stroke="currentColor" fill="none" />
+            </svg>
+          )
+        }
+      </div>
+
+      <div class="vv vv--wireframe">
+        {
+          wireSrc ? (
+            <LoopMedia videoView="wireframe" src={wireSrc} class={['vv-img', SITE.sidebarWireTint && 'vv-img--tint', SITE.sidebarWireInvert && 'vv-img--invert'].filter(Boolean).join(' ')} />
+          ) : (
+        <svg class="vv-cube" viewBox="0 0 200 200" fill="none" aria-hidden="true" focusable="false" data-cube>
+              <g class="vc-reg" stroke-width="1.25">
+                {
+                  [
+                    [14, 14],
+                    [186, 14],
+                    [14, 186],
+                    [186, 186],
+                  ].map(([x, y]) => <path d={`M${x - 6} ${y}h12M${x} ${y - 6}v12`} />)
+                }
+              </g>
+              <ellipse class="vc-orbit" cx={C.x} cy={C.y} rx="84" ry="24" stroke-width="1.25" stroke-dasharray="2 4" />
+              <circle class="vc-node" cx={C.x + 84} cy={C.y} r="2.6" data-node />
+              <g class="vc-edges" stroke-width="1.25" stroke-linecap="round">
+                {E.map(([a, b]) => (
+                  <line x1={P[a][0].toFixed(2)} y1={P[a][1].toFixed(2)} x2={P[b][0].toFixed(2)} y2={P[b][1].toFixed(2)} />
+                ))}
+              </g>
+              <text class="vc-label" x="186" y="200" text-anchor="end">UNIT // 00</text>
+            </svg>
+          )
+        }
+      </div>
+
+      <div class="vv vv--ascii">
+        {
+          fileArt ? (
+            <AsciiArt width={asciiWidth} />
+          ) : (
+            <pre class="cube-ascii" aria-label="ASCII art" style={`--cols: ${asciiCols}; --rows: ${asciiRows}`}>{ascii}</pre>
+          )
+        }
+      </div>
+    </div>
+  </div>
+</section>
+
+<style>
+  .visual .panel-bar {
+    gap: 6px;
+  }
+
+  .vv-switch {
+    gap: 2px;
+  }
+
+  .vv-btn {
+    min-height: 15px;
+    padding: 0 4px;
+    font: 9.5px/1 var(--font-mono);
+    color: var(--muted);
+    cursor: pointer;
+  }
+
+  .vv-btn[aria-pressed='true'] {
+    color: var(--ink);
+  }
+
+  /* A fixed square: every view (picture, wire, ascii) fits inside the same box,
+     so switching never moves the page. */
+  .vv-mat {
+    display: grid;
+    place-items: center;
+    width: 100%;
+    aspect-ratio: 1;
+    padding: 10px;
+    border: 1px solid var(--border-hairline);
+    background: var(--surface-main);
+    overflow: hidden;
+    container-type: size;
+  }
+
+  /* The three views share one grid cell; only the chosen one shows. */
+  .vv {
+    grid-area: 1 / 1;
+    display: none;
+    width: 100%;
+    height: 100%;
+    place-items: center;
+    min-width: 0;
+    min-height: 0;
+  }
+
+  :global(:root[data-visual='image']) .vv--image,
+  :global(:root[data-visual='wireframe']) .vv--wireframe,
+  :global(:root[data-visual='ascii']) .vv--ascii {
+    display: grid;
+    animation: vv-in 220ms var(--ease) both;
+  }
+
+  @keyframes vv-in {
+    from {
+      opacity: 0;
+    }
+  }
+
+  /* ---- image ------------------------------------------------------------- */
+  .vv-mat :global(.vv-img) {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+  }
+
+  .vv-mat :global(.vv-img--tint) {
+    filter: grayscale(1) contrast(1.15);
+    mix-blend-mode: multiply;
+  }
+
+  /* cyber: the picture becomes navy ink with no background of its own, so the
+     card's colour shows through (white or transparent areas both vanish). */
+  :global(:root[data-theme='cyber']) .vv-mat :global(.vv-img--tint) {
+    filter: url(#ink-navy);
+    mix-blend-mode: normal;
+  }
+
+  /* Light lines on a dark background (most wireframe GIFs): flip first. */
+  .vv-mat :global(.vv-img--invert) {
+    filter: invert(1);
+  }
+
+  .vv-mat :global(.vv-img--tint.vv-img--invert) {
+    filter: invert(1) grayscale(1) contrast(1.15);
+  }
+
+  :global(:root[data-theme='cyber']) .vv-mat :global(.vv-img--tint.vv-img--invert) {
+    filter: invert(1) url(#ink-navy);
+  }
+
+  .vv-sky {
+    display: block;
+    width: min(100cqw, 100cqh);
+    color: var(--art-ink, var(--ink));
+  }
+
+  .vv-sky path {
+    stroke: var(--accent, currentColor);
+  }
+
+  /* ---- wireframe --------------------------------------------------------- */
+  .vv-cube {
+    display: block;
+    width: min(100cqw, 100cqh);
+    overflow: visible;
+  }
+
+  .vc-edges {
+    stroke: var(--art-ink, var(--ink));
+  }
+
+  .vc-orbit,
+  .vc-reg {
+    stroke: var(--accent, var(--ink));
+  }
+
+  .vc-node {
+    fill: var(--signal, var(--ink));
+  }
+
+  .vc-label {
+    font: 500 8px var(--font-mono);
+    letter-spacing: 0.08em;
+    fill: var(--muted);
+  }
+
+  /* ---- ascii ------------------------------------------------------------- */
+  .cube-ascii {
+    margin: 0;
+    /* 11px, or smaller so the whole drawing fits the square: 0.6em per column
+       across, 1.15em per row down. */
+    font: 400 min(11px, calc(100cqw / var(--cols) / 0.6), calc(100cqh / var(--rows) / 1.15)) / 1.15 var(--font-mono);
+    letter-spacing: 0;
+    white-space: pre;
+    font-variant-ligatures: none;
+    color: var(--art-ink, var(--ink));
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .vv {
+      animation: none !important;
+    }
+  }
+
+  @media (pointer: coarse), (max-width: 560px) {
+    .vv-btn {
+      min-height: 36px;
+      padding: 0 8px;
+      font-size: 11px;
+    }
+  }
+</style>
+
+<script>
+  import { onPage } from '../scripts/lifecycle';
+
+  onPage((signal) => {
+    const card = document.querySelector('[data-visual-card]');
+    if (!card) return;
+    const root = document.documentElement;
+    const buttons = card.querySelectorAll<HTMLButtonElement>('[data-vv]');
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const videos = card.querySelectorAll<HTMLVideoElement>('video[data-video-view]');
+    function syncVideos() {
+      for (const video of videos) {
+        if (video.dataset.videoView !== root.dataset.visual || document.hidden) {
+          video.pause();
+          continue;
+        }
+        if (!video.hasAttribute('src')) {
+          video.preload = 'auto';
+          video.src = video.dataset.videoSrc!;
+        }
+        if (reduced.matches) video.pause();
+        else if (video.paused) void video.play().catch(() => {});
+      }
+    }
+    reduced.addEventListener('change', syncVideos, { signal });
+    document.addEventListener('visibilitychange', syncVideos, { signal });
+    function sync() {
+      buttons.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.vv === root.dataset.visual)));
+      syncVideos();
+    }
+    sync();
+    buttons.forEach((b) =>
+      b.addEventListener(
+        'click',
+        () => {
+          root.dataset.visual = b.dataset.vv;
+          try {
+            localStorage.setItem('visual-view', b.dataset.vv!);
+          } catch {}
+          sync();
+          kick();
+        },
+        { signal },
+      ),
+    );
+
+    // Wireframe: the cube turns about its vertical axis (one turn a minute) and
+    // the node travels the orbit — only in "full" motion, while the view shows.
+    const svg = card.querySelector<SVGSVGElement>('[data-cube]');
+    const lines = Array.from(svg?.querySelectorAll('line') ?? []);
+    const node = svg?.querySelector<SVGCircleElement>('[data-node]');
+    const live = () => !!svg && root.dataset.motion === 'full' && root.dataset.visual === 'wireframe' && !reduced.matches && !document.hidden;
+    const C = { x: 100, y: 98, s: 44 };
+    const TILT = Math.atan(1 / Math.SQRT2);
+    const V = [-1, 1].flatMap((x) => [-1, 1].flatMap((y) => [-1, 1].map((z) => [x, y, z])));
+    const E: [number, number][] = [];
+    V.forEach((a, i) => V.forEach((b, j) => j > i && a.filter((v, k) => v !== b[k]).length === 1 && E.push([i, j])));
+    let raf = 0;
+    let last = 0;
+    let t = 0.42; // same starting turn as the server render
+    let prev = performance.now();
+    const frame = (now: number) => {
+      raf = 0;
+      if (!live()) return;
+      if (now - last > 40) {
+        t += ((now - prev) / 60000) * Math.PI * 2;
+        prev = now;
+        last = now;
+        const P = V.map(([x, y, z]) => {
+          const x1 = x * Math.cos(t) + z * Math.sin(t);
+          const z1 = -x * Math.sin(t) + z * Math.cos(t);
+          return [C.x + x1 * C.s, C.y + (y * Math.cos(TILT) - z1 * Math.sin(TILT)) * C.s];
+        });
+        E.forEach(([a, b], i) => {
+          const l = lines[i];
+          if (!l) return;
+          l.setAttribute('x1', P[a][0].toFixed(2));
+          l.setAttribute('y1', P[a][1].toFixed(2));
+          l.setAttribute('x2', P[b][0].toFixed(2));
+          l.setAttribute('y2', P[b][1].toFixed(2));
+        });
+        node?.setAttribute('cx', (C.x + 84 * Math.cos(t * 1.5)).toFixed(2));
+        node?.setAttribute('cy', (C.y + 24 * Math.sin(t * 1.5)).toFixed(2));
+      } else prev = prev || now;
+      raf = requestAnimationFrame(frame);
+    };
+    function kick() {
+      if (!raf && live()) {
+        prev = performance.now();
+        raf = requestAnimationFrame(frame);
+      }
+    }
+    const watch = new MutationObserver(kick);
+    watch.observe(root, { attributes: true, attributeFilter: ['data-motion'] });
+    document.addEventListener('visibilitychange', kick, { signal });
+    signal.addEventListener('abort', () => {
+      cancelAnimationFrame(raf);
+      watch.disconnect();
+    });
+    kick();
+  });
+</script>

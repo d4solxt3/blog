@@ -3,34 +3,47 @@
  * Runs synchronously in <head> before first paint so the page never flashes
  * the wrong theme. It runs again right after every client-side navigation
  * (astro:after-swap), because Astro replaces <html>'s attributes on swap.
- * Stored choice wins; otherwise follow the OS. A reader's Aa font choice
+ * Two themes: paper (default) and cyber. A stored choice wins; older stored
+ * values "light"/"dark" are carried over to paper/cyber. A reader's Aa font choice
  * beats the page default. Same for the quiet / full motion switch.
  */
 import { SITE } from '../site.config';
 
 const motionDefault = SITE.motion;
+const tocDefault = SITE.defaultShowToc ? 'shown' : 'hidden';
+const visualDefault = SITE.defaultVisualView;
 ---
 
-<script is:inline define:vars={{ motionDefault }}>
+<script is:inline define:vars={{ motionDefault, tocDefault, visualDefault }}>
   (function () {
     function apply() {
       var root = document.documentElement;
       var theme = null;
       var font = null;
       var motion = null;
+      var visual = null;
       try {
         theme = localStorage.getItem('theme');
         font = localStorage.getItem('reader-font');
         motion = localStorage.getItem('motion');
+        visual = localStorage.getItem('visual-view');
       } catch (e) {}
-      if (theme !== 'light' && theme !== 'dark') {
-        theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      // Front-page sidebar visual card (image / wireframe / ascii).
+      root.setAttribute('data-visual', visual === 'image' || visual === 'wireframe' || visual === 'ascii' ? visual : visualDefault);
+      // Article contents: open on arrival (then post-page.ts tucks it away), or closed.
+      root.setAttribute('data-toc', tocDefault);
+      if (theme === 'light' || theme === 'dark') {
+        theme = theme === 'dark' ? 'cyber' : 'paper';
+        try {
+          localStorage.setItem('theme', theme);
+        } catch (e) {}
       }
+      if (theme !== 'paper' && theme !== 'cyber') theme = 'paper';
       root.setAttribute('data-motion', motion === 'full' || motion === 'quiet' ? motion : motionDefault);
       root.setAttribute('data-theme', theme);
       if (font === 'sans' || font === 'serif' || font === 'mono') root.setAttribute('data-font', font);
       var meta = document.querySelector('meta[name="theme-color"]');
-      if (meta) meta.setAttribute('content', theme === 'dark' ? '#141416' : '#f3f3f1');
+      if (meta) meta.setAttribute('content', theme === 'cyber' ? '#e8f0f8' : '#f3f3f1');
     }
     apply();
     if (!window.__themeSwapBound) {

@@ -1,0 +1,39 @@
+---
+/**
+ * A picture slot that also takes short looping videos: .mp4 / .webm render as
+ * a muted, looping, inline <video> (like a GIF, but far smaller); anything
+ * else is an <img>. Classes pass straight through, so theme tints apply to
+ * both. Videos pause for visitors who ask for reduced motion.
+ */
+interface Props {
+  src: string;
+  videoView?: 'image' | 'wireframe';
+  alt?: string;
+  class?: string;
+  loading?: 'eager' | 'lazy';
+}
+const { src, videoView, alt = '', loading = 'lazy', class: cls } = Astro.props;
+const isVideo = /\.(mp4|webm)(\?.*)?$/i.test(src);
+---
+
+{
+  isVideo ? (
+    <video class={cls} src={videoView ? undefined : src} data-video-src={videoView ? src : undefined} data-video-view={videoView}
+      autoplay={!videoView} muted loop playsinline preload={videoView ? 'none' : 'metadata'} aria-label={alt || undefined} aria-hidden={alt ? undefined : 'true'} data-loop-media />
+  ) : (
+    <img class={cls} src={src} alt={alt} loading={loading} decoding="async" />
+  )
+}
+
+<script>
+  import { onPage } from '../scripts/lifecycle';
+
+  // Reduced motion: hold the first frame instead of looping.
+  onPage(() => {
+    if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    document.querySelectorAll<HTMLVideoElement>('video[data-loop-media]').forEach((v) => {
+      v.removeAttribute('autoplay');
+      v.pause();
+    });
+  });
+</script>

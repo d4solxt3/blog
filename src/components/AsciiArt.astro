@@ -40,7 +40,7 @@ const rows = art ? art.split('\n').length : 0;
 <style>
   .ascii {
     margin: 0;
-    color: var(--ink);
+    color: var(--art-ink, var(--ink));
     user-select: none;
   }
 
@@ -89,7 +89,8 @@ const rows = art ? art.split('\n').length : 0;
     if (!ctx) return;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.fillStyle = getComputedStyle(fig).color;
-    ctx.font = `${size}px "IBM Plex Mono", ui-monospace, monospace`;
+    // Medium weight: the strokes stay distinct at thumbnail size without getting heavy.
+    ctx.font = `500 ${size}px "IBM Plex Mono", ui-monospace, monospace`;
     ctx.textBaseline = 'top';
     // Each character in its exact grid cell, so the proportions match the converter.
     lines.forEach((line, r) => {
@@ -105,13 +106,14 @@ const rows = art ? art.split('\n').length : 0;
 
   onPage((signal) => {
     if (!document.querySelector('[data-ascii]')) return;
-    loaded ??= document.fonts.load('16px "IBM Plex Mono"').catch(() => {});
+    loaded ??= document.fonts.load('500 16px "IBM Plex Mono"').catch(() => {});
     loaded.then(() => !signal.aborted && drawAll());
-    // Redraw in the new ink colour (synchronously, so the theme wipe captures it) and on resize.
+    // Redraw in the new ink colour (synchronously, so the theme wipe captures it)…
     document.addEventListener('themechange', drawAll, { signal });
-    let timer = 0;
-    window.addEventListener('resize', () => ((window.clearTimeout(timer), (timer = window.setTimeout(drawAll, 150)))), { signal });
-    // A <dialog> isn't laid out until it opens.
-    document.querySelectorAll('dialog').forEach((d) => new MutationObserver(drawAll).observe(d, { attributes: true, attributeFilter: ['open'] }));
+    // …and whenever a drawing's box changes: a resize, a dialog opening, or
+    // switching the portrait from "art" to "ascii".
+    const ro = new ResizeObserver((entries) => loaded?.then(() => entries.forEach((e) => draw(e.target as HTMLElement))));
+    document.querySelectorAll<HTMLElement>('[data-ascii]').forEach((fig) => ro.observe(fig));
+    signal.addEventListener('abort', () => ro.disconnect());
   });
 </script>

@@ -14,7 +14,7 @@
  */
 import { createHash, timingSafeEqual } from 'node:crypto';
 import type { APIRoute } from 'astro';
-import { getCollection } from 'astro:content';
+import { getPosts } from '../../utils/posts';
 import { checkPassword, isOwner, passwordSource } from '../../lib/auth';
 import { getStore, type Anchor, type CommentRecord } from '../../lib/comment-store';
 import { SITE } from '../../site.config';
@@ -75,7 +75,7 @@ const clean = (v: unknown, max: number) =>
     .slice(0, max);
 
 async function postRules() {
-  const posts = await getCollection('posts', ({ data }) => import.meta.env.DEV || !data.draft);
+  const posts = await getPosts();
   return new Map(posts.map((p) => [p.id, { annotations: p.data.annotations !== false }]));
 }
 

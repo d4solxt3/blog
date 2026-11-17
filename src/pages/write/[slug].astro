@@ -61,23 +61,25 @@ const json = JSON.stringify(data).replace(/</g, '\\u003c');
           </span>
           <span class="sb-tools">
             <button type="button" data-act="keys" aria-expanded="false" aria-controls="keys">
-              [ keys ]
+              <span class="br" aria-hidden="true">[ </span>keys<span class="br" aria-hidden="true"> ]</span>
             </button>
             <button type="button" data-act="meta" aria-expanded="false" aria-controls="meta">
-              [ details ]
+              <span class="br" aria-hidden="true">[ </span>details<span class="br" aria-hidden="true"> ]</span>
             </button>
             <button type="button" data-act="preview" aria-pressed="false" title="Ctrl/Cmd + P">
-              [ preview ]
+              <span class="br" aria-hidden="true">[ </span>preview<span class="br" aria-hidden="true"> ]</span>
             </button>
             <button type="button" data-act="focus" aria-pressed="false" title="Ctrl/Cmd + \">
-              [ focus ]
+              <span class="br" aria-hidden="true">[ </span>focus<span class="br" aria-hidden="true"> ]</span>
             </button>
             <button type="button" data-act="publish" class="sb-publish">
-              [ publish ]
+              <span class="br" aria-hidden="true">[ </span>publish<span class="br" aria-hidden="true"> ]</span>
             </button>
           </span>
         </div>
 
+        <!-- One column for banners, details and the canvas, sized like the post's reading column. -->
+        <div class="studio-col">
         <div class="studio-banner studio-keys" id="keys" data-keys hidden>
           <dl>
             <dt>/</dt><dd>block menu (at the start of a line)</dd>
@@ -179,6 +181,7 @@ const json = JSON.stringify(data).replace(/</g, '\\u003c');
             </div>
           </div>
           <div class="w-preview prose" data-preview hidden></div>
+        </div>
         </div>
         <input type="file" data-file accept="image/png,image/jpeg,image/gif,image/webp,image/svg+xml" multiple hidden />
       </div>

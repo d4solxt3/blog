@@ -56,12 +56,12 @@ const repliesEnabled = SITE.comments.provider === 'native';
     <h2 class="panel-title" id={`${id}-label`}>{label} <span class="count">(<span data-count>{pad(posts.length)}</span>)</span></h2>
     <div class="feed-tools">
       <div class="views" role="group" aria-label="Filter posts">
-        <button type="button" data-view="all" aria-pressed="true">all</button>
+        <button type="button" class="bevel" data-view="all" aria-pressed="true">all</button>
         {
           hasSeries && (
             <>
               <span class="pipe" aria-hidden="true">|</span>
-              <button type="button" data-view="series" aria-pressed="false">
+              <button type="button" class="bevel" data-view="series" aria-pressed="false">
                 series
               </button>
             </>
@@ -71,7 +71,7 @@ const repliesEnabled = SITE.comments.provider === 'native';
           tags.length > 0 && (
             <>
               <span class="pipe" aria-hidden="true">|</span>
-              <button type="button" data-tags-toggle aria-expanded="false" aria-controls={`${id}-tags`}>
+              <button type="button" class="bevel" data-tags-toggle aria-expanded="false" aria-controls={`${id}-tags`}>
                 #tags
               </button>
             </>
@@ -178,48 +178,33 @@ const repliesEnabled = SITE.comments.provider === 'native';
   .views {
     display: flex;
     align-items: center;
-    gap: 2px;
+    gap: 3px;
     font-size: 11px;
   }
 
   .pipe {
-    color: var(--faint);
+    display: none;
   }
 
+  /* all / series / #tags: small raised toggles (the .bevel class); the active one is pressed in. */
   .views button {
-    min-height: 22px;
-    padding: 0 3px;
-    border: 0;
-    background: none;
+    min-height: 17px;
+    padding: 0 6px;
     font: inherit;
-    color: var(--muted);
-    text-decoration: underline;
-    text-decoration-color: transparent;
-    text-underline-offset: 0.25em;
-    cursor: pointer;
-    transition:
-      color var(--fast) var(--ease),
-      text-decoration-color var(--fast) var(--ease);
+    line-height: 15px;
   }
 
-  .views button:hover {
-    color: var(--ink);
-    text-decoration-color: var(--rule);
-  }
-
-  .views button[aria-pressed='true'],
-  .views button[aria-expanded='true'] {
-    color: var(--ink);
-    text-decoration-color: var(--ink);
-  }
-
+  /* The filter box is a recessed well. */
   .filter {
     width: 120px;
     height: 18px;
-    padding: 0 4px;
-    border: 1px solid var(--line);
+    padding: 0 5px;
+    border: 1px solid var(--border-hairline);
     border-radius: 0;
-    background: var(--surface);
+    background: var(--surface-recessed);
+    box-shadow:
+      inset 1px 1px 0 var(--bevel-shadow),
+      inset -1px -1px 0 var(--bevel-highlight);
     font-family: var(--font-mono);
     font-size: 10.5px;
     color: var(--ink);
@@ -231,7 +216,7 @@ const repliesEnabled = SITE.comments.provider === 'native';
   }
 
   .filter::placeholder {
-    color: var(--faint);
+    color: var(--muted);
     opacity: 1;
   }
 
@@ -276,7 +261,7 @@ const repliesEnabled = SITE.comments.provider === 'native';
   }
 
   .tag .n {
-    color: var(--faint);
+    color: var(--muted);
   }
 
   .tag[aria-pressed='true'] {
@@ -435,7 +420,7 @@ const repliesEnabled = SITE.comments.provider === 'native';
   .r-date,
   .r-meta {
     font-family: var(--font-mono);
-    font-size: 11px;
+    font-size: 11.5px;
     color: var(--muted);
     white-space: nowrap;
   }
@@ -499,6 +484,17 @@ const repliesEnabled = SITE.comments.provider === 'native';
     color: var(--muted);
   }
 
+  /* cyber: a pinpoint crimson pip before NEW (the only red in the theme). */
+  :global(:root[data-theme='cyber']) .r-flag--new::before {
+    content: '';
+    display: inline-block;
+    width: 4px;
+    height: 4px;
+    margin-right: 3px;
+    vertical-align: 1px;
+    background: var(--signal);
+  }
+
   .r-sum {
     margin: 1px 0 0;
     font-family: var(--font-sans);
@@ -531,6 +527,15 @@ const repliesEnabled = SITE.comments.provider === 'native';
     color: var(--muted);
   }
 
+  @media (pointer: coarse), (max-width: 560px) {
+    .tag,
+    .filter-status button,
+    .empty button {
+      min-height: 36px;
+      padding-inline: 8px;
+    }
+  }
+
   /* Narrow: the date joins the meta column under the title. */
   @media (max-width: 480px) {
     .feed-tools {
@@ -541,12 +546,13 @@ const repliesEnabled = SITE.comments.provider === 'native';
     .filter {
       flex: 1;
       max-width: 160px;
-      height: 24px;
+      height: 36px;
+      font-size: 13px;
     }
 
     .views button {
-      min-height: 26px;
-      padding: 0 6px;
+      min-height: 36px;
+      padding: 0 10px;
     }
 
     .row {
@@ -751,7 +757,8 @@ const repliesEnabled = SITE.comments.provider === 'native';
         const saved = JSON.parse(sessionStorage.getItem(RETURN) || 'null') as Return | null;
         if (saved?.seenPost && saved.path === location.pathname && saved.search === location.search) {
           sessionStorage.removeItem(RETURN);
-          requestAnimationFrame(() => window.scrollTo({ top: saved.y, behavior: 'instant' }));
+          // Astro has already scrolled the new page to the top; filters are applied, so jump back now.
+          window.scrollTo({ top: saved.y, behavior: 'instant' });
         }
       } catch {}
 

@@ -31,7 +31,7 @@ export const TAB_PRESETS: Record<string, string[]> = {
   kaomoji: ['(´･_･`)', '(´･ω･`)', '( •_•)>⌐■-■', '(⌐■_■)', '(ﾉ´ヮ`)ﾉ*:･ﾟ'],
   /** A signal moving down a residual stream. */
   stream: ['▸···', '·▸··', '··▸·', '···▸'],
-  /** The same half-moon as the light / dark switch, turning. */
+  /** The same half-moon as the paper / cyber switch, turning. */
   moon: ['◐', '◓', '◑', '◒'],
   'cyber-hud': ['[▮    ]', '[▮▮   ]', '[▮▮▮  ]', '[▮▮▮▮ ]', '[▮▮▮▮▮]', '[ ok  ]'],
   'classic-blink': ['>>', '> ', '  '],
@@ -57,6 +57,13 @@ const fill = (template: string) =>
     .replace(/\{siteName\}/g, name)
     .replace(/\{authorName\}/g, authorName || name);
 
+type BannerMode = 'dither-horizon' | 'wireframe' | 'image';
+function bannerMode(v: unknown): BannerMode {
+  const legacy: Record<string, BannerMode> = { sigil: 'dither-horizon', hud: 'wireframe', custom: 'image' };
+  if (v === 'dither-horizon' || v === 'wireframe' || v === 'image') return v;
+  return (typeof v === 'string' && legacy[v]) || 'dither-horizon';
+}
+
 export const SITE = {
   name,
   subtitle,
@@ -73,9 +80,33 @@ export const SITE = {
   frontpageAscii: str(r.frontpageAscii, '/images/frontpage-ascii.txt'),
   invertArt: r.invertFrontpageImageInDarkMode !== false,
   /** "quiet" (default): only transitions move. "full": also the clock seconds, ticker,
-   *  blinking cursor and rotating HUD ring. Visitors can switch. */
+   *  blinking cursor, rotating HUD ring and tab-title emoticons. Visitors can switch. */
   motion: (r.motion === 'full' ? 'full' : 'quiet') as 'quiet' | 'full',
-  /** Animated emoticons before the browser tab title (pause when the tab is hidden or with reduced motion). */
+  /** Article contents panel: true = it opens with each post, then tucks itself away after ~1s
+   *  (unless the reader is using it); false = it starts closed. Readers can reopen it. */
+  defaultShowToc: r.defaultShowToc !== false,
+  /** Sidebar visual card: which view shows first ("image", "wireframe" or "ascii"); visitors can switch. */
+  defaultVisualView: (['image', 'wireframe', 'ascii'].includes(r.defaultVisualView) ? r.defaultVisualView : 'image') as 'image' | 'wireframe' | 'ascii',
+  /** Picture or GIF in the card's "image" view ("" = a built-in dithered sky). */
+  sidebarImageUrl: str(r.sidebarImageUrl, ''),
+  /** Tint the sidebar picture to the theme (off = full colour). */
+  sidebarImageTint: r.sidebarImageTint !== false,
+  /** Optional picture or GIF that replaces the built-in cube in the card's "wire" view. */
+  sidebarWireUrl: str(r.sidebarWireUrl, ''),
+  /** Tint that wire picture to the theme (off = its own colours). */
+  sidebarWireTint: r.sidebarWireTint !== false,
+  /** The wire picture has light lines on a dark background: flip it before tinting. */
+  sidebarWireInvert: r.sidebarWireInvert === true,
+  /** Masthead strip: "dither-horizon" (1-bit sky + halftone), "wireframe" (globe, oscilloscope, barcode) or "image" (customBannerUrl). */
+  bannerMode: bannerMode(r.bannerMode),
+  /** Image or looping GIF for bannerMode "image" (falls back to banner.image). */
+  customBannerUrl: str(r.customBannerUrl, str(r.banner?.image, '')),
+  /** The two words on the theme switch in the window bar (paper = the archival default, cyber = icy blue). */
+  themeLabels: {
+    paper: str(r.themeLabels?.paper, 'paper'),
+    cyber: str(r.themeLabels?.cyber, 'cyber'),
+  },
+  /** Animated emoticons before the browser tab title (quiet and full; off for reduced motion; paused when the tab is hidden). */
   tabAnimation: tabAnimation(r.tabAnimation),
   /** Slim dithered strip under the nav on the hub pages. image "" = the built-in horizon. */
   banner: {

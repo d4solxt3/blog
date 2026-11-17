@@ -90,7 +90,14 @@ const slideIn = {
           <span>entry {code}</span>
           {draft && <span class="pixel pixel--dashed">draft</span>}
         </p>
-        <FontToggle />
+        <span class="head-tools">
+          {toc.length > 0 && (
+            <button type="button" class="toc-show bevel" data-toc-toggle="shown" aria-label="Show contents">
+              contents +
+            </button>
+          )}
+          <FontToggle />
+        </span>
       </div>
       {draft && <p class="draft-banner">draft — only visible while running npm run dev. set "draft: false" to publish.</p>}
       <h1 class="display-title" transition:name={`post-title-${post.id}`}>{title}</h1>
@@ -237,6 +244,12 @@ const slideIn = {
     animation: rule-draw 240ms var(--snap) 120ms both;
   }
 
+  @keyframes toc-show-in {
+    from {
+      opacity: 0;
+    }
+  }
+
   .draft-banner {
     margin: 0.8rem 0 0;
     padding: 0.35rem 0.55rem;
@@ -249,10 +262,30 @@ const slideIn = {
     min-width: 0;
   }
 
+  /* The post body can take focus when a quote thread closes; no ring around
+     the whole article for that. */
+  .prose[tabindex='-1']:focus {
+    outline: none;
+  }
+
   /* Single column on narrow screens (contents drawer + bottom-sheet replies). */
   .post-grid {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .head-tools {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  /* "contents +" only shows while the contents panel is hidden (wide screens). */
+  .toc-show {
+    display: none;
+    min-height: 22px;
+    padding: 0 8px;
+    font: 0.6875rem/1 var(--font-mono);
   }
 
   /* Wide article frame: reading column + a right column that holds the sticky
@@ -261,6 +294,54 @@ const slideIn = {
     .post-grid {
       grid-template-columns: minmax(0, 1fr) minmax(16rem, 20rem);
       column-gap: clamp(2rem, 4vw, 3.25rem);
+    }
+
+    /* Contents hidden: one centred column that widens to ~80ch (--col-wide is
+       measured from the reading font by post-page.ts), so the text uses the
+       freed space. A quote thread still opens in the side column. */
+    :global(:root[data-toc='hidden']) .toc-show {
+      display: inline-flex;
+      align-items: center;
+    }
+
+    :global(:root[data-toc='hidden']) .post-side :global(.toc-sidebar) {
+      display: none;
+    }
+
+    :global(:root[data-toc='hidden']) .post-grid:not(:has(.qt-drawer:not([hidden]))) {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    :global(:root[data-toc='hidden']) .post-grid:not(:has(.qt-drawer:not([hidden]))) .post-side {
+      display: none;
+    }
+
+    :global(:root[data-toc='hidden']) .post-grid:not(:has(.qt-drawer:not([hidden]))) .post-main,
+    :global(:root[data-toc='hidden']) .post-head {
+      box-sizing: content-box;
+      max-width: var(--col-wide, 80ch);
+      margin-inline: auto;
+    }
+
+    :global(:root[data-toc='hidden']) .post-grid:not(:has(.qt-drawer:not([hidden]))) .post-main :global(.prose) {
+      max-width: var(--col-wide, 80ch);
+    }
+
+    /* DEV comparison ("glide"): keep the 65ch lines and only centre them. */
+    :global(:root[data-toc='hidden'][data-tocfx='glide']) .post-grid:not(:has(.qt-drawer:not([hidden]))) .post-main,
+    :global(:root[data-toc='hidden'][data-tocfx='glide']) .post-head {
+      max-width: var(--col, 65ch);
+    }
+
+    :global(:root[data-toc='hidden'][data-tocfx='glide']) .post-grid:not(:has(.qt-drawer:not([hidden]))) .post-main :global(.prose) {
+      max-width: var(--col, 65ch);
+    }
+
+    /* "contents +" eases in as the column leaves. */
+    @media (prefers-reduced-motion: no-preference) {
+      :global(:root[data-toc='hidden']) .toc-show {
+        animation: toc-show-in 260ms var(--ease, ease-out) both;
+      }
     }
 
     .post-side {

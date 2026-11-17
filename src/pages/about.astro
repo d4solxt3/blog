@@ -18,19 +18,18 @@ const currently = [
 <BaseLayout title="About" description={`About @${SITE.authorHandle}`}>
   <h1 class="sr-only">About @{SITE.authorHandle}</h1>
 
-  <div class="portal">
+  <div class="portal about">
     <aside class="portal-side" aria-label="Profile">
-      <section class="panel" aria-label="Avatar">
+      <section class="panel panel--primary about-avatar" aria-label="Avatar">
         <div class="panel-bar">
           <h2 class="panel-title">@{SITE.authorHandle}</h2>
-          <span class="panel-ctl" aria-hidden="true"><i></i></span>
         </div>
         <div class="portrait-frame avatar">
           <InkImage src={p.avatar} alt={`Avatar of @${SITE.authorHandle}`} loading="eager" />
         </div>
       </section>
 
-      <section class="panel" aria-labelledby="profile-h">
+      <section class="panel about-profile" aria-labelledby="profile-h">
         <div class="panel-bar"><h2 class="panel-title" id="profile-h">profile</h2></div>
         <div class="panel-body">
           <dl class="kv">
@@ -85,7 +84,7 @@ const currently = [
     </aside>
 
     <div class="portal-main">
-      <section class="panel" aria-labelledby="hello-h">
+      <section class="panel panel--primary about-hello" aria-labelledby="hello-h">
         <div class="panel-bar"><h2 class="panel-title" id="hello-h">hello</h2></div>
         <div class="panel-body bio">
           {p.bio.map((para) => <p>{para}</p>)}
@@ -127,7 +126,7 @@ const currently = [
                         <span class="box" aria-hidden="true">
                           {t.done ? '[x]' : '[ ]'}
                         </span>
-                        <span class:list={{ done: t.done }}>{t.text}</span>
+                        <span class:list={{ done: t.done }}><span class="sr-only">{t.done ? 'Done: ' : 'To do: '}</span>{t.text}</span>
                       </li>
                     ))}
                   </ul>
@@ -161,7 +160,7 @@ const currently = [
 
       {
         recent.length > 0 && (
-          <section class="panel" aria-labelledby="recent-h">
+          <section class="panel panel--primary" aria-labelledby="recent-h">
             <div class="panel-bar">
               <h2 class="panel-title" id="recent-h">recently written</h2>
               <a href="/archive/">all {posts.length}</a>
@@ -184,6 +183,36 @@ const currently = [
 <style>
   .avatar :global(img) {
     max-width: 150px;
+  }
+
+  /* Phones: one column — the hello first, then the portrait and profile
+     together, then everything else in its usual order. */
+  @media (max-width: 699px) {
+    .about {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .about .portal-side,
+    .about .portal-main {
+      display: contents;
+    }
+
+    .about :is(.panel, .portal-split) {
+      order: 5;
+    }
+
+    .about .about-hello {
+      order: 1;
+    }
+
+    .about .about-avatar {
+      order: 2;
+    }
+
+    .about .about-profile {
+      order: 3;
+    }
   }
 
   .bio p {
@@ -220,11 +249,13 @@ const currently = [
     text-overflow: ellipsis;
   }
 
-  /* [██████░░░░] — 1px frame, ten segments. */
+  /* [██████░░░░] — a recessed track with a crisp ink fill, ten segments. */
   .bar {
     position: relative;
-    height: 9px;
-    border: 1px solid var(--line);
+    height: 10px;
+    border: 1px solid var(--border-hairline);
+    background: var(--surface-recessed);
+    box-shadow: inset 1px 1px 0 var(--bevel-shadow);
   }
 
   .bar i {
@@ -239,7 +270,7 @@ const currently = [
     content: '';
     position: absolute;
     inset: 0;
-    background: repeating-linear-gradient(90deg, transparent 0 calc(10% - 1px), var(--surface) calc(10% - 1px) 10%);
+    background: repeating-linear-gradient(90deg, transparent 0 calc(10% - 1px), var(--surface-recessed) calc(10% - 1px) 10%);
   }
 
   .pp {

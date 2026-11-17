@@ -169,17 +169,19 @@ onPage((signal) => {
     const slug = postSlug();
     const links = document.createElement('span');
     links.className = 'owner-links';
-    const add = (href: string, label: string, reload = false) => {
+    const add = (href: string, label: string, short: string, reload = false) => {
       const a = document.createElement('a');
       a.href = href;
       a.textContent = label;
+      a.dataset.short = short; // shown instead of the label on small phones
+      a.setAttribute('aria-label', label.replace(/[[\]+]/g, '').trim());
       if (reload) a.dataset.astroReload = '';
       links.append(a);
     };
-    add('/write/', '[+ write]');
-    if (slug) add(`/write/${slug}`, '[edit]');
-    if (DEV) add('/_admin', '[config]', true);
-    else add('/write/settings/', '[config]');
+    add('/write/', '[+ write]', '[+]');
+    if (slug) add(`/write/${slug}`, '[edit]', '[e]');
+    if (DEV) add('/_admin', '[config]', '[c]', true);
+    else add('/write/settings/', '[config]', '[c]');
     bar.prepend(links);
   });
 });

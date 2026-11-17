@@ -14,6 +14,19 @@
     "alt": ""
   },
   "motion": "quiet",
+  "defaultShowToc": true,
+  "defaultVisualView": "image",
+  "sidebarImageUrl": "/images/a223f8578d6bcbaa22def59478b54d52.jpg",
+  "sidebarImageTint": true,
+  "sidebarWireUrl": "/images/e4e14415.mp4",
+  "sidebarWireTint": false,
+  "sidebarWireInvert": false,
+  "bannerMode": "dither-horizon",
+  "customBannerUrl": "",
+  "themeLabels": {
+    "paper": "paper",
+    "cyber": "rei"
+  },
   "tabAnimation": {
     "enabled": true,
     "preset": "kaomoji",
@@ -24,7 +37,7 @@
   "accentBorders": true,
   "newBadgeDays": 21,
   "inlineAnnotations": true,
-  "footerText": "© {year} {siteName} // all rights reserved",
+  "footerText": "© {year} {siteName}",
   "intro": "hi, I write slow, long notes here — mostly machine learning & interpretability, sometimes type and interfaces. nothing polished. highlight any sentence to argue with it.",
   "status": {
     "mood": "tired but curious",

@@ -269,7 +269,8 @@ export function initWriter(signal: AbortSignal) {
 
   function syncPublishLabel() {
     const draft = collect().draft;
-    publishBtn.textContent = draft ? (data.mode === 'local' ? '[ save file ]' : '[ commit draft ]') : '[ publish ]';
+    const label = draft ? (data.mode === 'local' ? 'save file' : 'commit draft') : 'publish';
+    publishBtn.innerHTML = `<span class="br" aria-hidden="true">[ </span>${label}<span class="br" aria-hidden="true"> ]</span>`;
     publishBtn.title = draft
       ? 'Saves the post with draft: true (hidden on the live site)'
       : data.mode === 'github'
@@ -342,6 +343,10 @@ export function initWriter(signal: AbortSignal) {
       setStatus(savedLabel());
     } catch (err) {
       const code = (err as { status?: number }).status;
+      if (code === 410) {
+        setStatus('post deleted · edits only in this browser', 'error');
+        return;
+      }
       setStatus(code === 401 ? 'server: signed out' : 'server: offline', 'error');
       timer = window.setTimeout(save, 10_000);
     } finally {
@@ -820,9 +825,28 @@ export function initWriter(signal: AbortSignal) {
   }
 
   // ---- preview, focus, details ------------------------------------------------------------
-  // Where you were before preview / details, so coming back puts the cursor and page back.
-  let spot = { y: 0, s: 0, e: 0 };
-  const remember = () => (spot = { y: window.scrollY, s: ta.selectionStart, e: ta.selectionEnd });
+  // Where you were (scroll, cursor, selection, whether you were typing) before
+  // preview or details, so coming back puts all of it back exactly.
+  let spot = { y: 0, s: 0, e: 0, typing: false };
+  // Toolbar buttons take focus on press, so note whether the text had it first.
+  let typingBeforePress = false;
+  on(root.querySelector('.sb-tools')!, 'pointerdown', () => (typingBeforePress = document.activeElement === ta));
+  const remember = () => {
+    spot = { y: window.scrollY, s: ta.selectionStart, e: ta.selectionEnd, typing: document.activeElement === ta || typingBeforePress };
+    typingBeforePress = false;
+  };
+  const returnToText = () => {
+    window.scrollTo({ top: spot.y, behavior: 'instant' });
+    if (!spot.typing) return;
+    ta.focus({ preventScroll: true });
+    ta.setSelectionRange(spot.s, spot.e);
+  };
+  /** Keep the line you're on in the same place on screen while things above it change. */
+  const keepPlace = (change: () => void) => {
+    const before = wrap.hidden ? null : ta.getBoundingClientRect().top;
+    change();
+    if (before !== null) window.scrollBy({ top: ta.getBoundingClientRect().top - before, behavior: 'instant' });
+  };
 
   async function togglePreview(force?: boolean) {
     const show = force ?? preview.hidden;
@@ -830,9 +854,7 @@ export function initWriter(signal: AbortSignal) {
     if (!show) {
       preview.hidden = true;
       wrap.hidden = false;
-      ta.focus({ preventScroll: true });
-      ta.setSelectionRange(spot.s, spot.e);
-      window.scrollTo(0, spot.y);
+      returnToText();
       return;
     }
     remember();
@@ -849,19 +871,42 @@ export function initWriter(signal: AbortSignal) {
     }
   }
 
+  /** Focus mode hides the bars above: one measured adjustment keeps your line still. */
   function toggleFocus(force?: boolean) {
-    const active = document.documentElement.classList.toggle('write-focus', force);
+    const typing = document.activeElement === ta || typingBeforePress;
+    typingBeforePress = false;
+    const s = ta.selectionStart;
+    const e = ta.selectionEnd;
+    let active = false;
+    keepPlace(() => {
+      active = document.documentElement.classList.toggle('write-focus', force);
+      if (active) showMeta(false);
+    });
     q('[data-act="focus"]').setAttribute('aria-pressed', String(active));
-    if (active) showMeta(false);
+    if (typing) {
+      ta.focus({ preventScroll: true });
+      ta.setSelectionRange(s, e);
+    }
   }
 
-  /** Open/close the details drawer without the text jumping on screen. */
+  /** Just show or hide the drawer (no scrolling). */
   function showMeta(open: boolean) {
-    if (meta.hidden === !open) return;
-    const before = ta.getBoundingClientRect().top;
     meta.hidden = !open;
     metaBtn.setAttribute('aria-expanded', String(open));
-    if (!wrap.hidden) window.scrollBy(0, ta.getBoundingClientRect().top - before);
+  }
+
+  /** [ details ]: bring the panel into view under the sticky bar… */
+  function openDetails() {
+    remember();
+    showMeta(true);
+    const bar = root.querySelector<HTMLElement>('.studio-bar')!.getBoundingClientRect().height;
+    window.scrollTo({ top: Math.max(0, meta.getBoundingClientRect().top + window.scrollY - bar - 10), behavior: 'instant' });
+  }
+
+  /** …and closing it returns to exactly where you were writing. */
+  function closeDetails() {
+    showMeta(false);
+    returnToText();
   }
 
   // ---- publish ---------------------------------------------------------------------------------
@@ -1016,19 +1061,7 @@ export function initWriter(signal: AbortSignal) {
 
   on(q('[data-act="preview"]'), 'click', () => togglePreview());
   on(q('[data-act="focus"]'), 'click', () => toggleFocus());
-  on(metaBtn, 'click', () => {
-    const opening = meta.hidden;
-    if (opening) {
-      if (document.activeElement === ta) remember();
-      showMeta(true);
-    } else {
-      showMeta(false);
-      ta.focus({ preventScroll: true });
-      ta.setSelectionRange(spot.s, spot.e);
-    }
-  });
-  // Remember the cursor when the details button is pressed (it takes focus from the text).
-  on(metaBtn, 'pointerdown', () => document.activeElement === ta && remember());
+  on(metaBtn, 'click', () => (meta.hidden ? openDetails() : closeDetails()));
   on(keysBtn, 'click', () => {
     keysPanel.hidden = !keysPanel.hidden;
     keysBtn.setAttribute('aria-expanded', String(!keysPanel.hidden));
@@ -1086,5 +1119,11 @@ export function initWriter(signal: AbortSignal) {
     });
   }
 
-  (doc.fields.title ? ta : field('title')).focus();
+  // Start at the top with the cursor at the beginning. (Focusing a long post's
+  // textarea normally scrolls to the cursor at the very end.)
+  if (doc.fields.title) {
+    ta.focus({ preventScroll: true });
+    ta.setSelectionRange(0, 0);
+  } else field('title').focus({ preventScroll: true });
+  window.scrollTo({ top: 0, behavior: 'instant' });
 }

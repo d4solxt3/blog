@@ -3,7 +3,7 @@
 import '../../styles/write.css';
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import { isOwner } from '../../lib/auth';
-import { listPosts, MODE, PUBLISHING } from '../../lib/content';
+import { listPosts, MODE, postVersion, PUBLISHING } from '../../lib/content';
 
 export const prerender = false;
 if (!isOwner(Astro.request)) return Astro.redirect('/?auth=1&next=/write/');
@@ -33,29 +33,40 @@ const modeLabel =
 
     <section class="panel" aria-labelledby="list-h">
       <div class="panel-bar">
-        <h2 class="panel-title" id="list-h">posts &amp; drafts <span class="count">({posts.length})</span></h2>
+        <h2 class="panel-title" id="list-h">posts &amp; drafts <span class="count">(<span data-post-count>{posts.length}</span>)</span></h2>
         <span>publishing: {modeLabel}</span>
       </div>
-      {
-        posts.length ? (
-          <ol class="studio-list">
-            {posts.map((p) => (
-              <li>
-                <span class="d">{dot(p.date)}</span>
-                <a class="t" href={`/write/${p.slug}`}>
-                  {p.title}
-                </a>
-                <span class="flags">
-                  {p.unsaved ? 'unpublished changes' : p.draft ? 'draft' : 'live'}
-                </span>
-              </li>
-            ))}
-          </ol>
-        ) : (
-          <p class="panel-body studio-note">nothing yet. start a post above.</p>
-        )
-      }
+      <ol class="studio-list" data-post-list>
+        {posts.map((p) => (
+          <li>
+            <span class="d">{dot(p.date)}</span>
+            <a class="t" href={`/write/${p.slug}`}>
+              {p.title}
+            </a>
+            <span class="flags">
+              {p.unsaved ? 'unpublished changes' : p.draft ? 'draft' : 'live'}
+            </span>
+            <button type="button" class="studio-delete" data-delete={p.slug}
+              aria-haspopup="dialog" aria-controls="delete-post-dialog" data-version={postVersion(p.publishedSha, p.savedAt)}
+              data-file={p.publishedSha ? 'yes' : 'no'} aria-label={`Delete ${p.title}`}>delete</button>
+          </li>
+        ))}
+      </ol>
+      <p class="panel-body studio-note" data-no-posts hidden={!!posts.length}>nothing yet. start a post above.</p>
+      <p class="studio-note delete-result" role="status" data-delete-result></p>
     </section>
+
+    <dialog class="win studio-confirm" id="delete-post-dialog" aria-labelledby="delete-heading" aria-describedby="delete-title delete-detail">
+      <div class="win-bar"><h2 class="win-title" id="delete-heading">delete post?</h2></div>
+      <div class="studio-confirm-body">
+        <p class="studio-confirm-title" id="delete-title"></p>
+        <p id="delete-detail"></p>
+        <form method="dialog" class="studio-confirm-actions">
+          <button type="submit" class="cm-submit" value="cancel" autofocus>cancel</button>
+          <button type="submit" class="cm-submit" value="delete" data-confirm-delete>delete post</button>
+        </form>
+      </div>
+    </dialog>
 
     <p class="studio-note">
       <kbd>ctrl+shift+e</kbd> opens this page from anywhere · <kbd>e</kbd> on a post edits it · <a href="/write/settings/">settings &amp; password</a>
@@ -70,6 +81,67 @@ const modeLabel =
   onPage((signal) => {
     const form = document.querySelector<HTMLFormElement>('[data-new]');
     if (!form) return;
+    const list = document.querySelector<HTMLOListElement>('[data-post-list]')!;
+    const result = document.querySelector<HTMLElement>('[data-delete-result]')!;
+    const dialog = document.querySelector<HTMLDialogElement>('#delete-post-dialog')!;
+    const heading = dialog.querySelector<HTMLElement>('#delete-heading')!;
+    const dialogTitle = dialog.querySelector<HTMLElement>('#delete-title')!;
+    const detail = dialog.querySelector<HTMLElement>('#delete-detail')!;
+    const confirmButton = dialog.querySelector<HTMLButtonElement>('[data-confirm-delete]')!;
+    const count = document.querySelector<HTMLElement>('[data-post-count]')!;
+    const empty = document.querySelector<HTMLElement>('[data-no-posts]')!;
+    let selected: HTMLButtonElement | null = null;
+
+    list.addEventListener('click', (event) => {
+      const button = (event.target as Element).closest<HTMLButtonElement>('button[data-delete]');
+      if (!button || button.disabled || selected) return;
+      selected = button;
+      const hasFile = button.dataset.file === 'yes';
+      heading.textContent = hasFile ? 'delete post?' : 'delete draft?';
+      confirmButton.textContent = hasFile ? 'delete post' : 'delete draft';
+      dialogTitle.textContent = button.closest('li')!.querySelector('a')!.textContent!.trim();
+      detail.textContent = hasFile
+        ? 'This permanently removes the post and its saved draft. Its address stays reserved for the original discussion.'
+        : 'This permanently removes this saved draft from the studio.';
+      // Escape leaves the return value as-is, including after a previous confirmation.
+      dialog.returnValue = 'cancel';
+      dialog.showModal();
+    }, { signal });
+
+    dialog.addEventListener('close', async () => {
+      const button = selected;
+      selected = null;
+      if (!button || !button.isConnected) return;
+      if (dialog.returnValue !== 'delete') {
+        button.focus();
+        return;
+      }
+      const title = dialogTitle.textContent!;
+      const row = button.closest('li')!;
+      const slug = button.dataset.delete!;
+      button.disabled = true;
+      result.textContent = `Deleting “${title}”…`;
+      try {
+        const response = await fetch(`/api/write/posts?slug=${encodeURIComponent(slug)}`, {
+          method: 'DELETE', headers: { 'If-Match': button.dataset.version! },
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Could not delete the post.');
+        try { localStorage.removeItem(`write:${slug}`); } catch {}
+        const focusTarget = row.nextElementSibling ?? row.previousElementSibling;
+        row.remove();
+        count.textContent = String(list.children.length);
+        empty.hidden = list.children.length > 0;
+        result.textContent = `Deleted “${title}”.${data.rebuild ? ' The public site updates after the next deployment.' : ''}`;
+        if (!signal.aborted && !dialog.open && document.activeElement === document.body) {
+          (focusTarget?.querySelector('a') ?? form.querySelector('input'))?.focus();
+        }
+      } catch (error) {
+        result.textContent = error instanceof Error ? error.message : 'Could not delete the post.';
+        button.disabled = false;
+      }
+    }, { signal });
+
     const status = form.querySelector<HTMLElement>('[data-status]')!;
     form.addEventListener(
       'submit',

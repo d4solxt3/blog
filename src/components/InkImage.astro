@@ -1,9 +1,8 @@
 ---
 /**
  * Black-on-white line art that adapts to the theme with no white box:
- *  light → multiply (white disappears into the paper)
- *  dark  → invert + dim to soft off-white, then screen (black disappears into charcoal)
- * Set invertFrontpageImageInDarkMode: false in site.config.json for colour images.
+ *  paper → multiply (white disappears into the paper)
+ *  cyber → cobalt-navy ink; white and transparent areas both stay see-through
  */
 import { SITE } from '../site.config';
 
@@ -37,12 +36,8 @@ const { src, alt, class: className, width, height, loading = 'lazy' } = Astro.pr
     mix-blend-mode: multiply;
   }
 
-  :global(:root[data-theme='dark']) .ink-image--invert {
-    filter: invert(1) brightness(0.886);
-    mix-blend-mode: screen;
-  }
-
-  :global(:root[data-theme='dark']) .ink-image:not(.ink-image--invert) {
+  :global(:root[data-theme='cyber']) .ink-image {
+    filter: url(#ink-navy);
     mix-blend-mode: normal;
   }
 </style>

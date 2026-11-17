@@ -51,8 +51,8 @@ Open `site.config.json` in any text editor. Change only the text between the quo
 | `frontpageAscii` | The text file with the ASCII drawing in the front page's portrait box (see section 5). Normally `"/images/frontpage-ascii.txt"` |
 | `frontpageImage` | The picture used as your avatar on the About page, e.g. `"/images/me.png"`. The front page uses it too if there's no ASCII drawing |
 | `invertFrontpageImageInDarkMode` | `true` for black-on-white drawings (they turn light in dark mode). Use `false` for photos and colour images |
-| `motion` | `"quiet"` (default) or `"full"`: how much moves for a first-time visitor. Quiet keeps just the page transitions; full adds the ticking clock seconds, the scrolling "now" ticker, the blinking cursor and the turning background ring. Visitors switch with **quiet / full** in the window bar, and their choice is remembered |
-| `tabAnimation` | Emoticons cycling in front of the browser-tab title (the page and site name always stay). `"preset"`: `"kaomoji"`, `"stream"` (a signal moving down a residual stream ▸···), `"moon"` (◐◓◑◒), `"cyber-hud"`, `"classic-blink"` or `"off"`. `"intervalMs"`: milliseconds per frame (950). `"frames"`: your own list, which replaces the preset's. `"enabled": false` turns it off. It pauses when the tab is hidden or the reader prefers reduced motion |
+| `motion` | `"quiet"` (default) or `"full"`: how much moves for a first-time visitor. Quiet keeps just the page transitions; full adds the ticking clock seconds, the scrolling "now" ticker, the blinking cursor, the turning background ring and the tab-title emoticons. Visitors switch with **quiet / full** in the window bar, and their choice is remembered |
+| `tabAnimation` | Emoticons cycling in front of the browser-tab title (the page and site name always stay). `"preset"`: `"kaomoji"`, `"stream"` (a signal moving down a residual stream ▸···), `"moon"` (◐◓◑◒), `"cyber-hud"`, `"classic-blink"` or `"off"`. `"intervalMs"`: milliseconds per frame (950). `"frames"`: your own list, which replaces the preset's. `"enabled": false` turns it off. It only runs with motion set to "full", and pauses when the tab is hidden or the reader prefers reduced motion |
 | `banner` | The slim strip under the menu on the front page, writing and about pages. `"show": false` hides it. Leave `"image": ""` for the built-in dithered horizon, or set your own, e.g. `"/images/banner.jpg"` (shown in grayscale with a halftone screen; wide pictures work best). `"alt"` describes your picture for screen readers |
 | `defaultFont` | `"sans"`, `"serif"` or `"mono"`: the reading font for posts. Readers can still switch with the **Aa** buttons |
 | `accentBorders` | `true` for crisp dark borders, `false` for softer grey ones |
@@ -206,6 +206,8 @@ There's a writing studio at **`/write`**. Visitors never see a link to it.
 1. In Railway, open the `web` service → **Variables** → add **`ADMIN_PASSWORD`** with a long password.
 2. To change it later, sign in and open **[config]** (`/write/settings/`). The new password is stored scrambled (hashed) on the server's disk and replaces `ADMIN_PASSWORD`. Changing it signs out every other browser.
 3. **Forgot it?** Change `ADMIN_PASSWORD` in Railway to something new. A new value always takes over again.
+
+Deleting a post file in the studio also reserves its URL. A new post with the same title gets a numbered URL and a fresh discussion. Keep the small files in `content/retired-posts/` when you commit local deletions. Discarding a draft that has never been written to a post file does not reserve an address.
 
 **Publishing from the studio** (one-time setup)
 1. On GitHub: **Settings → Developer settings → Personal access tokens → Fine-grained tokens → Generate new token**. Under *Repository access*, pick **Only select repositories** and choose this blog's repo. Under *Permissions*, set **Contents** to **Read and write**. Generate it and copy it.

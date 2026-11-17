@@ -1,87 +1,219 @@
 ---
 /**
- * The slim 88px strip under the nav on hub pages. Set "banner" in
- * site.config.json: "show": false hides it; "image": "/images/x.jpg" swaps in
- * your own picture (shown grayscale with a halftone screen). With no image,
- * this draws a dusk horizon in 4×4 ordered dither, in the theme's ink colour.
+ * The slim 88px masthead strip on hub pages. "bannerMode" in site.config.json:
+ *   "dither-horizon" — a 1-bit ordered-dither sky with drifting clouds, a thin
+ *                      horizon and a halftone field below it (clouds drift in
+ *                      "full" motion only)
+ *   "wireframe"      — a latitude/longitude wireframe globe, a hairline
+ *                      oscilloscope that answers the pointer, and a barcode +
+ *                      telemetry readout (moves in "full" motion only)
+ *   "image"          — any wide picture or looping GIF (customBannerUrl):
+ *                      archival grayscale on paper, a cobalt duotone on cyber
+ * "banner.show": false hides the strip.
  */
+import LoopMedia from './LoopMedia.astro';
 import { SITE } from '../site.config';
 
-const { image, alt } = SITE.banner;
-
-const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
-const CELL = 2;
-const LEVELS = [1, 2, 3, 4, 6, 8, 10, 12, 14];
-const cells = (k: number) =>
-  BAYER.map((v, i) => (v < k ? `M${(i % 4) * CELL} ${Math.floor(i / 4) * CELL}h${CELL}v${CELL}h-${CELL}z` : '')).join('');
+const custom = SITE.customBannerUrl;
+const mode = SITE.bannerMode === 'image' && !custom ? 'dither-horizon' : SITE.bannerMode;
+const alt = SITE.banner.alt;
 
 const W = 760;
 const H = 88;
-const HZ = 64; // horizon
-const SUN = { x: 470, r: 30 };
-// Sky: sparse at the top, thickening into the glow on the horizon.
-const sky = [1, 1, 2, 2, 3, 4, 6, 8];
-const bandH = HZ / sky.length;
-// Ground: receding grid lines that bunch up toward the horizon.
-const rows = [1.5, 4, 8, 14, 23];
-const rays = Array.from({ length: 23 }, (_, i) => (i - 11) * 64);
-const stars = [
-  [58, 12], [148, 27], [262, 9], [344, 31], [402, 17], [566, 13], [648, 29], [716, 10], [30, 36], [690, 44],
+
+// ---- ordered dither (4×4 Bayer) ------------------------------------------
+const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
+const CELL = 2;
+const LEVELS = [1, 2, 3, 4, 6, 8];
+const cells = (k: number) =>
+  BAYER.map((v, i) => (v < k ? `M${(i % 4) * CELL} ${Math.floor(i / 4) * CELL}h${CELL}v${CELL}h-${CELL}z` : '')).join('');
+
+// Drawn at real pixel size (1600×88, centred, cropped by the strip) so every
+// dither cell lands on whole pixels — never scaled, so no moiré.
+const DW = 1600;
+const HZ = 58; // horizon
+// Sky: clear at the top, a faint glow only just above the horizon.
+const glow = [
+  [HZ - 10, 6, 1],
+  [HZ - 4, 4, 2],
 ];
-const ridgeL = '0,64 22,55 46,58 78,44 104,51 132,39 160,49 188,46 214,56 246,64';
-const ridgeR = '600,64 628,54 652,57 684,45 712,52 736,47 760,53 760,64';
+// Clouds: [x, y, width, height]. Each is a few overlapping puffs (lumpy top,
+// flatter base) in a sparse rim, a mid layer and a denser core.
+const clouds: [number, number, number, number][] = [
+  [110, 24, 120, 20],
+  [360, 38, 80, 14],
+  [560, 20, 150, 24],
+  [830, 34, 90, 16],
+  [1040, 22, 130, 22],
+  [1290, 40, 70, 12],
+  [1450, 26, 110, 18],
+];
+const puffs = (x: number, y: number, w: number, h: number) => [
+  [x, y, w * 0.5, h * 0.5],
+  [x - w * 0.22, y - h * 0.12, w * 0.24, h * 0.42],
+  [x + w * 0.16, y - h * 0.22, w * 0.22, h * 0.45],
+];
+// ---- wireframe -------------------------------------------------------------
+const G = { x: 45, y: 44, r: 30 };
+const lats = [-20, -10, 0, 10, 20].map((dy) => ({ dy, rx: Math.sqrt(G.r ** 2 - dy ** 2) }));
+const lons = [0, 30, 60, 90, 120, 150]; // degrees; drawn as ellipses rx = r·|cos|
+// A fixed pseudo-random barcode.
+const bars: [number, number][] = [];
+for (let x = 4, i = 0; x < 116; i++) {
+  const w = [1, 1, 2, 1, 3, 1, 2, 2][(i * 7 + 3) % 8];
+  if (i % 2 === 0) bars.push([x, w]);
+  x += w + ((i * 5) % 3 === 0 ? 2 : 1);
+}
 ---
 
-{
-  image ? (
-    <div class="banner banner--image">
-      <img src={image} alt={alt} loading="eager" decoding="async" />
-    </div>
-  ) : (
-    <div class="banner" aria-hidden="true">
-      <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMid slice" shape-rendering="crispEdges" focusable="false">
-        <defs>
-          {LEVELS.map((k) => (
-            <pattern id={`bn-d${k}`} width="8" height="8" patternUnits="userSpaceOnUse">
-              <path d={cells(k)} fill="currentColor" />
-            </pattern>
+<div class="masthead" data-banner-mode={mode}>
+  <i class="reg reg--tl" aria-hidden="true"></i>
+  <i class="reg reg--tr" aria-hidden="true"></i>
+  <i class="reg reg--bl" aria-hidden="true"></i>
+  <i class="reg reg--br" aria-hidden="true"></i>
+
+  {
+    mode === 'image' && (
+      <div class="banner banner--image">
+        <LoopMedia src={custom} alt={alt} class="bn-media" loading="eager" />
+      </div>
+    )
+  }
+
+  {
+    mode === 'dither-horizon' && (
+      <div class="banner banner--dither" aria-hidden="true">
+        <svg class="bd-svg" width={DW} height={H} viewBox={`0 0 ${DW} ${H}`} shape-rendering="crispEdges" focusable="false">
+          <defs>
+            {LEVELS.map((k) => (
+              <pattern id={`bd-${k}`} width="8" height="8" patternUnits="userSpaceOnUse">
+                <path d={cells(k)} fill="currentColor" />
+              </pattern>
+            ))}
+            {[0.35, 0.6, 0.85].map((r, i) => (
+              <pattern id={`bh-${i}`} width="4" height="4" patternUnits="userSpaceOnUse">
+                <circle cx="2" cy="2" r={r} fill="currentColor" />
+              </pattern>
+            ))}
+            <g id="bd-cloudset">
+              {clouds.map(([x, y, w, h]) => (
+                <g>
+                  {puffs(x, y, w, h).map(([cx, cy, rx, ry]) => (
+                    <ellipse cx={cx} cy={cy} rx={rx} ry={ry} fill="url(#bd-2)" />
+                  ))}
+                  {puffs(x, y + h * 0.06, w * 0.7, h * 0.62).map(([cx, cy, rx, ry]) => (
+                    <ellipse cx={cx} cy={cy} rx={rx} ry={ry} fill="url(#bd-4)" />
+                  ))}
+                  <ellipse cx={x} cy={y + h * 0.08} rx={w * 0.2} ry={h * 0.18} fill="url(#bd-8)" />
+                </g>
+              ))}
+            </g>
+          </defs>
+
+          {glow.map(([y, h, k]) => (
+            <rect y={y} width={DW} height={h} fill={`url(#bd-${k})`} />
           ))}
-          <clipPath id="bn-sky">
-            <rect width={W} height={HZ} />
-          </clipPath>
-          <mask id="bn-stripes">
-            <rect width={W} height={HZ} fill="#fff" />
-            <rect x="0" y={HZ - 16} width={W} height="1" fill="#000" />
-            <rect x="0" y={HZ - 10} width={W} height="2" fill="#000" />
-            <rect x="0" y={HZ - 5} width={W} height="2" fill="#000" />
-          </mask>
-        </defs>
 
-        {sky.map((k, i) => <rect y={i * bandH} width={W} height={bandH} fill={`url(#bn-d${k})`} />)}
+          <g class="bd-clouds">
+            <use href="#bd-cloudset" />
+            <use href="#bd-cloudset" x={DW} />
+          </g>
 
-        <g clip-path="url(#bn-sky)">
-          <circle cx={SUN.x} cy={HZ} r={SUN.r} fill="url(#bn-d12)" mask="url(#bn-stripes)" />
-          <circle cx={SUN.x} cy={HZ} r={SUN.r + 6} fill="none" stroke="currentColor" stroke-dasharray="2 4" />
-        </g>
-        <polygon points={ridgeL} fill="url(#bn-d10)" stroke="currentColor" stroke-linejoin="bevel" />
-        <polygon points={ridgeR} fill="url(#bn-d10)" stroke="currentColor" stroke-linejoin="bevel" />
+          <g class="bd-horizon">
+            <path d={`M0 ${HZ + 0.5}H${DW}`} />
+          </g>
+          <rect y={HZ + 4} width={DW} height="8" fill="url(#bh-0)" />
+          <rect y={HZ + 12} width={DW} height="8" fill="url(#bh-1)" />
+          <rect y={HZ + 20} width={DW} height={H - HZ - 20} fill="url(#bh-2)" />
+        </svg>
+        <span class="bn-tag bn-tag--tr">
+          <i class="bn-pip" />
+          51.50°N // 0.12°W
+        </span>
+        <span class="bn-tag bn-tag--bl">VIS 10KM · ALT 0084</span>
+      </div>
+    )
+  }
 
-        <rect y={HZ} width={W} height={H - HZ} fill="url(#bn-d1)" />
-        <g stroke="currentColor" fill="none">
-          <path d={`M0 ${HZ + 0.5}H${W}`} />
-          {rows.map((d) => <path d={`M0 ${HZ + d + 0.5}H${W}`} stroke-opacity="0.8" />)}
-          {rays.map((dx) => <path d={`M${SUN.x} ${HZ}L${SUN.x + dx * 2.2} ${H + 4}`} stroke-opacity="0.55" />)}
-        </g>
-
-        <g stroke="currentColor">
-          {stars.map(([x, y], i) => (i % 3 === 2 ? <rect x={x} y={y} width="2" height="2" fill="currentColor" stroke="none" /> : <path d={`M${x - 2} ${y + 0.5}h5M${x + 0.5} ${y - 2}v5`} />))}
-        </g>
-      </svg>
-    </div>
-  )
-}
+  {
+    mode === 'wireframe' && (
+      <div class="banner banner--wire" aria-hidden="true" data-wire>
+        <svg class="wf-globe" viewBox="0 0 90 88" focusable="false">
+          <g class="wf-line" fill="none" stroke-width="1" vector-effect="non-scaling-stroke">
+            <circle cx={G.x} cy={G.y} r={G.r} />
+            {lats.map(({ dy, rx }) => (
+              <ellipse cx={G.x} cy={G.y + dy} rx={rx} ry={rx * 0.16} stroke-opacity={dy === 0 ? 1 : 0.7} />
+            ))}
+            {lons.map((deg) => (
+              <ellipse cx={G.x} cy={G.y} rx={Math.abs(G.r * Math.cos((deg * Math.PI) / 180)).toFixed(2)} ry={G.r} data-lon={deg} stroke-opacity="0.75" />
+            ))}
+            <path d={`M${G.x} ${G.y - G.r - 6} V${G.y + G.r + 6}`} stroke-dasharray="1 3" />
+          </g>
+        </svg>
+        <svg class="wf-scope" viewBox="0 0 470 88" preserveAspectRatio="none" focusable="false">
+          <g class="wf-grid" fill="none" stroke-width="1" vector-effect="non-scaling-stroke">
+            <path d="M0 44.5 H470" vector-effect="non-scaling-stroke" stroke-dasharray="1 4" />
+            <path d="M0 20.5 H470 M0 68.5 H470" vector-effect="non-scaling-stroke" stroke-dasharray="1 9" />
+            {Array.from({ length: 24 }, (_, i) => (
+              <path d={`M${i * 20 + 0.5} 42 V47`} vector-effect="non-scaling-stroke" />
+            ))}
+          </g>
+          <path class="wf-wave" d="M0 44.5 H470" fill="none" stroke-width="1.25" vector-effect="non-scaling-stroke" data-wave />
+        </svg>
+        <svg class="wf-code" viewBox="0 0 120 88" shape-rendering="crispEdges" focusable="false">
+          <g class="wf-bars">
+            {bars.map(([x, w]) => (
+              <rect x={x} y="24" width={w} height="30" />
+            ))}
+          </g>
+        </svg>
+        <span class="bn-tag bn-tag--tl" style="left: 122px">
+          <i class="bn-pip" />
+          CH1 // SIG
+        </span>
+        <span class="bn-tag bn-tag--br">TLM 04.20 · 0.5 V/DIV</span>
+      </div>
+    )
+  }
+</div>
 
 <style>
+  .masthead {
+    position: relative;
+  }
+
+  /* Corner registration ticks over every mode. */
+  .reg {
+    position: absolute;
+    z-index: 3;
+    width: 9px;
+    height: 9px;
+    pointer-events: none;
+    background:
+      linear-gradient(var(--accent, var(--ink)), var(--accent, var(--ink))) center / 9px 1px no-repeat,
+      linear-gradient(var(--accent, var(--ink)), var(--accent, var(--ink))) center / 1px 9px no-repeat;
+  }
+
+  .reg--tl {
+    top: 5px;
+    left: 5px;
+  }
+
+  .reg--tr {
+    top: 5px;
+    right: 5px;
+  }
+
+  .reg--bl {
+    bottom: 5px;
+    left: 5px;
+  }
+
+  .reg--br {
+    bottom: 5px;
+    right: 5px;
+  }
+
   .banner {
     position: relative;
     height: 88px;
@@ -98,30 +230,231 @@ const ridgeR = '600,64 628,54 652,57 684,45 712,52 736,47 760,53 760,64';
     max-width: none;
   }
 
-  .banner img {
+  /* cyber: navy dither on porcelain, cerulean structure. */
+  :global(:root[data-theme='cyber']) .banner {
+    color: var(--art-ink);
+    background: linear-gradient(#fbfdff, #edf4fc);
+  }
+
+  .bn-tag {
+    position: absolute;
+    z-index: 2;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 1px 3px;
+    font: 500 8.5px/1 var(--font-mono);
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    background: var(--surface);
+    white-space: nowrap;
+  }
+
+  .bn-tag--tl {
+    top: 8px;
+    left: 20px;
+  }
+
+  .bn-tag--tr {
+    top: 8px;
+    right: 20px;
+  }
+
+  .bn-tag--bl {
+    bottom: 8px;
+    left: 20px;
+  }
+
+  .bn-tag--br {
+    bottom: 8px;
+    right: 20px;
+  }
+
+  .bn-pip {
+    width: 4px;
+    height: 4px;
+    background: var(--signal, var(--ink));
+  }
+
+  @media (max-width: 560px) {
+    .bn-tag--bl,
+    .bn-tag--br {
+      display: none;
+    }
+  }
+
+  /* ---- dither-horizon ---------------------------------------------------- */
+  .bd-horizon {
+    fill: none;
+    stroke: var(--accent, currentColor);
+    stroke-width: 1;
+  }
+
+  .bd-clouds {
+    transform-box: view-box;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    :global(:root[data-motion='full']) .bd-clouds {
+      animation: bd-drift 240s linear infinite;
+    }
+  }
+
+  @keyframes bd-drift {
+    to {
+      transform: translateX(-1600px);
+    }
+  }
+
+  /* Real-pixel drawing, centred in the strip. */
+  .banner .bd-svg {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    width: 1600px;
+    height: 88px;
+    transform: translateX(-50%);
+  }
+
+  /* ---- wireframe --------------------------------------------------------- */
+  .banner .wf-globe,
+  .banner .wf-scope,
+  .banner .wf-code {
+    position: absolute;
+    top: 0;
+    height: 88px;
+  }
+
+  .banner .wf-globe {
+    left: 18px;
+    width: 90px;
+  }
+
+  .banner .wf-scope {
+    left: 122px;
+    width: calc(100% - 122px - 160px);
+  }
+
+  .banner .wf-code {
+    right: 22px;
+    width: 120px;
+  }
+
+  @media (max-width: 560px) {
+    .banner .wf-code {
+      display: none;
+    }
+
+    .banner .wf-scope {
+      width: calc(100% - 122px - 20px);
+    }
+  }
+
+  .wf-line,
+  .wf-wave {
+    stroke: var(--accent, currentColor);
+  }
+
+  .wf-grid {
+    stroke: currentColor;
+    opacity: 0.4;
+  }
+
+  .wf-bars {
+    fill: currentColor;
+  }
+
+  /* ---- image ------------------------------------------------------------- */
+  .banner--image :global(.bn-media) {
     display: block;
     width: 100%;
     height: 100%;
     max-width: none;
     object-fit: cover;
-    filter: grayscale(1) contrast(1.2);
+    filter: grayscale(1) contrast(1.3) brightness(1.05);
   }
 
-  /* Halftone screen over your own picture. */
-  .banner--image::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: radial-gradient(circle, transparent 0.65px, var(--surface) 1.15px) 0 0 / 3px 3px;
-    opacity: 0.4;
-    pointer-events: none;
-  }
-
-  :global(:root[data-theme='dark']) .banner img {
-    filter: grayscale(1) contrast(1.15) brightness(0.72);
-  }
-
-  :global(:root[data-theme='dark']) .banner svg {
-    opacity: 0.8;
+  :global(:root[data-theme='cyber']) .banner--image :global(.bn-media) {
+    filter: grayscale(1) contrast(1.1) url(#duo-banner);
   }
 </style>
+
+<script>
+  import { onPage } from '../scripts/lifecycle';
+
+  // wireframe: the globe's meridians turn slowly and the oscilloscope lifts
+  // into a small wave packet under the pointer, settling flat when it leaves.
+  // Only in "full" motion with reduced motion off; otherwise everything rests.
+  onPage((signal) => {
+    const box = document.querySelector<HTMLElement>('[data-wire]');
+    const wave = box?.querySelector<SVGPathElement>('[data-wave]');
+    const svg = box?.querySelector<SVGSVGElement>('.wf-scope');
+    if (!box || !wave || !svg) return;
+    const lons = Array.from(box.querySelectorAll<SVGEllipseElement>('[data-lon]'));
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const live = () => document.documentElement.dataset.motion === 'full' && !reduced.matches && !document.hidden;
+    const X0 = 0;
+    const X1 = 470;
+    const R = 30;
+    let target = 0;
+    let amp = 0;
+    let cx = 235;
+    let tx = 235;
+    let raf = 0;
+    let last = 0;
+    const start = performance.now();
+
+    const frame = (now: number) => {
+      raf = 0;
+      if (!live()) {
+        wave.setAttribute('d', `M${X0} 44.5 H${X1}`);
+        return;
+      }
+      // Meridians: ~20fps is plenty for a 1px globe.
+      if (now - last > 50) {
+        last = now;
+        const turn = ((now - start) / 1000) * 6; // degrees per second
+        lons.forEach((el) => el.setAttribute('rx', Math.abs(R * Math.cos(((+el.dataset.lon! + turn) * Math.PI) / 180)).toFixed(2)));
+      }
+      amp += (target - amp) * 0.08;
+      cx += (tx - cx) * 0.12;
+      if (amp > 0.05) {
+        const phase = (now - start) / 260;
+        let d = `M${X0} 44.5`;
+        for (let x = X0 + 2; x <= X1; x += 2) {
+          const env = Math.exp(-((x - cx) ** 2) / (2 * 36 ** 2));
+          d += ` L${x} ${(44.5 - amp * env * Math.sin((x - cx) / 6 - phase)).toFixed(2)}`;
+        }
+        wave.setAttribute('d', d);
+      } else wave.setAttribute('d', `M${X0} 44.5 H${X1}`);
+      raf = requestAnimationFrame(frame);
+    };
+    const kick = () => {
+      if (!raf && live()) raf = requestAnimationFrame(frame);
+    };
+
+    box.addEventListener(
+      'pointermove',
+      (e) => {
+        const ctm = svg.getScreenCTM();
+        if (!ctm) return;
+        const p = new DOMPoint(e.clientX, e.clientY).matrixTransform(ctm.inverse());
+        tx = Math.min(X1 - 20, Math.max(X0 + 20, p.x));
+        if (p.x < X0 - 10 || p.x > X1 + 10) return;
+        target = 14;
+        kick();
+      },
+      { signal },
+    );
+    box.addEventListener('pointerleave', () => (target = 0), { signal });
+    // Start/stop with the quiet / full switch and tab visibility.
+    const watch = new MutationObserver(kick);
+    watch.observe(document.documentElement, { attributes: true, attributeFilter: ['data-motion'] });
+    document.addEventListener('visibilitychange', kick, { signal });
+    signal.addEventListener('abort', () => {
+      cancelAnimationFrame(raf);
+      watch.disconnect();
+    });
+    kick();
+  });
+</script>

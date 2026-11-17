@@ -360,9 +360,18 @@ export function initComments(signal: AbortSignal) {
       drawer.hidden = true;
     };
     reduceMotion() ? done() : window.setTimeout(done, 130);
+    // Hand focus back to whatever opened the thread. If that was the selection
+    // tip (it hides itself as the drawer opens), use the passage's [01] badge,
+    // or failing that the post body, so keyboard readers stay in place.
+    const back =
+      lastFocus?.isConnected && lastFocus.getClientRects().length
+        ? lastFocus
+        : ((openAnchorId && prose.querySelector<HTMLElement>(`.anno-badge[data-anchor="${CSS.escape(openAnchorId)}"]`)) ??
+          prose);
+    if (back === prose && !prose.hasAttribute('tabindex')) prose.setAttribute('tabindex', '-1');
+    back.focus({ preventScroll: true });
     openAnchorId = null;
     pending = null;
-    lastFocus?.focus?.({ preventScroll: true });
   }
 
   /* -------------------------------------------------------- selection tip */
