@@ -268,11 +268,11 @@ a {
 
 /* ==========================================================================
    Shell: one page on the dotted desk with a faint schematic behind it.
-   Hub pages (/, /archive, /about) are a compact 780px; posts widen to 1120px.
+   Hub pages (/, /archive, /about) are a compact 760px; posts widen to 1120px.
    ========================================================================== */
 
 .shell {
-  --frame-max: 780px;
+  --frame-max: 760px;
   position: relative;
   max-width: calc(var(--frame-max) + 2 * var(--shell-gap));
   margin: 0 auto;
@@ -293,13 +293,13 @@ a {
   border: 1px solid var(--line);
 }
 
-/* Slim OS / terminal window bar: [ name ] · HUD readout · light/dark _ □ */
+/* Slim 24px OS window bar: icon + site name · light/dark _ □ */
 .titlebar {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  height: 26px;
-  padding: 0 6px 0 9px;
+  height: 24px;
+  padding: 0 6px 0 8px;
   border-bottom: 1px solid var(--line);
   background: var(--bar);
   font-family: var(--font-mono);
@@ -308,34 +308,26 @@ a {
 }
 
 .titlebar .title {
-  flex: none;
-  font-weight: 600;
-  white-space: nowrap;
-  user-select: none;
-}
-
-.titlebar .hud {
   flex: 1;
   min-width: 0;
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 0.45rem;
+  gap: 6px;
   overflow: hidden;
+  font-weight: 600;
   white-space: nowrap;
   text-overflow: ellipsis;
-  font-size: 0.625rem;
-  letter-spacing: 0.06em;
-  color: var(--faint);
   user-select: none;
 }
 
-.titlebar .led {
+/* Tiny window icon: a framed page with a title stripe. */
+.titlebar .title::before {
+  content: '';
   flex: none;
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: var(--muted);
+  width: 10px;
+  height: 9px;
+  border: 1px solid currentColor;
+  background: linear-gradient(currentColor, currentColor) 0 0 / 100% 2px no-repeat;
 }
 
 .titlebar .bar-right {
@@ -368,18 +360,6 @@ a {
   border: 1px solid var(--muted);
 }
 
-@media (max-width: 560px) {
-  .titlebar .hud {
-    display: none;
-  }
-
-  .titlebar .title {
-    flex: 1;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-}
-
 /* Faint technical schematic drawn behind the page (see HudBackdrop.astro). */
 .hud-backdrop {
   position: absolute;
@@ -389,7 +369,7 @@ a {
   width: min(1500px, 180vw);
   transform: translateX(-50%);
   color: var(--hud);
-  opacity: 0.07;
+  opacity: 0.06;
   pointer-events: none;
 }
 
@@ -753,8 +733,8 @@ main {
    Low-status widgets: "... label ..." headings, dotted boxes, pixel badges.
    ========================================================================== */
 
-/* "// status", "// writing", "[ contents ]" — plain 11px mono labels
-   with a hairline running to the edge. */
+/* "series", "tl;dr", "[ contents ]" — plain 11px mono labels with a
+   hairline running to the edge. */
 .lsl {
   display: flex;
   align-items: center;
@@ -768,11 +748,6 @@ main {
   color: var(--muted);
 }
 
-.lsl::before {
-  content: '//';
-  color: var(--faint);
-}
-
 .lsl::after {
   content: '';
   flex: 1;
@@ -782,6 +757,7 @@ main {
 
 .lsl--bracket::before {
   content: '[';
+  color: var(--faint);
 }
 
 .lsl--bracket > .close::after {
@@ -911,49 +887,221 @@ main {
   text-decoration: line-through;
 }
 
-/* ---- Floating side-notes & sticker (desktop); inline on small screens ---- */
+/* ==========================================================================
+   Portal panels (front page, index, about): tight 1px boxes with a slim
+   title bar, packed into a 220px sidebar + main column.
+   ========================================================================== */
 
-.float-note {
-  font-size: 0.75rem;
+.portal {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+  padding: 8px;
 }
 
-.float-note .lsl {
-  margin-bottom: 0.35rem;
+main:has(> .portal) {
+  padding-bottom: 0;
 }
 
-/* The sticker itself is the blend layer (it's a stacking context), so the
-   drawing's white/black background melts into whatever is behind it. */
-.sticker {
-  pointer-events: none;
-  mix-blend-mode: multiply;
+.portal-side,
+.portal-main {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  min-width: 0;
 }
 
-.sticker .ink-image {
-  mix-blend-mode: normal !important;
+/* Two boxes side by side inside the main column. */
+.portal-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+  align-items: stretch;
 }
 
-:root[data-theme='dark'] .sticker {
-  mix-blend-mode: screen;
-}
-
-/* Wide screens: notes peek over the frame edges; below 1180px they sit inline. */
-@media (min-width: 1180px) {
-  .float-note {
-    position: absolute;
-    z-index: 3;
-    width: 12rem;
-    box-shadow: 3px 3px 0 var(--rule);
+@media (min-width: 520px) {
+  .portal-split {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   }
+}
 
-  .float-note--left {
-    top: 4.25rem;
-    left: -11rem;
+/* .portal--wide: one full-width column (the index page). */
+@media (min-width: 700px) {
+  .portal:not(.portal--wide) {
+    grid-template-columns: 220px minmax(0, 1fr);
   }
+}
 
-  .float-note--right {
-    top: 4.25rem;
-    right: -11rem;
-  }
+.panel {
+  min-width: 0;
+  border: 1px solid var(--line);
+  background: var(--surface);
+}
+
+.panel-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 19px;
+  padding: 0 6px 0 8px;
+  border-bottom: 1px solid var(--line);
+  background: var(--bar);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.2;
+  color: var(--muted);
+}
+
+.panel-title {
+  margin: 0;
+  font: inherit;
+  font-weight: 600;
+  color: var(--ink);
+  white-space: nowrap;
+}
+
+.panel-title .count {
+  font-weight: 400;
+  color: var(--muted);
+}
+
+/* Three tiny window squares on a panel bar. */
+.panel-ctl {
+  flex: none;
+  display: flex;
+  gap: 2px;
+}
+
+.panel-ctl::before,
+.panel-ctl::after,
+.panel-ctl i {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border: 1px solid var(--faint);
+}
+
+.panel-body {
+  padding: 8px 10px;
+  font-size: 12.5px;
+  line-height: 1.55;
+}
+
+.panel-body > :first-child {
+  margin-top: 0;
+}
+
+.panel-body > :last-child {
+  margin-bottom: 0;
+}
+
+/* A small sub-heading inside a panel. */
+.panel-sub {
+  margin: 8px 0 3px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+/* Key–value lines: "handle   @you". */
+.kv {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 1px 10px;
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  line-height: 1.5;
+}
+
+.kv dt {
+  color: var(--muted);
+}
+
+.kv dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+/* Tiny square "online" lamp. */
+.lamp {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-right: 4px;
+  vertical-align: 1px;
+  background: var(--ink);
+}
+
+.lamp--off {
+  background: none;
+  border: 1px solid var(--muted);
+}
+
+/* Link lists with tiny pixel bullets. */
+.px-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  line-height: 1.6;
+}
+
+.px-list li {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.px-list li::before {
+  content: '';
+  flex: none;
+  width: 3px;
+  height: 3px;
+  background: var(--ink);
+  transform: translateY(-2px);
+}
+
+.panel a,
+.px-list a {
+  color: var(--ink);
+  text-decoration: underline;
+  text-decoration-color: var(--rule);
+  text-underline-offset: 0.25em;
+  transition: text-decoration-color var(--fast) var(--ease);
+}
+
+.panel a:hover,
+.px-list a:hover {
+  text-decoration-color: var(--ink);
+}
+
+/* Compact todo: "[x] item" in 11px mono. */
+.check-list--mini {
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.check-list--mini li {
+  padding: 2px 0;
+}
+
+.check-list--mini li + li {
+  border-top: 0;
+}
+
+/* Portrait frame: a 1px inner border around the drawing. */
+.portrait-frame {
+  display: grid;
+  place-items: center;
+  margin: 6px;
+  padding: 8px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  overflow: hidden;
 }
 
 /* ==========================================================================

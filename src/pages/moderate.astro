@@ -11,7 +11,7 @@ import { getPosts } from '../utils/posts';
 const titles = Object.fromEntries((await getPosts()).map((p) => [p.id, p.data.title]));
 ---
 
-<BaseLayout title="Moderate" description="Comment moderation.">
+<BaseLayout title="Moderate" description="Comment moderation." banner={false}>
   <meta slot="head" name="robots" content="noindex, nofollow" />
   <h1 class="sr-only">Moderate comments</h1>
 

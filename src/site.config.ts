@@ -47,6 +47,12 @@ export const SITE = {
   /** Text file with the front-page ASCII drawing (made by `npm run ascii`). */
   frontpageAscii: str(r.frontpageAscii, '/images/frontpage-ascii.txt'),
   invertArt: r.invertFrontpageImageInDarkMode !== false,
+  /** Slim dithered strip under the nav on the hub pages. image "" = the built-in horizon. */
+  banner: {
+    show: r.banner?.show !== false,
+    image: str(r.banner?.image, ''),
+    alt: str(r.banner?.alt, ''),
+  },
   defaultFont: asFont(r.defaultFont),
   accentBorders: r.accentBorders !== false,
   newBadgeDays: Number.isFinite(r.newBadgeDays) ? Number(r.newBadgeDays) : 21,

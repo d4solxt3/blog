@@ -8,6 +8,11 @@
   "frontpageImage": "/images/a223f8578d6bcbaa22def59478b54d52.jpg",
   "frontpageAscii": "/images/frontpage-ascii.txt",
   "invertFrontpageImageInDarkMode": true,
+  "banner": {
+    "show": true,
+    "image": "",
+    "alt": ""
+  },
   "defaultFont": "sans",
   "accentBorders": true,
   "newBadgeDays": 21,

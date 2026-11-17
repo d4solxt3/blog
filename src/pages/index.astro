@@ -1,213 +1,241 @@
 ---
+/**
+ * Front page: a compact portal. Left 220px sidebar (portrait, info & links,
+ * todo); main column (about + updates, the writing table, mood + note).
+ * Everything comes from site.config.json.
+ */
+import { existsSync } from 'node:fs';
+import { resolve } from 'node:path';
 import BaseLayout from '../layouts/BaseLayout.astro';
 import AsciiArt from '../components/AsciiArt.astro';
+import InkImage from '../components/InkImage.astro';
 import PostFeed from '../components/PostFeed.astro';
 import { SITE } from '../site.config';
 import { getPosts } from '../utils/posts';
 
 const posts = await getPosts();
+const p = SITE.profile;
 const dotDate = (d: string) => d.replace(/-/g, '.');
+// Portrait: the ASCII drawing if there is one, otherwise the front-page image.
+const hasAscii = existsSync(resolve(process.cwd(), 'public', SITE.frontpageAscii.replace(/^\//, '')));
+const currently = [
+  ['reading', p.currently.reading],
+  ['building', p.currently.building],
+  ['into', p.currently.into],
+].filter(([, v]) => v);
+const hasNow = SITE.status.mood || SITE.status.thought || currently.length > 0;
 ---
 
 <BaseLayout>
   <h1 class="sr-only">{SITE.name}</h1>
 
-  <div class="container home">
-    {
-      SITE.notice && (
-        <aside class="float-note float-note--left dot-box" aria-label="Notice">
-          <p class="lsl">notice</p>
-          <p class="note-text">{SITE.notice}</p>
-        </aside>
-      )
-    }
-    {
-      SITE.todo.length > 0 && (
-        <aside class="float-note float-note--right dot-box" aria-label="To do">
-          <p class="lsl">todo</p>
-          <ul class="check-list">
-            {SITE.todo.map((t) => (
-              <li>
-                <span class="box" aria-hidden="true">
-                  {t.done ? '[x]' : '[ ]'}
-                </span>
-                <span class:list={{ done: t.done }}>{t.text}</span>
-              </li>
-            ))}
-          </ul>
-        </aside>
-      )
-    }
-
-    <section class="intro" aria-label="Introduction">
-      <div class="intro-text">
-        <p class="hello">hello, welcome in<span class="cursor" aria-hidden="true"></span></p>
-        <p class="bio">{SITE.intro}</p>
-        <p class="meta-line">
-          <a href="/about/">about me</a><span class="sep">·</span>
-          <a href="/archive/">full index</a><span class="sep">·</span>
-          <a href="/rss.xml">rss</a>
-        </p>
-        <!-- ASCII drawing fills the space under the intro, beside status/changelog. -->
-        <div class="ascii-wrap">
-          <AsciiArt width="12.5rem" />
+  <div class="portal">
+    <aside class="portal-side" aria-label="About the author">
+      <section class="panel" aria-label="Portrait">
+        <div class="panel-bar">
+          <h2 class="panel-title">@{SITE.authorHandle}</h2>
+          <span class="panel-ctl" aria-hidden="true"><i></i></span>
         </div>
-      </div>
+        <div class="portrait-frame">
+          {hasAscii ? <AsciiArt width="9.75rem" /> : <InkImage src={SITE.frontpageImage} alt="" loading="eager" />}
+        </div>
+      </section>
 
-      <div class="strip">
-        {
-          (SITE.status.mood || SITE.status.thought) && (
-            <div class="dot-box status">
-              <p class="lsl">status</p>
-              {SITE.status.mood && (
-                <p class="mood">
-                  <span class="pixel">online</span> {SITE.status.mood}
-                </p>
-              )}
-              {SITE.status.thought && <p class="thought">“{SITE.status.thought}”</p>}
-              {SITE.status.updated && <p class="stamp">updated {dotDate(SITE.status.updated)}</p>}
+      <section class="panel" aria-labelledby="info-h">
+        <div class="panel-bar"><h2 class="panel-title" id="info-h">info</h2></div>
+        <div class="panel-body">
+          <dl class="kv">
+            <dt>handle</dt>
+            <dd>@{SITE.authorHandle}</dd>
+            <dt>status</dt>
+            <dd><span class:list={['lamp', { 'lamp--off': p.status !== 'online' }]} aria-hidden="true"></span>{p.status}</dd>
+            {p.timezone && (<><dt>tz</dt><dd>{p.timezone}</dd></>)}
+          </dl>
+          {
+            p.links.length > 0 && (
+              <>
+                <p class="panel-sub">links</p>
+                <ul class="px-list">
+                  {p.links.map((l) => (
+                    <li>
+                      <a href={l.url}>{l.label}</a>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )
+          }
+        </div>
+      </section>
+
+      {
+        SITE.todo.length > 0 && (
+          <section class="panel" aria-labelledby="todo-h">
+            <div class="panel-bar">
+              <h2 class="panel-title" id="todo-h">todo</h2>
+              <span>
+                {SITE.todo.filter((t) => t.done).length}/{SITE.todo.length}
+              </span>
             </div>
-          )
-        }
+            <div class="panel-body">
+              <ul class="check-list check-list--mini">
+                {SITE.todo.map((t) => (
+                  <li>
+                    <span class="box" aria-hidden="true">
+                      {t.done ? '[x]' : '[ ]'}
+                    </span>
+                    <span class:list={{ done: t.done }}>{t.text}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </section>
+        )
+      }
+    </aside>
+
+    <div class="portal-main">
+      <div class="portal-split">
+        <section class="panel" aria-labelledby="about-h">
+          <div class="panel-bar"><h2 class="panel-title" id="about-h">about</h2></div>
+          <div class="panel-body intro">
+            <p>{SITE.intro}</p>
+            <p class="more">
+              <a href="/about/">more about me</a> · <a href="/archive/">every post</a> · <a href="/rss.xml">rss</a>
+            </p>
+          </div>
+        </section>
+
         {
           SITE.updates.length > 0 && (
-            <div class="dot-box updates">
-              <p class="lsl">changelog</p>
-              <ul class="dot-list">
-                {SITE.updates.slice(0, 4).map((u) => (
+            <section class="panel" aria-labelledby="updates-h">
+              <div class="panel-bar">
+                <h2 class="panel-title" id="updates-h">updates</h2>
+              </div>
+              <ul class="panel-body log">
+                {SITE.updates.map((u) => (
                   <li>
                     <span class="d">{dotDate(u.date)}</span> — {u.text}
                   </li>
                 ))}
               </ul>
-            </div>
+            </section>
           )
         }
       </div>
-    </section>
 
-    <div class="feed-wrap">
       <PostFeed posts={posts} label="writing" />
+
+      {
+        (hasNow || SITE.notice) && (
+          <div class="portal-split">
+            {hasNow && (
+              <section class="panel" aria-labelledby="now-h">
+                <div class="panel-bar">
+                  <h2 class="panel-title" id="now-h">now</h2>
+                  {SITE.status.updated && <span>{dotDate(SITE.status.updated)}</span>}
+                </div>
+                <div class="panel-body mood">
+                  {SITE.status.mood && <p class="mood-now">mood: {SITE.status.mood}</p>}
+                  {SITE.status.thought && <p class="thought">“{SITE.status.thought}”</p>}
+                  {currently.length > 0 && (
+                    <dl class="kv">
+                      {currently.map(([k, v]) => (
+                        <>
+                          <dt>{k}</dt>
+                          <dd>{v}</dd>
+                        </>
+                      ))}
+                    </dl>
+                  )}
+                </div>
+              </section>
+            )}
+            {SITE.notice && (
+              <section class="panel" aria-labelledby="note-h">
+                <div class="panel-bar">
+                  <h2 class="panel-title" id="note-h">note</h2>
+                </div>
+                <p class="panel-body note">{SITE.notice}</p>
+              </section>
+            )}
+          </div>
+        )
+      }
     </div>
   </div>
 </BaseLayout>
 
 <style>
-  .home {
-    display: flex;
-    flex-direction: column;
-    gap: 1.5rem;
-    padding-top: clamp(1.25rem, 3.5vw, 1.75rem);
-  }
-
-  .intro {
-    order: 1;
-    display: grid;
-    grid-template-columns: minmax(0, 1fr);
-    gap: 1rem;
-  }
-
-  .float-note--left {
+  /* Narrow screens: main column first, sidebar after it. */
+  .portal-side {
     order: 2;
   }
 
-  .float-note--right {
-    order: 3;
-  }
-
-  .feed-wrap {
-    order: 4;
-  }
-
-  @media (min-width: 720px) {
-    .intro {
-      grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
-      gap: 1.4rem;
-      align-items: start;
+  @media (min-width: 700px) {
+    .portal-side {
+      order: 0;
     }
   }
 
-  @media (min-width: 1180px) {
-    .home {
-      display: block;
-    }
-
-    .home > * + * {
-      margin-top: 1.5rem;
-    }
-  }
-
-  /* ---- greeting + ASCII drawing ---- */
-  .intro-text {
-    display: flex;
-    flex-direction: column;
-    align-self: stretch;
-  }
-
-  .ascii-wrap {
-    align-self: flex-end;
-    margin-top: auto;
-    padding-top: 1.25rem;
-  }
-
-  .hello {
+  .intro p {
     margin: 0;
-    font-family: var(--font-head);
-    font-size: 1.25rem;
-    font-weight: 600;
-    letter-spacing: -0.01em;
-  }
-
-  .hello .cursor {
-    width: 0.45em;
-    height: 0.95em;
-    margin-left: 0.2em;
-    vertical-align: -0.1em;
-  }
-
-  .bio {
-    margin: 0.5rem 0 0.7rem;
-    max-width: 52ch;
-    font-size: 0.9375rem;
-    line-height: 1.65;
     color: var(--ink-2);
   }
 
-  .strip {
-    display: grid;
-    gap: 0.75rem;
-  }
-
-  .status p,
-  .note-text {
-    margin: 0;
+  .intro .more {
+    margin-top: 6px;
     font-family: var(--font-mono);
-    font-size: 0.75rem;
-    line-height: 1.55;
-  }
-
-  .mood {
-    display: flex;
-    align-items: baseline;
-    gap: 0.45rem;
-  }
-
-  .thought {
-    margin-top: 0.35rem !important;
-    color: var(--ink-2);
-  }
-
-  .stamp {
-    margin-top: 0.35rem !important;
-    font-size: 0.6875rem !important;
+    font-size: 11px;
     color: var(--faint);
   }
 
-  .note-text {
+  .log {
+    max-height: 9.5rem;
+    margin: 0;
+    padding-left: 10px;
+    overflow-y: auto;
+    list-style: none;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    line-height: 1.45;
+    scrollbar-width: thin;
+  }
+
+  .log li {
+    padding: 1px 0 1px 1.5em;
+    text-indent: -1.5em;
+  }
+
+  .log .d {
+    color: var(--muted);
+  }
+
+  .mood p,
+  .note {
+    margin: 0;
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    line-height: 1.5;
+  }
+
+  .mood-now {
+    font-weight: 600;
+  }
+
+  .mood .thought {
+    margin-top: 3px;
     color: var(--ink-2);
   }
 
-  .updates .d {
-    color: var(--muted);
+  .mood .kv {
+    margin-top: 6px;
+    padding-top: 5px;
+    border-top: 1px dotted var(--rule);
+    font-size: 11px;
+  }
+
+  .note {
+    color: var(--ink-2);
   }
 </style>

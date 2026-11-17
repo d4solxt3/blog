@@ -147,12 +147,18 @@
                     <small>pick a file to upload it into public/images and use it</small>
                   </div>
                   <label class="check"><input type="checkbox" data-key="invertFrontpageImageInDarkMode" /> invert the image in dark mode (for black-on-white drawings)</label>
+                  <label class="check"><input type="checkbox" data-key="banner.show" /> show the banner strip under the menu (front page, writing, about)</label>
+                  <div class="field"><span>Banner image</span>
+                    <input type="text" data-key="banner.image" placeholder="(blank = the built-in dithered horizon)" />
+                    <input type="file" id="banner-file" accept="image/png,image/jpeg,image/gif,image/webp" />
+                    <small>a wide picture works best; it's cropped to an 88px strip and shown in grayscale with a halftone screen</small>
+                  </div>
                   <label class="field"><span>Default reading font</span>
                     <select data-key="defaultFont"><option value="sans">sans (IBM Plex Sans)</option><option value="serif">serif (Newsreader)</option><option value="mono">mono (JetBrains Mono)</option></select>
                     <small>posts can override with font: in their frontmatter; readers can switch with Aa</small>
                   </label>
                   <label class="check"><input type="checkbox" data-key="accentBorders" /> crisp dark borders (off = softer grey)</label>
-                  <label class="field"><span>Days a post counts as [NEW]</span><input type="number" min="0" max="365" data-key="newBadgeDays" /></label>
+                  <label class="field"><span>Days a post is marked "new!"</span><input type="number" min="0" max="365" data-key="newBadgeDays" /></label>
                 </div>
               </section>
 
@@ -176,7 +182,7 @@
                   <label class="field"><span>Status: current thought</span><input type="text" data-key="status.thought" /></label>
                   <label class="field"><span>Status: last updated</span><input type="text" data-key="status.updated" placeholder="2026-11-17 01:40" /></label>
                   <label class="field"><span>Updates (changelog)</span><textarea data-key="updates" data-type="updates" rows="4"></textarea><small>one per line: 2026-11-17 | what changed (newest first)</small></label>
-                  <label class="field"><span>Side note (notice)</span><textarea data-key="notice" rows="2"></textarea><small>the little card on the left; leave blank to hide it</small></label>
+                  <label class="field"><span>Side note (notice)</span><textarea data-key="notice" rows="2"></textarea><small>the small "note" box on the front page; leave blank to hide it</small></label>
                   <label class="field"><span>Todo / reading list</span><textarea data-key="todo" data-type="todo" rows="4"></textarea><small>one per line; start with [x] when it's done</small></label>
                 </div>
               </section>
@@ -315,6 +321,17 @@
           const { path } = await api('upload', { method: 'POST', body: JSON.stringify({ name: file.name, data }) });
           $('[data-key="frontpageImage"]').value = path;
           thumb();
+          $('#settings-status').textContent = `> uploaded ${path} — press save to use it`;
+        } catch (err) { $('#settings-status').textContent = `> ${err.message}`; }
+      });
+      $('#banner-file').addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        $('#settings-status').textContent = '> uploading banner…';
+        const data = await new Promise((ok) => { const r = new FileReader(); r.onload = () => ok(r.result); r.readAsDataURL(file); });
+        try {
+          const { path } = await api('upload', { method: 'POST', body: JSON.stringify({ name: file.name, data }) });
+          $('[data-key="banner.image"]').value = path;
           $('#settings-status').textContent = `> uploaded ${path} — press save to use it`;
         } catch (err) { $('#settings-status').textContent = `> ${err.message}`; }
       });

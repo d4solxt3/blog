@@ -28,7 +28,7 @@ To stop it, click the terminal and press `Ctrl + C`.
 
 While `npm run dev` is running, open **http://localhost:4321/_admin** in your browser. There's no link to it on the site itself, and it doesn't exist on the published site: it's only for you, on your computer.
 
-- **[site settings]**: the very first box is **Site name**. Change it, press **save settings**, and the name updates everywhere: the wordmark, the window bar, browser tabs and the footer. Below it you can change the intro text, status and mood, the changelog, the todo list, your profile and progress bars, the default font, and comment options. Any open tab of your site reloads with the changes.
+- **[site settings]**: the very first box is **Site name**. Change it, press **save settings**, and the name updates everywhere: the wordmark, the window bar, browser tabs and the footer. Below it you can change the banner strip, the intro text, status and mood, the changelog, the todo list, your profile and progress bars, the default font, and comment options. Any open tab of your site reloads with the changes.
 - **Front-page drawing**: the wide **ascii_art.exe** box turns a PNG into the ASCII drawing on the front page (see section 5).
 - **Avatar**: click *Choose File* under "Avatar image (about page)", pick a picture, then press **save settings**. It's copied into `public/images/` for you.
 - **[posts]**: pick a post on the left to edit it. The right-hand panel shows a live preview as you type. Press **save** (or `Ctrl + S`). **+ new post** creates a fresh draft.
@@ -48,20 +48,21 @@ Open `site.config.json` in any text editor. Change only the text between the quo
 | `authorName` | Your name (shown on the About page) |
 | `authorHandle` | Your handle, shown as `@handle` on the About page |
 | `siteUrl` | Your website's address once you have one, e.g. `"https://my-notebook.net"`. Leave it `""` until then |
-| `frontpageAscii` | The text file with the front-page ASCII drawing (see section 5). Normally `"/images/frontpage-ascii.txt"` |
-| `frontpageImage` | The picture used as your avatar on the About page, e.g. `"/images/me.png"` |
+| `frontpageAscii` | The text file with the ASCII drawing in the front page's portrait box (see section 5). Normally `"/images/frontpage-ascii.txt"` |
+| `frontpageImage` | The picture used as your avatar on the About page, e.g. `"/images/me.png"`. The front page uses it too if there's no ASCII drawing |
 | `invertFrontpageImageInDarkMode` | `true` for black-on-white drawings (they turn light in dark mode). Use `false` for photos and colour images |
+| `banner` | The slim strip under the menu on the front page, writing and about pages. `"show": false` hides it. Leave `"image": ""` for the built-in dithered horizon, or set your own, e.g. `"/images/banner.jpg"` (shown in grayscale with a halftone screen; wide pictures work best). `"alt"` describes your picture for screen readers |
 | `defaultFont` | `"sans"`, `"serif"` or `"mono"`: the reading font for posts. Readers can still switch with the **Aa** buttons |
 | `accentBorders` | `true` for crisp dark borders, `false` for softer grey ones |
-| `newBadgeDays` | How many days a post shows the **NEW** badge |
+| `newBadgeDays` | How many days a post is marked **new!** in the writing list |
 | `inlineAnnotations` | `true` lets readers highlight a sentence and comment on it. `false` turns that off everywhere |
 | `footerText` | The small line under the page. `{year}`, `{siteName}` and `{authorName}` fill themselves in |
-| `intro` | The 2–3 line hello at the top of the front page |
-| `status` | Your current `mood`, `thought`, and when you `updated` them |
-| `updates` | The little changelog on the front page (newest first) |
-| `notice` | The small side note on the left of the front page (`""` hides it) |
-| `todo` | The todo/reading card. Set `"done": true` to cross an item off |
-| `profile` | The rest of the About page: timezone, bio, interests, links, what you're currently into, reading and building, and `progress` bars (`{ "label": "…", "percent": 60 }`) |
+| `intro` | The 2–3 line hello in the front page's **about** box |
+| `status` | Your current `mood`, `thought`, and when you `updated` them (the front page's **now** box) |
+| `updates` | The little changelog in the front page's **updates** box (newest first) |
+| `notice` | The small **note** box on the front page (`""` hides it) |
+| `todo` | The **todo** box on the front page (and the About checklist). Set `"done": true` to cross an item off |
+| `profile` | The rest of the About page: timezone, bio, interests, links, what you're currently into, reading and building, and `progress` bars (`{ "label": "…", "percent": 60 }`). Your timezone, links and "currently" lines also appear on the front page. If one link is an email (`"url": "mailto:you@…"`), the menu gets a **write** link to it |
 | `comments` | Which comment system to use (see section 6) |
 
 If the site stops loading after an edit, you probably removed a comma or a quote. Undo your last change, or use `/_admin` instead.
@@ -126,7 +127,7 @@ Put images for posts in `public/images/` and refer to them as `/images/name.png`
 
 ## 5. The front-page ASCII drawing and your avatar
 
-The front page shows an **ASCII version of a drawing**, under the intro text. Because it's plain text, it matches light and dark mode automatically. To use a different drawing:
+The front page shows an **ASCII version of a drawing** in the framed portrait box at the top of the left column. Because it's plain text, it matches light and dark mode automatically. To use a different drawing:
 
 - **In `/_admin`:** in the **ascii_art.exe** box, pick a black-on-white **PNG**. It's converted and saved straight away, and the big preview shows the result; reload the front page to see it there. Drag the **detail** slider for more columns (sharper, smaller characters) or fewer (chunkier ones). The drawing re-converts as you drag.
 - **Or in the terminal:** put the PNG in `public/images/` and run

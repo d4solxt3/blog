@@ -1,5 +1,5 @@
 ---
-/** "index" in the nav: every post, plus series and topic directories. */
+/** "writing" in the nav: every post in one table, plus series and topic directories. */
 import BaseLayout from '../layouts/BaseLayout.astro';
 import PostFeed from '../components/PostFeed.astro';
 import { getPosts, pad, postUrl, tagSlug, seriesOf, formatDate } from '../utils/posts';
@@ -19,89 +19,144 @@ for (const post of posts) {
   }
 }
 const tags = [...tagCounts.entries()].sort((a, b) => a[1].label.localeCompare(b[1].label));
+
+const years = new Map<number, number>();
+for (const post of posts) {
+  const y = post.data.date.getUTCFullYear();
+  years.set(y, (years.get(y) ?? 0) + 1);
+}
+const byYear = [...years.entries()].sort((a, b) => b[0] - a[0]);
 ---
 
-<BaseLayout title="Index" description="Every post, plus series and topics.">
-  <h1 class="sr-only">Index of all posts</h1>
-  <div class="container page">
-    <PostFeed posts={posts} label="index" id="index-feed" />
+<BaseLayout title="Writing" description="Every post, plus series and topics.">
+  <h1 class="sr-only">Every post</h1>
+  <div class="portal portal--wide">
+    <PostFeed posts={posts} label="every post" id="index-feed" />
 
     <div class="dirs">
-      <section class="dot-box" aria-label="Series">
-        <p class="lsl">series</p>
-        {
-          series.length ? (
-            series.map((s) => (
-              <div class="series">
-                <p class="s-name">{s.name}</p>
-                <ol class="dot-list">
-                  {s.parts.map((p, i) => (
-                    <li>
-                      <span class="n">{pad(i + 1)}.</span> <a href={postUrl(p)}>{p.data.title}</a>
-                      <span class="d">{formatDate(p.data.date)}</span>
-                    </li>
-                  ))}
-                </ol>
-              </div>
-            ))
-          ) : (
-            <p class="none">no series yet. add "series" to a post's frontmatter.</p>
-          )
-        }
+      <section class="panel" aria-labelledby="series-h">
+        <div class="panel-bar">
+          <h2 class="panel-title" id="series-h">series</h2>
+          <span>{series.length}</span>
+        </div>
+        <div class="panel-body">
+          {
+            series.length ? (
+              series.map((s) => (
+                <div class="series">
+                  <p class="panel-sub">{s.name}</p>
+                  <ol class="dir">
+                    {s.parts.map((p, i) => (
+                      <li>
+                        <span class="n">{pad(i + 1)}.</span>
+                        <a href={postUrl(p)}>{p.data.title}</a>
+                        <span class="d">{formatDate(p.data.date)}</span>
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+              ))
+            ) : (
+              <p class="none">no series yet. add "series" to a post's frontmatter.</p>
+            )
+          }
+        </div>
       </section>
 
-      <section class="dot-box" aria-label="Topics">
-        <p class="lsl">topics</p>
-        <ul class="dot-list">
-          {
-            tags.map(([slug, { label, count }]) => (
-              <li>
-                <a href={`/?tag=${encodeURIComponent(slug)}`}>#{label}</a>
-                <span class="d">{count}</span>
-              </li>
-            ))
-          }
-        </ul>
-      </section>
+      <div class="dirs-side">
+        <section class="panel" aria-labelledby="topics-h">
+          <div class="panel-bar">
+            <h2 class="panel-title" id="topics-h">topics</h2>
+            <span>{tags.length}</span>
+          </div>
+          <div class="panel-body">
+            <ul class="dir">
+              {
+                tags.map(([slug, { label, count }]) => (
+                  <li>
+                    <a href={`/archive/?tag=${encodeURIComponent(slug)}`}>#{label}</a>
+                    <span class="d">{count}</span>
+                  </li>
+                ))
+              }
+            </ul>
+          </div>
+        </section>
+
+        <section class="panel" aria-labelledby="years-h">
+          <div class="panel-bar"><h2 class="panel-title" id="years-h">by year</h2></div>
+          <div class="panel-body">
+            <ul class="dir">
+              {
+                byYear.map(([y, n]) => (
+                  <li>
+                    <span>{y}</span>
+                    <span class="d">
+                      {n} {n === 1 ? 'post' : 'posts'}
+                    </span>
+                  </li>
+                ))
+              }
+            </ul>
+          </div>
+        </section>
+      </div>
     </div>
   </div>
 </BaseLayout>
 
 <style>
-  .page {
-    display: grid;
-    gap: 1.75rem;
-    padding-top: clamp(1.25rem, 3.5vw, 1.9rem);
-  }
-
   .dirs {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
-    gap: 1rem;
+    gap: 8px;
     align-items: start;
   }
 
-  @media (min-width: 680px) {
+  .dirs-side {
+    display: grid;
+    gap: 8px;
+  }
+
+  @media (min-width: 620px) {
     .dirs {
-      grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+      grid-template-columns: minmax(0, 1fr) 220px;
     }
   }
 
-  .s-name {
-    margin: 0 0 0.2rem;
-    font-family: var(--font-head);
-    font-size: 0.9375rem;
-    font-weight: 600;
-  }
-
   .series + .series {
-    margin-top: 0.9rem;
+    margin-top: 8px;
   }
 
-  .dot-list li {
+  .series .panel-sub {
+    margin-top: 0;
+  }
+
+  .dir {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    line-height: 1.5;
+  }
+
+  .dir li {
     display: flex;
-    gap: 0.5rem;
     align-items: baseline;
+    gap: 6px;
+    padding: 2px 0;
+  }
+
+  .dir li + li {
+    border-top: 1px dotted var(--rule);
+  }
+
+  .dir a {
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
   }
 
   .n,
@@ -114,22 +169,10 @@ const tags = [...tagCounts.entries()].sort((a, b) => a[1].label.localeCompare(b[
     white-space: nowrap;
   }
 
-  a {
-    color: var(--ink);
-    text-decoration: underline;
-    text-decoration-color: var(--rule);
-    text-underline-offset: 0.3em;
-    transition: text-decoration-color var(--fast) var(--ease);
-  }
-
-  a:hover {
-    text-decoration-color: var(--ink);
-  }
-
   .none {
     margin: 0;
     font-family: var(--font-mono);
-    font-size: 0.75rem;
+    font-size: 11px;
     color: var(--muted);
   }
 </style>

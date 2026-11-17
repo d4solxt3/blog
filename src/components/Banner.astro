@@ -1,0 +1,127 @@
+---
+/**
+ * The slim 88px strip under the nav on hub pages. Set "banner" in
+ * site.config.json: "show": false hides it; "image": "/images/x.jpg" swaps in
+ * your own picture (shown grayscale with a halftone screen). With no image,
+ * this draws a dusk horizon in 4×4 ordered dither, in the theme's ink colour.
+ */
+import { SITE } from '../site.config';
+
+const { image, alt } = SITE.banner;
+
+const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
+const CELL = 2;
+const LEVELS = [1, 2, 3, 4, 6, 8, 10, 12, 14];
+const cells = (k: number) =>
+  BAYER.map((v, i) => (v < k ? `M${(i % 4) * CELL} ${Math.floor(i / 4) * CELL}h${CELL}v${CELL}h-${CELL}z` : '')).join('');
+
+const W = 760;
+const H = 88;
+const HZ = 64; // horizon
+const SUN = { x: 470, r: 30 };
+// Sky: sparse at the top, thickening into the glow on the horizon.
+const sky = [1, 1, 2, 2, 3, 4, 6, 8];
+const bandH = HZ / sky.length;
+// Ground: receding grid lines that bunch up toward the horizon.
+const rows = [1.5, 4, 8, 14, 23];
+const rays = Array.from({ length: 23 }, (_, i) => (i - 11) * 64);
+const stars = [
+  [58, 12], [148, 27], [262, 9], [344, 31], [402, 17], [566, 13], [648, 29], [716, 10], [30, 36], [690, 44],
+];
+const ridgeL = '0,64 22,55 46,58 78,44 104,51 132,39 160,49 188,46 214,56 246,64';
+const ridgeR = '600,64 628,54 652,57 684,45 712,52 736,47 760,53 760,64';
+---
+
+{
+  image ? (
+    <div class="banner banner--image">
+      <img src={image} alt={alt} loading="eager" decoding="async" />
+    </div>
+  ) : (
+    <div class="banner" aria-hidden="true">
+      <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMid slice" shape-rendering="crispEdges" focusable="false">
+        <defs>
+          {LEVELS.map((k) => (
+            <pattern id={`bn-d${k}`} width="8" height="8" patternUnits="userSpaceOnUse">
+              <path d={cells(k)} fill="currentColor" />
+            </pattern>
+          ))}
+          <clipPath id="bn-sky">
+            <rect width={W} height={HZ} />
+          </clipPath>
+          <mask id="bn-stripes">
+            <rect width={W} height={HZ} fill="#fff" />
+            <rect x="0" y={HZ - 16} width={W} height="1" fill="#000" />
+            <rect x="0" y={HZ - 10} width={W} height="2" fill="#000" />
+            <rect x="0" y={HZ - 5} width={W} height="2" fill="#000" />
+          </mask>
+        </defs>
+
+        {sky.map((k, i) => <rect y={i * bandH} width={W} height={bandH} fill={`url(#bn-d${k})`} />)}
+
+        <g clip-path="url(#bn-sky)">
+          <circle cx={SUN.x} cy={HZ} r={SUN.r} fill="url(#bn-d12)" mask="url(#bn-stripes)" />
+          <circle cx={SUN.x} cy={HZ} r={SUN.r + 6} fill="none" stroke="currentColor" stroke-dasharray="2 4" />
+        </g>
+        <polygon points={ridgeL} fill="url(#bn-d10)" stroke="currentColor" stroke-linejoin="bevel" />
+        <polygon points={ridgeR} fill="url(#bn-d10)" stroke="currentColor" stroke-linejoin="bevel" />
+
+        <rect y={HZ} width={W} height={H - HZ} fill="url(#bn-d1)" />
+        <g stroke="currentColor" fill="none">
+          <path d={`M0 ${HZ + 0.5}H${W}`} />
+          {rows.map((d) => <path d={`M0 ${HZ + d + 0.5}H${W}`} stroke-opacity="0.8" />)}
+          {rays.map((dx) => <path d={`M${SUN.x} ${HZ}L${SUN.x + dx * 2.2} ${H + 4}`} stroke-opacity="0.55" />)}
+        </g>
+
+        <g stroke="currentColor">
+          {stars.map(([x, y], i) => (i % 3 === 2 ? <rect x={x} y={y} width="2" height="2" fill="currentColor" stroke="none" /> : <path d={`M${x - 2} ${y + 0.5}h5M${x + 0.5} ${y - 2}v5`} />))}
+        </g>
+      </svg>
+    </div>
+  )
+}
+
+<style>
+  .banner {
+    position: relative;
+    height: 88px;
+    overflow: hidden;
+    border-bottom: 1px solid var(--line);
+    color: var(--ink);
+    background: var(--surface);
+  }
+
+  .banner svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+    max-width: none;
+  }
+
+  .banner img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    max-width: none;
+    object-fit: cover;
+    filter: grayscale(1) contrast(1.2);
+  }
+
+  /* Halftone screen over your own picture. */
+  .banner--image::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle, transparent 0.65px, var(--surface) 1.15px) 0 0 / 3px 3px;
+    opacity: 0.4;
+    pointer-events: none;
+  }
+
+  :global(:root[data-theme='dark']) .banner img {
+    filter: grayscale(1) contrast(1.15) brightness(0.72);
+  }
+
+  :global(:root[data-theme='dark']) .banner svg {
+    opacity: 0.8;
+  }
+</style>

@@ -74,7 +74,7 @@ const fadeIn = {
     <header class="container post-head">
       <div class="head-top">
         <p class="crumb">
-          <a href="/">← writing</a>
+          <a href="/archive/">← writing</a>
           <span class="sep" aria-hidden="true">/</span>
           <span>entry {code}</span>
           {draft && <span class="pixel pixel--dashed">draft</span>}
@@ -97,7 +97,7 @@ const fadeIn = {
           )
         }
         {tags.length > 0 && <span class="sep" aria-hidden="true">·</span>}
-        {tags.map((tag) => <a href={`/?tag=${encodeURIComponent(tagSlug(tag))}`}>#{tag}</a>)}
+        {tags.map((tag) => <a href={`/archive/?tag=${encodeURIComponent(tagSlug(tag))}`}>#{tag}</a>)}
       </p>
     </header>
 

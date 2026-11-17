@@ -3,12 +3,11 @@
 import BaseLayout from '../layouts/BaseLayout.astro';
 import InkImage from '../components/InkImage.astro';
 import { SITE } from '../site.config';
-import { getPostsByDate, pad, postUrl, formatDate } from '../utils/posts';
+import { getPostsByDate, postUrl, formatDate } from '../utils/posts';
 
 const p = SITE.profile;
 const posts = await getPostsByDate();
-const recent = posts.slice(0, 3);
-const statusLabel = ({ online: 'online', away: 'away', offline: 'offline' } as Record<string, string>)[p.status] ?? p.status;
+const recent = posts.slice(0, 5);
 const currently = [
   ['into', p.currently.into],
   ['reading', p.currently.reading],
@@ -17,258 +16,202 @@ const currently = [
 ---
 
 <BaseLayout title="About" description={`About @${SITE.authorHandle}`}>
-  <div class="container page">
-    <h1 class="lsl">about</h1>
+  <h1 class="sr-only">About @{SITE.authorHandle}</h1>
 
-    <div class="profile">
-      <aside class="card dot-box" aria-label="Profile card">
-        <div class="avatar">
+  <div class="portal">
+    <aside class="portal-side" aria-label="Profile">
+      <section class="panel" aria-label="Avatar">
+        <div class="panel-bar">
+          <h2 class="panel-title">@{SITE.authorHandle}</h2>
+          <span class="panel-ctl" aria-hidden="true"><i></i></span>
+        </div>
+        <div class="portrait-frame avatar">
           <InkImage src={p.avatar} alt={`Avatar of @${SITE.authorHandle}`} loading="eager" />
         </div>
-        <p class="handle">@{SITE.authorHandle}</p>
-        {SITE.authorName && <p class="name">{SITE.authorName}</p>}
-        <p class="status">
-          <span class:list={['pixel', { 'pixel--quiet': p.status !== 'online' }]}>{statusLabel}</span>
-        </p>
-        <ul class="facts dot-list">
-          {p.timezone && (<li><span>timezone</span><span>{p.timezone}</span></li>)}
-          {p.joined && (<li><span>here since</span><span>{p.joined}</span></li>)}
-          <li><span>posts</span><span>{pad(posts.length)}</span></li>
-        </ul>
-        {
-          p.links.length > 0 && (
-            <>
-              <p class="lsl">elsewhere</p>
-              <ul class="links">
+      </section>
+
+      <section class="panel" aria-labelledby="profile-h">
+        <div class="panel-bar"><h2 class="panel-title" id="profile-h">profile</h2></div>
+        <div class="panel-body">
+          <dl class="kv">
+            {SITE.authorName && (<><dt>name</dt><dd>{SITE.authorName}</dd></>)}
+            <dt>handle</dt>
+            <dd>@{SITE.authorHandle}</dd>
+            <dt>status</dt>
+            <dd><span class:list={['lamp', { 'lamp--off': p.status !== 'online' }]} aria-hidden="true"></span>{p.status}</dd>
+            {p.timezone && (<><dt>tz</dt><dd>{p.timezone}</dd></>)}
+            {p.joined && (<><dt>since</dt><dd>{p.joined}</dd></>)}
+            <dt>posts</dt>
+            <dd>{posts.length}</dd>
+          </dl>
+        </div>
+      </section>
+
+      {
+        p.links.length > 0 && (
+          <section class="panel" aria-labelledby="links-h">
+            <div class="panel-bar">
+              <h2 class="panel-title" id="links-h">elsewhere</h2>
+            </div>
+            <div class="panel-body">
+              <ul class="px-list">
                 {p.links.map((l) => (
                   <li>
-                    → <a href={l.url}>{l.label}</a>
+                    <a href={l.url}>{l.label}</a>
                   </li>
                 ))}
               </ul>
-            </>
-          )
-        }
-      </aside>
+            </div>
+          </section>
+        )
+      }
 
-      <div class="main">
-        <section aria-label="Bio">
-          <p class="lsl">hello</p>
-          <div class="bio">
-            {p.bio.map((para) => <p>{para}</p>)}
-          </div>
-        </section>
-
-        {
-          (currently.length > 0 || p.progress.length > 0) && (
-            <section class="dot-box" aria-label="Currently">
-              <p class="lsl">currently</p>
-              {currently.length > 0 && (
-                <ul class="now">
-                  {currently.map(([k, v]) => (
-                    <li>
-                      <span class="k">{k}</span>
-                      <span>{v}</span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-              {p.progress.length > 0 && (
-                <ul class="progress">
-                  {p.progress.map((g) => (
-                    <li>
-                      <span class="pl">{g.label}</span>
-                      <span class="bar" style={`--p: ${g.percent}%`} aria-hidden="true">
-                        <i />
-                      </span>
-                      <span class="pp">{g.percent}%</span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </section>
-          )
-        }
-
-        {
-          SITE.todo.length > 0 && (
-            <section aria-label="Checklist">
-              <p class="lsl">checklist</p>
-              <ul class="check-list">
-                {SITE.todo.map((t) => (
-                  <li>
-                    <span class="box" aria-hidden="true">
-                      {t.done ? '[x]' : '[ ]'}
-                    </span>
-                    <span class:list={{ done: t.done }}>{t.text}</span>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          )
-        }
-
-        {
-          p.interests.length > 0 && (
-            <section aria-label="Interests">
-              <p class="lsl">interests</p>
-              <p class="interests">
+      {
+        p.interests.length > 0 && (
+          <section class="panel" aria-labelledby="interests-h">
+            <div class="panel-bar">
+              <h2 class="panel-title" id="interests-h">interests</h2>
+            </div>
+            <div class="panel-body">
+              <ul class="px-list">
                 {p.interests.map((i) => (
-                  <span>#{i}</span>
-                ))}
-              </p>
-            </section>
-          )
-        }
-
-        {
-          recent.length > 0 && (
-            <section aria-label="Recent posts">
-              <p class="lsl">recently written</p>
-              <ul class="dot-list recent">
-                {recent.map((post) => (
-                  <li>
-                    <a href={postUrl(post)}>{post.data.title}</a>
-                    <span>{formatDate(post.data.date)}</span>
-                  </li>
+                  <li>{i}</li>
                 ))}
               </ul>
-            </section>
-          )
-        }
-      </div>
+            </div>
+          </section>
+        )
+      }
+    </aside>
+
+    <div class="portal-main">
+      <section class="panel" aria-labelledby="hello-h">
+        <div class="panel-bar"><h2 class="panel-title" id="hello-h">hello</h2></div>
+        <div class="panel-body bio">
+          {p.bio.map((para) => <p>{para}</p>)}
+        </div>
+      </section>
+
+      {
+        (currently.length > 0 || SITE.todo.length > 0) && (
+          <div class="portal-split">
+            {currently.length > 0 && (
+              <section class="panel" aria-labelledby="now-h">
+                <div class="panel-bar">
+                  <h2 class="panel-title" id="now-h">currently</h2>
+                </div>
+                <div class="panel-body">
+                  <dl class="kv">
+                    {currently.map(([k, v]) => (
+                      <>
+                        <dt>{k}</dt>
+                        <dd>{v}</dd>
+                      </>
+                    ))}
+                  </dl>
+                </div>
+              </section>
+            )}
+            {SITE.todo.length > 0 && (
+              <section class="panel" aria-labelledby="todo-h">
+                <div class="panel-bar">
+                  <h2 class="panel-title" id="todo-h">checklist</h2>
+                  <span>
+                    {SITE.todo.filter((t) => t.done).length}/{SITE.todo.length}
+                  </span>
+                </div>
+                <div class="panel-body">
+                  <ul class="check-list check-list--mini">
+                    {SITE.todo.map((t) => (
+                      <li>
+                        <span class="box" aria-hidden="true">
+                          {t.done ? '[x]' : '[ ]'}
+                        </span>
+                        <span class:list={{ done: t.done }}>{t.text}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </section>
+            )}
+          </div>
+        )
+      }
+
+      {
+        p.progress.length > 0 && (
+          <section class="panel" aria-labelledby="progress-h">
+            <div class="panel-bar">
+              <h2 class="panel-title" id="progress-h">progress</h2>
+            </div>
+            <ul class="panel-body progress">
+              {p.progress.map((g) => (
+                <li>
+                  <span class="pl">{g.label}</span>
+                  <span class="bar" style={`--p: ${g.percent}%`} aria-hidden="true">
+                    <i />
+                  </span>
+                  <span class="pp">{g.percent}%</span>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )
+      }
+
+      {
+        recent.length > 0 && (
+          <section class="panel" aria-labelledby="recent-h">
+            <div class="panel-bar">
+              <h2 class="panel-title" id="recent-h">recently written</h2>
+              <a href="/archive/">all {posts.length}</a>
+            </div>
+            <ul class="panel-body recent">
+              {recent.map((post) => (
+                <li>
+                  <span class="d">{formatDate(post.data.date)}</span>
+                  <a href={postUrl(post)}>{post.data.title}</a>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )
+      }
     </div>
   </div>
 </BaseLayout>
 
 <style>
-  .page {
-    padding-top: clamp(1.25rem, 3.5vw, 1.75rem);
-  }
-
-  .profile {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr);
-    gap: 1.25rem;
-    align-items: start;
-  }
-
-  @media (min-width: 680px) {
-    .profile {
-      grid-template-columns: 13rem minmax(0, 1fr);
-      gap: 1.6rem;
-    }
-  }
-
-  .card {
-    font-family: var(--font-mono);
-    font-size: 0.75rem;
-  }
-
-  .avatar {
-    width: 8rem;
-    margin: 0 auto 0.6rem;
-  }
-
-  .handle {
-    margin: 0;
-    font-family: var(--font-head);
-    font-size: 1rem;
-    font-weight: 600;
-  }
-
-  .name {
-    margin: 0.1rem 0 0;
-    color: var(--muted);
-  }
-
-  .status {
-    margin: 0.45rem 0 0.6rem;
-  }
-
-  .facts li {
-    display: flex;
-    justify-content: space-between;
-    gap: 0.75rem;
-  }
-
-  .facts li span:first-child {
-    color: var(--muted);
-  }
-
-  .facts li span:last-child {
-    text-align: right;
-  }
-
-  .card .lsl {
-    margin-top: 0.85rem;
-  }
-
-  .links {
-    margin: 0;
-    padding: 0;
-    list-style: none;
-    line-height: 1.7;
-  }
-
-  .main {
-    display: grid;
-    gap: 1.15rem;
-  }
-
-  .main section .lsl {
-    margin-bottom: 0.4rem;
+  .avatar :global(img) {
+    max-width: 150px;
   }
 
   .bio p {
     margin: 0;
-    max-width: 60ch;
-    font-size: 0.9375rem;
-    line-height: 1.7;
+    font-size: 13px;
+    line-height: 1.6;
     color: var(--ink-2);
   }
 
   .bio p + p {
-    margin-top: 0.7rem;
+    margin-top: 6px;
   }
 
-  .now,
-  .progress {
+  .progress,
+  .recent {
     margin: 0;
-    padding: 0;
     list-style: none;
     font-family: var(--font-mono);
-    font-size: 0.75rem;
+    font-size: 11px;
     line-height: 1.5;
-  }
-
-  .now li {
-    display: grid;
-    grid-template-columns: 4.5rem minmax(0, 1fr);
-    gap: 0.5rem;
-    padding: 0.2rem 0;
-  }
-
-  .now li + li {
-    border-top: 1px dotted var(--rule);
-  }
-
-  .k {
-    color: var(--muted);
-  }
-
-  .progress {
-    margin-top: 0.6rem;
-    padding-top: 0.5rem;
-    border-top: 1px dotted var(--muted);
   }
 
   .progress li {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 7.5rem 2.6rem;
+    grid-template-columns: minmax(0, 1fr) 8rem 2.2rem;
     align-items: center;
-    gap: 0.6rem;
-    padding: 0.2rem 0;
+    gap: 6px;
+    padding: 2px 0;
   }
 
   .pl {
@@ -280,7 +223,7 @@ const currently = [
   /* [██████░░░░] — 1px frame, ten segments. */
   .bar {
     position: relative;
-    height: 10px;
+    height: 9px;
     border: 1px solid var(--line);
   }
 
@@ -304,36 +247,31 @@ const currently = [
     color: var(--muted);
   }
 
-  .interests {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.2rem 0.75rem;
-    margin: 0;
-    font-family: var(--font-mono);
-    font-size: 0.75rem;
-    color: var(--ink-2);
-  }
-
   .recent li {
     display: flex;
-    justify-content: space-between;
-    gap: 1rem;
+    gap: 10px;
+    padding: 2px 0;
   }
 
-  .recent span {
+  .recent li + li {
+    border-top: 1px dotted var(--rule);
+  }
+
+  .recent .d {
+    flex: none;
     color: var(--muted);
+  }
+
+  .recent a {
+    min-width: 0;
+    overflow: hidden;
     white-space: nowrap;
+    text-overflow: ellipsis;
+    font-family: var(--font-head);
+    font-size: 12.5px;
   }
 
-  a {
-    color: var(--ink);
-    text-decoration: underline;
-    text-decoration-color: var(--rule);
-    text-underline-offset: 0.3em;
-    transition: text-decoration-color var(--fast) var(--ease);
-  }
-
-  a:hover {
-    text-decoration-color: var(--ink);
+  .panel-bar a {
+    color: var(--muted);
   }
 </style>

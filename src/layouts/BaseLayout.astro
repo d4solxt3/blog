@@ -22,6 +22,7 @@ import ThemeToggle from '../components/ThemeToggle.astro';
 import Header from '../components/Header.astro';
 import Outside from '../components/Outside.astro';
 import HudBackdrop from '../components/HudBackdrop.astro';
+import Banner from '../components/Banner.astro';
 
 interface Props {
   title?: string;
@@ -29,19 +30,17 @@ interface Props {
   type?: 'website' | 'article';
   /** Reading font for this page (posts can set `font:` in frontmatter). */
   font?: FontChoice;
-  /** "hub" = compact 780px personal site; "article" = wide 1120px reading frame. */
+  /** "hub" = compact 760px personal site; "article" = wide 1120px reading frame. */
   frame?: 'hub' | 'article';
+  /** Show the banner strip under the nav (hub pages only; see "banner" in site.config.json). */
+  banner?: boolean;
 }
 
-const { title, description = SITE.description, type = 'website', font, frame = 'hub' } = Astro.props;
+const { title, description = SITE.description, type = 'website', font, frame = 'hub', banner = true } = Astro.props;
 const pageFont = font ?? SITE.defaultFont;
 const fullTitle = title ? `${title} — ${SITE.name}` : SITE.name;
 const canonical = Astro.site ? new URL(Astro.url.pathname, Astro.site).href : null;
-
-// Window-bar HUD readout: a stable pseudo-coordinate per page.
-let h = 0;
-for (const ch of Astro.url.pathname) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
-const coords = `x${String(h % 10000).padStart(4, '0')} y${String((h >>> 8) % 1000).padStart(3, '0')}`;
+const showBanner = frame === 'hub' && banner && SITE.banner.show;
 ---
 
 <!doctype html>
@@ -88,14 +87,14 @@ const coords = `x${String(h % 10000).padStart(4, '0')} y${String((h >>> 8) % 100
         },
       }}>
         <div class="titlebar">
-          <span class="title">[ {SITE.name} ]</span>
-          <span class="hud" aria-hidden="true"><span class="led"></span>sys ok · {coords} · {frame === 'article' ? 'read mode' : 'hub'}</span>
+          <span class="title">{SITE.name}</span>
           <span class="bar-right">
             <ThemeToggle />
             <span class="squares" aria-hidden="true"><i>_</i><i class="max"></i></span>
           </span>
         </div>
         <Header />
+        {showBanner && <Banner />}
         <main id="main" tabindex="-1">
           <slot />
         </main>
