@@ -1,0 +1,69 @@
+---
+/**
+ * Ultra-faint technical schematic behind the page: concentric arcs,
+ * 45° HUD lines, a stadium bracket and node dots. Opacity is set in CSS
+ * (.hud-backdrop), colour follows the theme. Purely decorative.
+ */
+import { SITE } from '../site.config';
+
+const cx = 330;
+const cy = 380;
+const polar = (r: number, deg: number) => {
+  const a = (deg * Math.PI) / 180;
+  return [cx + r * Math.cos(a), cy + r * Math.sin(a)] as const;
+};
+const arc = (r: number, a0: number, a1: number) => {
+  const [x0, y0] = polar(r, a0);
+  const [x1, y1] = polar(r, a1);
+  return `M${x0.toFixed(1)} ${y0.toFixed(1)} A${r} ${r} 0 ${a1 - a0 > 180 ? 1 : 0} 1 ${x1.toFixed(1)} ${y1.toFixed(1)}`;
+};
+const ticks = Array.from({ length: 48 }, (_, i) => {
+  const deg = i * 7.5 - 90;
+  const [x0, y0] = polar(262, deg);
+  const [x1, y1] = polar(i % 4 === 0 ? 248 : 255, deg);
+  return `M${x0.toFixed(1)} ${y0.toFixed(1)}L${x1.toFixed(1)} ${y1.toFixed(1)}`;
+}).join('');
+const crosshairs = [
+  [90, 90], [860, 120], [1400, 380], [620, 620], [250, 940], [1240, 900], [1440, 720],
+];
+const nodes = [
+  [180, 150], [520, 120], [610, 420], [140, 610], [470, 700], [960, 230], [1180, 520], [1320, 160], [1060, 820], [760, 900],
+];
+---
+
+<svg class="hud-backdrop" viewBox="0 0 1500 1000" aria-hidden="true" focusable="false" preserveAspectRatio="xMidYMin meet">
+  <g fill="none" stroke="currentColor" stroke-width="1" vector-effect="non-scaling-stroke">
+    <circle cx={cx} cy={cy} r="44" />
+    <circle cx={cx} cy={cy} r="96" stroke-dasharray="3 6" />
+    <path d={arc(150, -120, 140)} />
+    <path d={arc(210, 160, 400)} stroke-width="6" stroke-opacity="0.35" stroke-dasharray="90 14 30 14" />
+    <circle cx={cx} cy={cy} r="262" />
+    <path d={ticks} />
+    <path d={arc(330, -60, 70)} />
+    <path d={arc(420, 200, 300)} stroke-dasharray="2 8" />
+    <path d={`M20 ${cy - 160} H${cx} A160 160 0 0 1 ${cx} ${cy + 160} H20`} stroke-width="2.5" />
+    <path d={`M0 ${cy} H${cx + 300}`} stroke-dasharray="4 6" />
+    <path d={`M${cx} 0 V${cy + 420}`} stroke-dasharray="4 6" />
+    <!-- 45° HUD rails -->
+    <path d="M700 40 L900 240 H1240 L1420 60" />
+    <path d="M820 980 L1000 800 H1300" />
+    <path d="M60 860 L240 680 H520" stroke-dasharray="6 6" />
+    <path d="M1100 380 l60 60 h220" />
+    <rect x="1010" y="560" width="260" height="120" stroke-dasharray="2 5" />
+    <path d="M1010 560 l18 0 M1010 560 l0 18 M1270 680 l-18 0 M1270 680 l0 -18" stroke-width="2" />
+  </g>
+  <!-- tiny crosshair ticks -->
+  <g fill="none" stroke="currentColor" stroke-width="1" vector-effect="non-scaling-stroke">
+    {crosshairs.map(([x, y]) => <path d={`M${x - 7} ${y}h14M${x} ${y - 7}v14`} />)}
+  </g>
+  <g fill="currentColor">
+    {nodes.map(([x, y]) => <circle cx={x} cy={y} r="4" />)}
+    <circle cx={cx} cy={cy} r="3" />
+  </g>
+  <g fill="currentColor" font-family="IBM Plex Mono, monospace" font-size="11" letter-spacing="1">
+    <text x="196" y="146">NODE.01</text>
+    <text x="536" y="116">ARC 0.42</text>
+    <text x="976" y="226">RAIL/45</text>
+    <text x="1028" y="580">{SITE.name.toUpperCase()}</text>
+  </g>
+</svg>

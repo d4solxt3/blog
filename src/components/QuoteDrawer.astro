@@ -1,0 +1,38 @@
+---
+/**
+ * quote_thread.exe — the panel for replying to a highlighted passage.
+ * Lives in the article's right-hand column (inside the frame) on wide screens,
+ * and becomes a bottom sheet on narrow ones. Behaviour: src/scripts/comments.ts.
+ */
+---
+
+<div class="qt-drawer" data-qt hidden role="dialog" aria-modal="false" aria-labelledby="qt-title">
+  <div class="win qt-win">
+    <div class="win-bar">
+      <span class="win-title" id="qt-title">quote_thread.exe</span>
+      <span class="qt-ctl">
+        <span class="ctl" aria-hidden="true">_</span>
+        <span class="ctl ctl-max" aria-hidden="true"></span>
+        <button type="button" class="ctl ctl-close" data-qt-close aria-label="Close quote thread">×</button>
+      </span>
+    </div>
+    <div class="qt-body">
+      <blockquote class="qt-quote" data-qt-quote></blockquote>
+      <p class="label qt-count" data-qt-count aria-live="polite"></p>
+      <ol class="cm-feed qt-replies" data-qt-replies></ol>
+      <form class="cm-form qt-form" data-qt-form>
+        <label class="sr-only" for="qt-name">Name (optional)</label>
+        <input id="qt-name" name="name" type="text" maxlength="40" placeholder="name (optional, defaults to anon)" autocomplete="nickname" />
+        <label class="sr-only" for="qt-body">Reply to this quote</label>
+        <textarea id="qt-body" name="body" rows="4" maxlength="3000" placeholder="reply to this passage…" required></textarea>
+        <div class="hp" aria-hidden="true">
+          <label>Website <input name="website" type="text" tabindex="-1" autocomplete="off" /></label>
+        </div>
+        <div class="cm-actions">
+          <span class="cm-status label" data-status aria-live="polite"></span>
+          <button type="submit" class="cm-submit">[ post reply ]</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>

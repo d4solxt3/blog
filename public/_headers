@@ -1,0 +1,3 @@
+# Netlify / Cloudflare Pages: let the Giscus iframe load the custom theme CSS.
+/giscus/*
+  Access-Control-Allow-Origin: https://giscus.app

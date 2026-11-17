@@ -1,0 +1,482 @@
+---
+/**
+ * The writing feed: a plain list of posts with dotted dividers, tiny pixel
+ * badges, a one-line summary and a meta line. Quiet "all · newest · series"
+ * views, tag pills and instant search. Post titles carry a transition:name,
+ * so clicking one morphs it into the article header.
+ */
+import { SITE } from '../site.config';
+import { formatDate, isoDate, pad, postUrl, readingTime, tagSlug, threadStatus, seriesOf, type Post } from '../utils/posts';
+
+interface Props {
+  posts: Post[];
+  label?: string;
+  id?: string;
+}
+
+const { posts, label = 'writing', id = 'feed' } = Astro.props;
+const now = new Date();
+
+const tagCounts = new Map<string, { label: string; count: number }>();
+for (const post of posts) {
+  for (const tag of post.data.tags) {
+    const slug = tagSlug(tag);
+    const entry = tagCounts.get(slug) ?? { label: tag, count: 0 };
+    entry.count += 1;
+    tagCounts.set(slug, entry);
+  }
+}
+const tags = [...tagCounts.entries()].sort((a, b) => b[1].count - a[1].count || a[0].localeCompare(b[0]));
+
+const rows = posts.map((post, i) => ({
+  post,
+  order: i,
+  status: threadStatus(post, now),
+  minutes: readingTime(post.body),
+  series: seriesOf(post, posts),
+  search: [post.data.title, post.data.subtitle, post.data.description, post.data.series, ...post.data.tags]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase(),
+}));
+const hasSeries = rows.some((r) => r.series);
+const repliesEnabled = SITE.comments.provider === 'native';
+---
+
+<section class="feed" id={id} aria-labelledby={`${id}-label`} data-feed-list data-replies={repliesEnabled ? 'on' : 'off'}>
+  <div class="feed-head">
+    <h2 class="lsl" id={`${id}-label`}><b>{label}</b> <span class="count">(<span data-count>{pad(posts.length)}</span>)</span></h2>
+    <div class="views" role="group" aria-label="Sort and filter posts">
+      <button type="button" data-view="all" aria-pressed="true">all</button>
+      <span aria-hidden="true">·</span>
+      <button type="button" data-view="newest" aria-pressed="false">newest</button>
+      {
+        hasSeries && (
+          <>
+            <span aria-hidden="true">·</span>
+            <button type="button" data-view="series" aria-pressed="false">
+              series
+            </button>
+          </>
+        )
+      }
+    </div>
+  </div>
+
+  <div class="tools">
+    <div class="search">
+      <label for={`${id}-search`} class="sr-only">Search posts</label>
+      <span aria-hidden="true">&gt;</span>
+      <input id={`${id}-search`} type="search" placeholder="search…" autocomplete="off" spellcheck="false" data-search />
+    </div>
+    <div class="pills" role="group" aria-label="Filter by tag">
+      {
+        tags.map(([slug, { label: tagLabel }]) => (
+          <button type="button" class="pill" data-tag={slug} aria-pressed="false">
+            #{tagLabel}
+          </button>
+        ))
+      }
+    </div>
+  </div>
+
+  <ol class="rows" data-rows>
+    {
+      rows.map(({ post, order, status, minutes, series, search }) => (
+        <li
+          class="row"
+          data-thread
+          data-slug={post.id}
+          data-order={order}
+          data-date={post.data.date.valueOf()}
+          data-tags={post.data.tags.map(tagSlug).join(' ')}
+          data-series={series ? `${series.name}::${pad(series.index, 3)}` : ''}
+          data-search={search}
+        >
+          <div class="row-top">
+            {status === 'pin' && <span class="pixel pixel--solid">pin</span>}
+            {status === 'new' && <span class="pixel">new</span>}
+            {status === 'draft' && <span class="pixel pixel--dashed">draft</span>}
+            <a class="row-title" href={postUrl(post)} transition:name={`post-${post.id}`}>
+              {post.data.title}
+            </a>
+          </div>
+          <p class="row-sum">{post.data.subtitle ?? post.data.description}</p>
+          <p class="meta-line">
+            <time datetime={isoDate(post.data.date)}>{formatDate(post.data.date)}</time>
+            <span class="sep" aria-hidden="true">·</span>
+            <span>{minutes} min</span>
+            {repliesEnabled && (
+              <>
+                <span class="sep" aria-hidden="true">·</span>
+                <span class="pixel pixel--quiet" title="replies">
+                  re <span data-replies>–</span>
+                </span>
+              </>
+            )}
+            {series && (
+              <>
+                <span class="sep" aria-hidden="true">·</span>
+                <span class="series">
+                  {series.name} {series.index}/{series.total}
+                </span>
+              </>
+            )}
+            {post.data.tags.length > 0 && <span class="sep" aria-hidden="true">·</span>}
+            {post.data.tags.map((tag) => (
+              <a href={`/?tag=${encodeURIComponent(tagSlug(tag))}`} data-tag-link={tagSlug(tag)}>
+                #{tag}
+              </a>
+            ))}
+          </p>
+        </li>
+      ))
+    }
+  </ol>
+
+  <p class="empty" data-empty hidden>
+    nothing here. <button type="button" data-reset>clear filters</button>
+  </p>
+</section>
+
+<style>
+  .feed-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.4rem 1rem;
+  }
+
+  .feed-head .lsl {
+    margin: 0;
+  }
+
+  .count {
+    font-weight: 400;
+    color: var(--muted);
+  }
+
+  .views {
+    display: flex;
+    gap: 0.4rem;
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    color: var(--faint);
+  }
+
+  .views button,
+  .empty button {
+    padding: 0;
+    border: 0;
+    background: none;
+    font: inherit;
+    color: var(--muted);
+    text-decoration: underline;
+    text-decoration-color: transparent;
+    text-underline-offset: 0.3em;
+    cursor: pointer;
+    transition:
+      color var(--fast) var(--ease),
+      text-decoration-color var(--fast) var(--ease);
+  }
+
+  .views button:hover,
+  .empty button:hover {
+    color: var(--ink);
+  }
+
+  .views button[aria-pressed='true'] {
+    color: var(--ink);
+    text-decoration-color: var(--ink);
+  }
+
+  .tools {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem 0.9rem;
+    margin-top: 0.6rem;
+    padding-bottom: 0.6rem;
+    border-bottom: 1px dotted var(--muted);
+  }
+
+  .search {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    flex: 0 1 11rem;
+    padding: 0.1rem 0.4rem;
+    border: 1px dotted var(--muted);
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    color: var(--muted);
+    transition: border-color var(--fast) var(--ease);
+  }
+
+  .search:focus-within {
+    border-style: solid;
+    border-color: var(--ink);
+  }
+
+  .search input {
+    flex: 1;
+    min-width: 0;
+    padding: 0.1rem 0;
+    border: 0;
+    background: transparent;
+    font: inherit;
+    color: var(--ink);
+    outline: none;
+  }
+
+  .search input::placeholder {
+    color: var(--faint);
+    opacity: 1;
+  }
+
+  .search input::-webkit-search-cancel-button {
+    filter: grayscale(1);
+  }
+
+  .pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.15rem 0.6rem;
+  }
+
+  .pill {
+    padding: 0;
+    border: 0;
+    background: none;
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    color: var(--muted);
+    cursor: pointer;
+    transition: color var(--fast) var(--ease);
+  }
+
+  .pill:hover {
+    color: var(--ink);
+  }
+
+  .pill[aria-pressed='true'] {
+    padding: 0 0.3rem;
+    background: var(--ink);
+    color: var(--surface);
+  }
+
+  .rows {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .row {
+    position: relative;
+    padding: 0.85rem 0 0.9rem;
+    border-bottom: 1px dotted var(--rule);
+  }
+
+  /* Hover: a crosshair tick + the divider firming into a solid line. */
+  .row::before {
+    content: '+';
+    position: absolute;
+    left: -1.1rem;
+    top: 0.8rem;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--muted);
+    opacity: 0;
+    transform: translateX(-4px);
+    transition:
+      opacity 160ms var(--ease),
+      transform 160ms var(--ease);
+  }
+
+  .row::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -1px;
+    height: 1px;
+    background: var(--ink);
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 160ms var(--ease);
+  }
+
+  .row:hover::before,
+  .row:focus-within::before {
+    opacity: 1;
+    transform: none;
+  }
+
+  .row:hover::after,
+  .row:focus-within::after {
+    transform: scaleX(1);
+  }
+
+  .row-top {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+  }
+
+  .row-top .pixel {
+    flex: none;
+    transform: translateY(-2px);
+  }
+
+  .row-title {
+    font-family: var(--font-head);
+    font-size: 1.1875rem;
+    font-weight: 600;
+    line-height: 1.3;
+    letter-spacing: -0.012em;
+    color: var(--ink);
+    text-decoration: none;
+    text-wrap: balance;
+  }
+
+  .row-title:hover {
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 0.2em;
+  }
+
+  .row-sum {
+    margin: 0.2rem 0 0;
+    font-size: 0.875rem;
+    line-height: 1.5;
+    color: var(--muted);
+    display: -webkit-box;
+    -webkit-line-clamp: 1;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .row .meta-line {
+    margin-top: 0.4rem;
+    font-size: 0.6875rem;
+  }
+
+  .series {
+    color: var(--ink-2);
+  }
+
+  .empty {
+    margin: 0;
+    padding: 1rem 0;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--muted);
+  }
+
+  @media (max-width: 860px) {
+    .row::before {
+      display: none;
+    }
+  }
+</style>
+
+<script>
+  import { onPage } from '../scripts/lifecycle';
+
+  const pad = (n: number) => String(n).padStart(2, '0');
+
+  onPage((signal) => {
+    document.querySelectorAll<HTMLElement>('[data-feed-list]').forEach((feed) => {
+      const list = feed.querySelector<HTMLElement>('[data-rows]')!;
+      const rows = Array.from(feed.querySelectorAll<HTMLElement>('[data-thread]'));
+      const views = Array.from(feed.querySelectorAll<HTMLButtonElement>('[data-view]'));
+      const pills = Array.from(feed.querySelectorAll<HTMLButtonElement>('[data-tag]'));
+      const input = feed.querySelector<HTMLInputElement>('[data-search]');
+      const countEl = feed.querySelector<HTMLElement>('[data-count]');
+      const emptyEl = feed.querySelector<HTMLElement>('[data-empty]');
+      const known = new Set(pills.map((p) => p.dataset.tag));
+      let view = 'all';
+      let tag = '';
+
+      function apply(updateUrl = true) {
+        const terms = (input?.value ?? '').trim().toLowerCase().split(/\s+/).filter(Boolean);
+        const sorted = [...rows].sort((a, b) => {
+          if (view === 'newest') return Number(b.dataset.date) - Number(a.dataset.date);
+          if (view === 'series') return (a.dataset.series ?? '').localeCompare(b.dataset.series ?? '');
+          return Number(a.dataset.order) - Number(b.dataset.order);
+        });
+        let shown = 0;
+        for (const row of sorted) {
+          const match =
+            (view !== 'series' || !!row.dataset.series) &&
+            (!tag || (row.dataset.tags ?? '').split(' ').includes(tag)) &&
+            terms.every((t) => (row.dataset.search ?? '').includes(t));
+          row.hidden = !match;
+          if (match) shown += 1;
+          list.appendChild(row);
+        }
+        if (countEl) countEl.textContent = pad(shown);
+        if (emptyEl) emptyEl.hidden = shown > 0;
+        views.forEach((v) => v.setAttribute('aria-pressed', String(v.dataset.view === view)));
+        pills.forEach((p) => p.setAttribute('aria-pressed', String(p.dataset.tag === tag)));
+        if (!updateUrl) return;
+        const url = new URL(location.href);
+        tag ? url.searchParams.set('tag', tag) : url.searchParams.delete('tag');
+        view !== 'all' ? url.searchParams.set('view', view) : url.searchParams.delete('view');
+        terms.length ? url.searchParams.set('q', terms.join(' ')) : url.searchParams.delete('q');
+        history.replaceState(history.state, '', url);
+      }
+
+      const params = new URLSearchParams(location.search);
+      if (known.has(params.get('tag') ?? '')) tag = params.get('tag')!;
+      if (views.some((v) => v.dataset.view === params.get('view'))) view = params.get('view')!;
+      if (input && params.get('q')) input.value = params.get('q')!;
+
+      views.forEach((v) => v.addEventListener('click', () => ((view = v.dataset.view ?? 'all'), apply())));
+      pills.forEach((p) => p.addEventListener('click', () => ((tag = tag === p.dataset.tag ? '' : (p.dataset.tag ?? '')), apply())));
+      input?.addEventListener('input', () => apply());
+      input?.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && input.value) ((input.value = ''), apply());
+      });
+      feed.querySelectorAll<HTMLAnchorElement>('[data-tag-link]').forEach((a) =>
+        a.addEventListener('click', (e) => {
+          e.preventDefault();
+          tag = a.dataset.tagLink ?? '';
+          apply();
+        }),
+      );
+      feed.querySelector('[data-reset]')?.addEventListener('click', () => {
+        view = 'all';
+        tag = '';
+        if (input) input.value = '';
+        apply();
+      });
+      document.addEventListener(
+        'keydown',
+        (e) => {
+          const t = e.target as HTMLElement | null;
+          if (e.key === '/' && !t?.closest('input, textarea, select, [contenteditable="true"]') && !e.metaKey && !e.ctrlKey) {
+            e.preventDefault();
+            input?.focus();
+          }
+        },
+        { signal },
+      );
+      if (tag || view !== 'all' || input?.value) apply(false);
+
+      // Reply counts from the comments API (stays "–" if it isn't running).
+      if (feed.dataset.replies === 'on') {
+        fetch('/api/comments?counts=1', { headers: { accept: 'application/json' }, signal })
+          .then((r) => (r.ok ? r.json() : Promise.reject()))
+          .then((counts: Record<string, number>) => {
+            rows.forEach((row) => {
+              const el = row.querySelector('[data-replies]');
+              if (el) el.textContent = String(counts[row.dataset.slug ?? ''] ?? 0);
+            });
+          })
+          .catch(() => {});
+      }
+    });
+  });
+</script>

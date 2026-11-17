@@ -1,0 +1,35 @@
+---
+/**
+ * Runs synchronously in <head> before first paint so the page never flashes
+ * the wrong theme. It runs again right after every client-side navigation
+ * (astro:after-swap), because Astro replaces <html>'s attributes on swap.
+ * Stored choice wins; otherwise follow the OS. A reader's Aa font choice
+ * beats the page default.
+ */
+---
+
+<script is:inline>
+  (function () {
+    function apply() {
+      var root = document.documentElement;
+      var theme = null;
+      var font = null;
+      try {
+        theme = localStorage.getItem('theme');
+        font = localStorage.getItem('reader-font');
+      } catch (e) {}
+      if (theme !== 'light' && theme !== 'dark') {
+        theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      }
+      root.setAttribute('data-theme', theme);
+      if (font === 'sans' || font === 'serif' || font === 'mono') root.setAttribute('data-font', font);
+      var meta = document.querySelector('meta[name="theme-color"]');
+      if (meta) meta.setAttribute('content', theme === 'dark' ? '#141416' : '#f3f3f1');
+    }
+    apply();
+    if (!window.__themeSwapBound) {
+      window.__themeSwapBound = true;
+      document.addEventListener('astro:after-swap', apply);
+    }
+  })();
+</script>

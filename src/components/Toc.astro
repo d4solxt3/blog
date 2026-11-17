@@ -1,0 +1,248 @@
+---
+import type { MarkdownHeading } from 'astro';
+import { pad } from '../utils/posts';
+
+interface Props {
+  headings: MarkdownHeading[];
+  /** sticky desktop sidebar, or collapsible drawer shown above the post on small screens */
+  variant: 'sidebar' | 'drawer';
+}
+
+const { headings, variant } = Astro.props;
+
+type Item = { slug: string; text: string; num: string; children: Item[] };
+const items: Item[] = [];
+let h2 = 0;
+let h3 = 0;
+for (const h of headings) {
+  const text = h.text.replace(/#\s*$/, '').trim();
+  if (h.depth === 2) {
+    h2 += 1;
+    h3 = 0;
+    items.push({ slug: h.slug, text, num: pad(h2), children: [] });
+  } else if (h.depth === 3) {
+    h3 += 1;
+    const item = { slug: h.slug, text, num: `${pad(h2)}.${h3}`, children: [] };
+    const parent = items.at(-1);
+    if (parent) parent.children.push(item);
+    else items.push(item);
+  }
+}
+const labelId = `toc-label-${variant}`;
+---
+
+{
+  variant === 'sidebar' ? (
+    <nav class="toc toc-sidebar dot-box" aria-labelledby={labelId}>
+      <p class="lsl lsl--bracket" id={labelId}>
+        contents<span class="close" />
+      </p>
+      <ol class="toc-list">
+        {items.map((item) => (
+          <li class="toc-h2">
+            <a href={`#${item.slug}`} data-toc-link>
+              <span class="toc-num">{item.num}</span>
+              <span class="toc-text">{item.text}</span>
+            </a>
+            {item.children.length > 0 && (
+              <ol>
+                {item.children.map((child) => (
+                  <li class="toc-h3">
+                    <a href={`#${child.slug}`} data-toc-link>
+                      <span class="toc-num">{child.num}</span>
+                      <span class="toc-text">{child.text}</span>
+                    </a>
+                  </li>
+                ))}
+              </ol>
+            )}
+          </li>
+        ))}
+      </ol>
+    </nav>
+  ) : (
+    <details class="toc toc-drawer" data-toc-drawer>
+      <summary>
+        <span class="drawer-icon" aria-hidden="true" />
+        <span class="label drawer-title" id={labelId}>
+          Contents
+        </span>
+        <span class="label drawer-count">{pad(items.length)} sections</span>
+      </summary>
+      <nav aria-labelledby={labelId}>
+        <ol class="toc-list">
+          {items.map((item) => (
+            <li class="toc-h2">
+              <a href={`#${item.slug}`} data-toc-link>
+                <span class="toc-num">{item.num}</span>
+                <span class="toc-text">{item.text}</span>
+              </a>
+              {item.children.length > 0 && (
+                <ol>
+                  {item.children.map((child) => (
+                    <li class="toc-h3">
+                      <a href={`#${child.slug}`} data-toc-link>
+                        <span class="toc-num">{child.num}</span>
+                        <span class="toc-text">{child.text}</span>
+                      </a>
+                    </li>
+                  ))}
+                </ol>
+              )}
+            </li>
+          ))}
+        </ol>
+      </nav>
+    </details>
+  )
+}
+
+<style>
+  .toc-list,
+  .toc-list ol {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .toc-list ol {
+    margin-top: 0.15rem;
+  }
+
+  .toc a {
+    display: grid;
+    grid-template-columns: 2.6rem 1fr;
+    align-items: baseline;
+    padding: 0.28rem 0 0.28rem 0.6rem;
+    margin-left: -1px;
+    border-left: 1px solid transparent;
+    font-family: var(--font-sans);
+    font-size: 0.9375rem;
+    line-height: 1.35;
+    color: var(--muted);
+    text-decoration: none;
+    transition:
+      color var(--fast) var(--ease),
+      border-color var(--fast) var(--ease);
+  }
+
+  .toc-h3 a {
+    grid-template-columns: 2.6rem 1fr;
+    padding-left: 1.5rem;
+    font-size: 0.875rem;
+  }
+
+  .toc a:hover {
+    color: var(--ink);
+  }
+
+  .toc a[aria-current='true'] {
+    color: var(--ink);
+    border-left-color: var(--ink);
+  }
+
+  .toc a[data-parent-active] {
+    color: var(--ink);
+  }
+
+  .toc-num {
+    font-family: var(--font-mono);
+    font-size: 0.625rem;
+    letter-spacing: 0.08em;
+    color: var(--faint);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .toc a[aria-current='true'] .toc-num {
+    color: var(--muted);
+  }
+
+  /* ---- Sticky contents column inside the article frame (wide screens) ---- */
+  .toc-sidebar {
+    position: sticky;
+    top: 1.25rem;
+    max-width: 220px;
+    max-height: calc(100vh - 2.5rem);
+    display: flex;
+    flex-direction: column;
+  }
+
+  .toc-sidebar .toc-list {
+    padding: 0 0 0.1rem;
+    overflow-y: auto;
+    scrollbar-width: thin;
+  }
+
+  .toc-sidebar a {
+    margin-left: 0;
+    font-size: 0.875rem;
+  }
+
+  .toc-sidebar .toc-h3 a {
+    font-size: 0.8125rem;
+  }
+
+  /* ---- Drawer ---- */
+  .toc-drawer {
+    margin-bottom: 2rem;
+    border: 1px dotted var(--muted);
+    transition: border-color var(--fast) var(--ease);
+  }
+
+  .toc-drawer[open],
+  .toc-drawer:hover {
+    border-color: var(--ink);
+    border-style: solid;
+  }
+
+  .toc-drawer summary {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.8rem 1rem;
+    cursor: pointer;
+    list-style: none;
+  }
+
+  .toc-drawer summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .drawer-icon::before {
+    content: '[+]';
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--muted);
+  }
+
+  .toc-drawer[open] .drawer-icon::before {
+    content: '[\2212]';
+  }
+
+  .drawer-title {
+    color: var(--ink);
+  }
+
+  .drawer-count {
+    margin-left: auto;
+  }
+
+  .toc-drawer nav {
+    padding: 0.6rem 1rem 1rem 0.25rem;
+    border-top: 1px solid var(--rule);
+  }
+
+  .toc-sidebar {
+    display: none;
+  }
+
+  @media (min-width: 1060px) {
+    .toc-drawer {
+      display: none;
+    }
+
+    .toc-sidebar {
+      display: flex;
+    }
+  }
+</style>

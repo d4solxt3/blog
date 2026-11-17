@@ -1,0 +1,143 @@
+---
+import { formatDate, postUrl, type Post } from '../utils/posts';
+
+interface Props {
+  code: string;
+  older: Post | null;
+  newer: Post | null;
+}
+
+const { code, older, newer } = Astro.props;
+---
+
+<div class="post-end">
+  <div class="end-row">
+    <span class="label" aria-hidden="true">// end of entry {code}</span>
+    <a href="#top" class="ui-link back-to-top">&uarr; Back to top</a>
+  </div>
+
+  <nav class="post-nav hairline-grid" aria-label="Adjacent posts">
+    {
+      older ? (
+        <a class="nav-cell" href={postUrl(older)} rel="prev">
+          <span class="label">&larr; Previous post</span>
+          <span class="nav-title">{older.data.title}</span>
+          <span class="label nav-date">{formatDate(older.data.date)}</span>
+        </a>
+      ) : (
+        <div class="nav-cell is-empty">
+          <span class="label">&larr; Previous post</span>
+          <span class="nav-none">This is the first entry.</span>
+        </div>
+      )
+    }
+    {
+      newer ? (
+        <a class="nav-cell nav-next" href={postUrl(newer)} rel="next">
+          <span class="label">Next post &rarr;</span>
+          <span class="nav-title">{newer.data.title}</span>
+          <span class="label nav-date">{formatDate(newer.data.date)}</span>
+        </a>
+      ) : (
+        <div class="nav-cell nav-next is-empty">
+          <span class="label">Next post &rarr;</span>
+          <span class="nav-none">You're at the latest entry.</span>
+        </div>
+      )
+    }
+  </nav>
+</div>
+
+<style>
+  .post-end {
+    margin-top: clamp(3.5rem, 8vw, 5rem);
+  }
+
+  .end-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1.25rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px dotted var(--muted);
+  }
+
+  .post-nav {
+    grid-template-columns: 1fr 1fr;
+    gap: 0;
+    background: none;
+    border: 1px dotted var(--muted);
+  }
+
+  .post-nav > * + * {
+    border-left: 1px dotted var(--muted);
+  }
+
+  .nav-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+    min-height: 6.5rem;
+    padding: 0.9rem 1rem;
+    text-decoration: none;
+    transition: background-color var(--fast) var(--ease);
+  }
+
+  .nav-next {
+    align-items: flex-end;
+    text-align: right;
+  }
+
+  .nav-title {
+    font-family: var(--font-head);
+    font-size: 1rem;
+    font-weight: 600;
+    line-height: 1.3;
+    letter-spacing: -0.01em;
+    text-wrap: balance;
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 0.22em;
+    text-decoration-color: transparent;
+    transition: text-decoration-color var(--fast) var(--ease);
+  }
+
+  a.nav-cell:hover .nav-title {
+    text-decoration-color: var(--ink);
+  }
+
+  a.nav-cell:hover {
+    background: var(--wash);
+  }
+
+  .nav-date {
+    margin-top: auto;
+    color: var(--faint);
+  }
+
+  .nav-none {
+    font-style: italic;
+    color: var(--muted);
+  }
+
+  @media (max-width: 560px) {
+    .post-nav {
+      grid-template-columns: 1fr;
+    }
+
+    .post-nav > * + * {
+      border-left: 0;
+      border-top: 1px dotted var(--muted);
+    }
+
+    .nav-cell {
+      min-height: 0;
+    }
+
+    .nav-next {
+      align-items: flex-start;
+      text-align: left;
+    }
+  }
+</style>

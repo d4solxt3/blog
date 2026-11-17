@@ -1,0 +1,48 @@
+---
+/**
+ * Black-on-white line art that adapts to the theme with no white box:
+ *  light → multiply (white disappears into the paper)
+ *  dark  → invert + dim to soft off-white, then screen (black disappears into charcoal)
+ * Set invertFrontpageImageInDarkMode: false in site.config.json for colour images.
+ */
+import { SITE } from '../site.config';
+
+interface Props {
+  src: string;
+  alt: string;
+  class?: string;
+  width?: number;
+  height?: number;
+  loading?: 'eager' | 'lazy';
+}
+
+const { src, alt, class: className, width, height, loading = 'lazy' } = Astro.props;
+---
+
+<img
+  src={src}
+  alt={alt}
+  width={width}
+  height={height}
+  loading={loading}
+  decoding="async"
+  class:list={['ink-image', className, { 'ink-image--invert': SITE.invertArt }]}
+/>
+
+<style>
+  .ink-image {
+    display: block;
+    width: 100%;
+    height: auto;
+    mix-blend-mode: multiply;
+  }
+
+  :global(:root[data-theme='dark']) .ink-image--invert {
+    filter: invert(1) brightness(0.886);
+    mix-blend-mode: screen;
+  }
+
+  :global(:root[data-theme='dark']) .ink-image:not(.ink-image--invert) {
+    mix-blend-mode: normal;
+  }
+</style>

@@ -1,0 +1,24 @@
+---
+/** 1px reading-progress hairline pinned to the top of the viewport. */
+---
+
+<div class="progress" aria-hidden="true"><span data-progress></span></div>
+
+<style>
+  .progress {
+    position: fixed;
+    inset: 0 0 auto;
+    z-index: 60;
+    height: 1px;
+    pointer-events: none;
+  }
+
+  .progress span {
+    display: block;
+    height: 100%;
+    background: var(--ink);
+    transform: scaleX(0);
+    transform-origin: left center;
+    will-change: transform;
+  }
+</style>

@@ -1,0 +1,25 @@
+---
+/**
+ * Collapsible deep-dive, drawn as a "notes.txt" window. MDX (no import needed):
+ *   <Details summary="Why the residual stream is linear">…</Details>
+ *   <Details summary="…" title="proof.txt" label="Proof">…</Details>
+ * Plain <details><summary>…</summary>…</details> in .md gets the same look.
+ */
+interface Props {
+  summary: string;
+  label?: string;
+  title?: string;
+  open?: boolean;
+}
+
+const { summary, label = 'Deep dive', title = 'notes.txt', open = false } = Astro.props;
+const safeTitle = title.replace(/['\\]/g, '');
+---
+
+<details class="deep-dive" open={open} style={`--win-title: '${safeTitle}'`}>
+  <summary>
+    <span class="dd-label">{label}</span>
+    <span class="dd-summary">{summary}</span>
+  </summary>
+  <slot />
+</details>

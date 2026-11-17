@@ -1,0 +1,114 @@
+---
+/**
+ * Tiny "light / dark" switch in the on/off style of early-2000s portfolio
+ * sites. Visual state is driven by html[data-theme] (set before first paint),
+ * so nothing flickers; the script syncs aria-pressed and persists the choice.
+ */
+---
+
+<button type="button" class="theme-switch" data-theme-toggle aria-pressed="false">
+  <span class="sr-only">Dark mode</span>
+  <span class="opt opt-light" aria-hidden="true">light</span>
+  <span class="sep" aria-hidden="true">/</span>
+  <span class="opt opt-dark" aria-hidden="true">dark</span>
+  <span class="pip" aria-hidden="true"></span>
+</button>
+
+<style>
+  .theme-switch {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.05rem 0.25rem;
+    border: 0;
+    background: transparent;
+    font-family: var(--font-mono);
+    font-size: 0.65625rem;
+    letter-spacing: 0.04em;
+    cursor: pointer;
+  }
+
+  .opt {
+    color: var(--muted);
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 0.35em;
+    text-decoration-color: transparent;
+    transition:
+      color var(--fast) var(--ease),
+      text-decoration-color var(--fast) var(--ease);
+  }
+
+  .sep {
+    color: var(--faint);
+  }
+
+  .theme-switch:hover .opt {
+    color: var(--ink);
+  }
+
+  :global(:root:not([data-theme='dark'])) .opt-light,
+  :global(:root[data-theme='dark']) .opt-dark {
+    color: var(--ink);
+    text-decoration-color: var(--ink);
+  }
+
+  /* Little power pip: half-filled disc that flips with the theme. */
+  .pip {
+    width: 9px;
+    height: 9px;
+    margin-left: 0.15rem;
+    border: 1px solid var(--ink);
+    border-radius: 50%;
+    background: linear-gradient(90deg, var(--ink) 50%, transparent 50%);
+    transition: transform 180ms var(--ease);
+  }
+
+  :global(:root[data-theme='dark']) .pip {
+    transform: rotate(180deg);
+  }
+</style>
+
+<script>
+  import { onPage } from '../scripts/lifecycle';
+
+  type Theme = 'light' | 'dark';
+  const root = document.documentElement;
+  const systemDark = window.matchMedia('(prefers-color-scheme: dark)');
+  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+  const current = (): Theme => (root.dataset.theme === 'dark' ? 'dark' : 'light');
+
+  function sync() {
+    document.querySelector('[data-theme-toggle]')?.setAttribute('aria-pressed', String(current() === 'dark'));
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', current() === 'dark' ? '#141416' : '#f3f3f1');
+  }
+
+  function apply(theme: Theme, persist: boolean) {
+    if (!reducedMotion.matches) root.classList.add('theme-switching');
+    root.dataset.theme = theme;
+    if (persist) {
+      try {
+        localStorage.setItem('theme', theme);
+      } catch {}
+    }
+    sync();
+    document.dispatchEvent(new CustomEvent('themechange', { detail: { theme } }));
+    window.setTimeout(() => root.classList.remove('theme-switching'), 200);
+  }
+
+  // Follow OS changes live, unless the reader has made an explicit choice.
+  systemDark.addEventListener('change', (event) => {
+    let stored: string | null = null;
+    try {
+      stored = localStorage.getItem('theme');
+    } catch {}
+    if (stored !== 'light' && stored !== 'dark') apply(event.matches ? 'dark' : 'light', false);
+  });
+
+  onPage((signal) => {
+    document
+      .querySelector('[data-theme-toggle]')
+      ?.addEventListener('click', () => apply(current() === 'dark' ? 'light' : 'dark', true), { signal });
+    sync();
+  });
+</script>

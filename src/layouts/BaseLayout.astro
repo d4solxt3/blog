@@ -1,0 +1,115 @@
+---
+import '@fontsource-variable/newsreader/opsz.css';
+import '@fontsource-variable/newsreader/opsz-italic.css';
+import '@fontsource-variable/jetbrains-mono/wght.css';
+import '@fontsource-variable/ibm-plex-sans/wght.css';
+import '@fontsource-variable/ibm-plex-sans/wght-italic.css';
+import '@fontsource/ibm-plex-mono/latin-400.css';
+import '@fontsource/ibm-plex-mono/latin-400-italic.css';
+import '@fontsource/ibm-plex-mono/latin-500.css';
+import '@fontsource/ibm-plex-mono/latin-600.css';
+import '@fontsource/silkscreen/latin-400.css';
+import '../styles/global.css';
+import '../styles/prose.css';
+
+import plexSans from '@fontsource-variable/ibm-plex-sans/files/ibm-plex-sans-latin-wght-normal.woff2?url';
+import plexMono from '@fontsource/ibm-plex-mono/files/ibm-plex-mono-latin-400-normal.woff2?url';
+
+import { ClientRouter } from 'astro:transitions';
+import { SITE, type FontChoice } from '../site.config';
+import ThemeScript from '../components/ThemeScript.astro';
+import ThemeToggle from '../components/ThemeToggle.astro';
+import Header from '../components/Header.astro';
+import Outside from '../components/Outside.astro';
+import HudBackdrop from '../components/HudBackdrop.astro';
+
+interface Props {
+  title?: string;
+  description?: string;
+  type?: 'website' | 'article';
+  /** Reading font for this page (posts can set `font:` in frontmatter). */
+  font?: FontChoice;
+  /** "hub" = compact 780px personal site; "article" = wide 1120px reading frame. */
+  frame?: 'hub' | 'article';
+}
+
+const { title, description = SITE.description, type = 'website', font, frame = 'hub' } = Astro.props;
+const pageFont = font ?? SITE.defaultFont;
+const fullTitle = title ? `${title} — ${SITE.name}` : SITE.name;
+const canonical = Astro.site ? new URL(Astro.url.pathname, Astro.site).href : null;
+
+// Window-bar HUD readout: a stable pseudo-coordinate per page.
+let h = 0;
+for (const ch of Astro.url.pathname) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+const coords = `x${String(h % 10000).padStart(4, '0')} y${String((h >>> 8) % 1000).padStart(3, '0')}`;
+---
+
+<!doctype html>
+<html lang={SITE.lang} data-font={pageFont} data-page-font={pageFont} class:list={{ 'soft-borders': !SITE.accentBorders }}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#f3f3f1" />
+    <ThemeScript />
+
+    <title>{fullTitle}</title>
+    <meta name="description" content={description} />
+    {canonical && <link rel="canonical" href={canonical} />}
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="alternate" type="application/rss+xml" title={SITE.name} href="/rss.xml" />
+
+    <link rel="preload" href={plexSans} as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href={plexMono} as="font" type="font/woff2" crossorigin />
+
+    <meta property="og:type" content={type} />
+    <meta property="og:title" content={title ?? SITE.name} />
+    <meta property="og:description" content={description} />
+    {canonical && <meta property="og:url" content={canonical} />}
+    <meta property="og:site_name" content={SITE.name} />
+    <meta name="twitter:card" content="summary" />
+
+    <!-- Smooth client-side page transitions (falls back to normal loads). -->
+    <ClientRouter fallback="none" />
+    <slot name="head" />
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <slot name="before-frame" />
+    <div class="shell" id="top" data-frame={frame}>
+      <HudBackdrop />
+      <div class="viewport" transition:name="main-shell" transition:animate={{
+        forwards: {
+          old: { name: 'hud-fade-out', duration: '180ms', easing: 'linear', fillMode: 'both' },
+          new: { name: 'hud-fade-in', duration: '180ms', delay: '60ms', easing: 'linear', fillMode: 'both' },
+        },
+        backwards: {
+          old: { name: 'hud-fade-out', duration: '180ms', easing: 'linear', fillMode: 'both' },
+          new: { name: 'hud-fade-in', duration: '180ms', delay: '60ms', easing: 'linear', fillMode: 'both' },
+        },
+      }}>
+        <div class="titlebar">
+          <span class="title">[ {SITE.name} ]</span>
+          <span class="hud" aria-hidden="true"><span class="led"></span>sys ok · {coords} · {frame === 'article' ? 'read mode' : 'hub'}</span>
+          <span class="bar-right">
+            <ThemeToggle />
+            <span class="squares" aria-hidden="true"><i>_</i><i class="max"></i></span>
+          </span>
+        </div>
+        <Header />
+        <main id="main" tabindex="-1">
+          <slot />
+        </main>
+      </div>
+      <!-- Decorations that sit on the frame's edge live outside it: the frame is an
+           isolated view-transition group, so blends inside it can't reach the desk. -->
+      <div class="frame-edge"><slot name="frame-edge" /></div>
+      <Outside />
+    </div>
+  </body>
+</html>
+
+<style>
+  main:focus {
+    outline: none;
+  }
+</style>

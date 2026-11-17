@@ -1,0 +1,120 @@
+/* Monochrome Giscus theme (dark). Served from /giscus/dark.css. */
+main {
+  --color-prettylights-syntax-comment: #6c6c74;
+  --color-prettylights-syntax-constant: #cdcdcb;
+  --color-prettylights-syntax-entity: #e2e2e0;
+  --color-prettylights-syntax-storage-modifier-import: #e2e2e0;
+  --color-prettylights-syntax-entity-tag: #e2e2e0;
+  --color-prettylights-syntax-keyword: #e2e2e0;
+  --color-prettylights-syntax-string: #92929a;
+  --color-prettylights-syntax-variable: #cdcdcb;
+  --color-prettylights-syntax-brackethighlighter-unmatched: #e2e2e0;
+  --color-prettylights-syntax-invalid-illegal-text: #1b1b1e;
+  --color-prettylights-syntax-invalid-illegal-bg: #e2e2e0;
+  --color-prettylights-syntax-carriage-return-text: #1b1b1e;
+  --color-prettylights-syntax-carriage-return-bg: #e2e2e0;
+  --color-prettylights-syntax-string-regexp: #cdcdcb;
+  --color-prettylights-syntax-markup-list: #cdcdcb;
+  --color-prettylights-syntax-markup-heading: #e2e2e0;
+  --color-prettylights-syntax-markup-italic: #e2e2e0;
+  --color-prettylights-syntax-markup-bold: #e2e2e0;
+  --color-prettylights-syntax-markup-deleted-text: #92929a;
+  --color-prettylights-syntax-markup-deleted-bg: #212125;
+  --color-prettylights-syntax-markup-inserted-text: #e2e2e0;
+  --color-prettylights-syntax-markup-inserted-bg: #212125;
+  --color-prettylights-syntax-markup-changed-text: #e2e2e0;
+  --color-prettylights-syntax-markup-changed-bg: #212125;
+  --color-prettylights-syntax-markup-ignored-text: #92929a;
+  --color-prettylights-syntax-markup-ignored-bg: #212125;
+  --color-prettylights-syntax-meta-diff-range: #cdcdcb;
+  --color-prettylights-syntax-sublimelinter-gutter-mark: #2b2b31;
+
+  --color-btn-text: #e2e2e0;
+  --color-btn-bg: #1b1b1e;
+  --color-btn-border: #2b2b31;
+  --color-btn-shadow: none;
+  --color-btn-inset-shadow: none;
+  --color-btn-hover-bg: #212125;
+  --color-btn-hover-border: #e2e2e0;
+  --color-btn-active-bg: #212125;
+  --color-btn-active-border: #e2e2e0;
+  --color-btn-selected-bg: #212125;
+  --color-btn-primary-text: #1b1b1e;
+  --color-btn-primary-bg: #e2e2e0;
+  --color-btn-primary-border: #e2e2e0;
+  --color-btn-primary-shadow: none;
+  --color-btn-primary-inset-shadow: none;
+  --color-btn-primary-hover-bg: #cdcdcb;
+  --color-btn-primary-hover-border: #cdcdcb;
+  --color-btn-primary-selected-bg: #cdcdcb;
+  --color-btn-primary-selected-shadow: none;
+  --color-btn-primary-disabled-text: #1b1b1e;
+  --color-btn-primary-disabled-bg: #55555d;
+  --color-btn-primary-disabled-border: #55555d;
+  --color-action-list-item-default-hover-bg: #212125;
+  --color-segmented-control-bg: #212125;
+  --color-segmented-control-button-bg: #1b1b1e;
+  --color-segmented-control-button-selected-border: #e2e2e0;
+
+  --color-fg-default: #e2e2e0;
+  --color-fg-muted: #92929a;
+  --color-fg-subtle: #92929a;
+  --color-canvas-default: #1b1b1e;
+  --color-canvas-overlay: #1b1b1e;
+  --color-canvas-inset: #212125;
+  --color-canvas-subtle: #212125;
+  --color-border-default: #2b2b31;
+  --color-border-muted: #2b2b31;
+  --color-neutral-muted: rgb(226 226 224 / 10%);
+  --color-accent-fg: #e2e2e0;
+  --color-accent-emphasis: #e2e2e0;
+  --color-accent-muted: rgb(226 226 224 / 10%);
+  --color-accent-subtle: #212125;
+  --color-success-fg: #e2e2e0;
+  --color-attention-fg: #e2e2e0;
+  --color-attention-muted: rgb(226 226 224 / 10%);
+  --color-attention-subtle: #212125;
+  --color-danger-fg: #e2e2e0;
+  --color-danger-muted: rgb(226 226 224 / 10%);
+  --color-danger-subtle: #212125;
+  --color-primer-shadow-inset: none;
+  --color-scale-gray-1: #212125;
+  --color-scale-blue-1: #212125;
+  --color-social-reaction-bg-hover: var(--color-scale-gray-1);
+  --color-social-reaction-bg-reacted-hover: var(--color-scale-blue-1);
+}
+
+main .pagination-loader-container {
+  background-image: url("https://github.com/images/modules/pulls/progressive-disclosure-line_dark.svg");
+}
+
+main .gsc-loading-image {
+  background-image: url("https://github.githubassets.com/images/mona-loading-dark.gif");
+}
+
+/* Square corners and hairline structure to match the site. */
+main .btn,
+main .gsc-comment-box,
+main .gsc-comment > div,
+main .gsc-reply-box,
+main .gsc-reactions-button,
+main .gsc-social-reaction-summary-item,
+main .gsc-direct-reaction-button,
+main .color-box-border-info,
+main .gsc-comment-box-tabs,
+main .gsc-comment-box-textarea,
+main .gsc-comment-box-preview,
+main .rounded-md,
+main .rounded {
+  border-radius: 0 !important;
+}
+
+main .gsc-header,
+main .gsc-left-header,
+main .gsc-comments-count,
+main .gsc-comment-author,
+main time,
+main .btn {
+  font-family: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  letter-spacing: 0.02em;
+}

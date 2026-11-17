@@ -1,0 +1,197 @@
+---
+/**
+ * comments.exe — the thread at the bottom of every post, plus the inline
+ * highlight-to-comment tool (selection tip + quote_thread.exe drawer).
+ *
+ * provider "native" (site.config.json → comments.provider): our own
+ *   /api/comments; top-level comments and quote threads share one feed.
+ * provider "giscus": GitHub Discussions widget; quote threads still use
+ *   /api/comments and are listed above it.
+ */
+import { SITE } from '../site.config';
+
+interface Props {
+  post: string;
+  annotations: boolean;
+}
+
+const { post, annotations } = Astro.props;
+const native = SITE.comments.provider === 'native';
+const g = SITE.giscus;
+const giscusReady = !native && Boolean(g.repo && g.repoId && g.categoryId);
+
+// Custom monochrome giscus theme needs a public URL → production builds with a real `site`.
+const site = Astro.site;
+const useCustomTheme = import.meta.env.PROD && g.customTheme && !!site && site.hostname !== 'localhost';
+const themeLight = useCustomTheme ? new URL('/giscus/light.css', site).href : 'noborder_light';
+const themeDark = useCustomTheme ? new URL('/giscus/dark.css', site).href : 'noborder_dark';
+---
+
+<section
+  class="comments"
+  aria-labelledby="comments-label"
+  data-comment-system
+  data-post={post}
+  data-provider={native ? 'native' : 'giscus'}
+  data-annotations={annotations ? 'on' : 'off'}
+>
+  <h2 class="label section-label" id="comments-label"><span class="ink">[ Comments ]</span></h2>
+
+  <div class="win cm-win">
+    <div class="win-bar">
+      <span class="win-title">comments.exe</span>
+      <span class="win-ctl" aria-hidden="true"></span>
+    </div>
+
+    {
+      (native || annotations) && (
+        <div class="cm-section">
+          {!native && <p class="label cm-sub">quote threads</p>}
+          <p class="label cm-count" data-feed-count aria-live="polite">loading…</p>
+          <ol class="cm-feed" data-feed />
+          <p class="cm-empty" data-feed-empty hidden>
+            {native
+              ? annotations
+                ? '> no replies yet. write one below, or highlight any sentence above to reply to it.'
+                : '> no replies yet. be the first.'
+              : '> no quote threads yet. highlight any sentence above to start one.'}
+          </p>
+          <p class="cm-empty" data-offline hidden>
+            &gt; comments are read-only on this copy of the site (no comment server attached).
+          </p>
+        </div>
+      )
+    }
+
+    {
+      native && (
+        <form class="cm-form" data-comment-form>
+          <p class="label cm-sub">post a reply</p>
+          <label class="sr-only" for="cm-name">Name (optional)</label>
+          <input id="cm-name" name="name" type="text" maxlength="40" placeholder="name (optional, defaults to anon)" autocomplete="nickname" />
+          <label class="sr-only" for="cm-body">Comment</label>
+          <textarea id="cm-body" name="body" rows="4" maxlength="3000" placeholder="write a reply…" required />
+          <div class="hp" aria-hidden="true">
+            <label>Website <input name="website" type="text" tabindex="-1" autocomplete="off" /></label>
+          </div>
+          <div class="cm-actions">
+            <span class="cm-status label" data-status aria-live="polite" />
+            <button type="submit" class="cm-submit">[ post reply ]</button>
+          </div>
+        </form>
+      )
+    }
+
+    {
+      giscusReady && (
+        <div
+          class="giscus-mount"
+          data-giscus-mount
+          data-repo={g.repo}
+          data-repo-id={g.repoId}
+          data-category={g.category}
+          data-category-id={g.categoryId}
+          data-mapping={g.mapping}
+          data-reactions={g.reactionsEnabled ? '1' : '0'}
+          data-input-position={g.inputPosition}
+          data-lang={g.lang}
+          data-theme-light={themeLight}
+          data-theme-dark={themeDark}
+        >
+          <p class="label loading">loading github discussions…</p>
+        </div>
+      )
+    }
+    {
+      !native && !giscusReady && import.meta.env.DEV && (
+        <p class="cm-empty">
+          &gt; comments.provider is "giscus" but site.config.json has no giscus repo yet — see CUSTOMIZING.md.
+        </p>
+      )
+    }
+
+    <div class="win-status" aria-hidden="true">
+      <span>{native ? 'board // native' : 'board // github discussions'}</span>
+      <span>{annotations ? 'quote replies on' : 'quote replies off'}</span>
+    </div>
+  </div>
+</section>
+
+{
+  annotations && (
+    <>
+      <div class="anno-tip" data-anno-tip hidden>
+        <button type="button">[ &#9998; quote &amp; comment ]</button>
+      </div>
+
+    </>
+  )
+}
+
+<script>
+  import { onPage } from '../scripts/lifecycle';
+  import { initComments } from '../scripts/comments';
+  onPage((signal) => initComments(signal));
+</script>
+
+<script>
+  import { onPage } from '../scripts/lifecycle';
+
+  const GISCUS_ORIGIN = 'https://giscus.app';
+
+  onPage((signal) => {
+    const mount = document.querySelector<HTMLElement>('[data-giscus-mount]');
+    if (!mount) return;
+    const themeFor = (theme: string | undefined) =>
+      (theme === 'dark' ? mount.dataset.themeDark : mount.dataset.themeLight) ?? 'preferred_color_scheme';
+
+    const load = () => {
+      if (mount.dataset.loaded) return;
+      mount.dataset.loaded = 'true';
+      const d = mount.dataset;
+      const script = document.createElement('script');
+      script.src = `${GISCUS_ORIGIN}/client.js`;
+      script.async = true;
+      script.crossOrigin = 'anonymous';
+      const attrs: Record<string, string | undefined> = {
+        'data-repo': d.repo,
+        'data-repo-id': d.repoId,
+        'data-category': d.category,
+        'data-category-id': d.categoryId,
+        'data-mapping': d.mapping,
+        'data-strict': '0',
+        'data-reactions-enabled': d.reactions,
+        'data-emit-metadata': '0',
+        'data-input-position': d.inputPosition,
+        'data-theme': themeFor(document.documentElement.dataset.theme),
+        'data-lang': d.lang,
+        'data-loading': 'lazy',
+      };
+      for (const [key, value] of Object.entries(attrs)) if (value) script.setAttribute(key, value);
+      mount.querySelector('.loading')?.remove();
+      mount.appendChild(script);
+    };
+
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) {
+          io.disconnect();
+          load();
+        }
+      },
+      { rootMargin: '600px 0px' },
+    );
+    io.observe(mount);
+    signal.addEventListener('abort', () => io.disconnect());
+
+    document.addEventListener(
+      'themechange',
+      (event) => {
+        const theme = (event as CustomEvent<{ theme: string }>).detail.theme;
+        const frame = document.querySelector<HTMLIFrameElement>('iframe.giscus-frame');
+        frame?.contentWindow?.postMessage({ giscus: { setConfig: { theme: themeFor(theme) } } }, GISCUS_ORIGIN);
+      },
+      { signal },
+    );
+  });
+</script>

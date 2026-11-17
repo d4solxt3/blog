@@ -1,0 +1,117 @@
+{
+  "siteName": "my notebook",
+  "siteSubtitle": "slow, long notes on machine learning, interfaces and the quiet parts of building things.",
+  "authorName": "Your Name",
+  "authorHandle": "yourhandle",
+  "siteUrl": "",
+  "language": "en",
+  "frontpageImage": "/images/frontpage-art.png",
+  "invertFrontpageImageInDarkMode": true,
+  "defaultFont": "sans",
+  "accentBorders": true,
+  "newBadgeDays": 21,
+  "inlineAnnotations": true,
+  "footerText": "© {year} {siteName} // all rights reserved",
+  "intro": "hi, I write slow, long notes here — mostly machine learning & interpretability, sometimes type and interfaces. nothing polished. highlight any sentence to argue with it.",
+  "status": {
+    "mood": "tired but curious",
+    "thought": "is superposition just compression with extra steps?",
+    "updated": "2026-11-17 01:40"
+  },
+  "updates": [
+    {
+      "date": "2026-11-17",
+      "text": "added highlight comments"
+    },
+    {
+      "date": "2026-11-17",
+      "text": "new post: activation patching, slowly"
+    },
+    {
+      "date": "2026-11-09",
+      "text": "started a series on interpretability"
+    },
+    {
+      "date": "2026-10-28",
+      "text": "site is up :)"
+    }
+  ],
+  "notice": "best viewed at any width. drafts are messy on purpose. if a page looks broken, refresh it.",
+  "todo": [
+    {
+      "text": "finish the superposition post",
+      "done": false
+    },
+    {
+      "text": "reread toy models of superposition",
+      "done": false
+    },
+    {
+      "text": "add a guestbook?",
+      "done": false
+    },
+    {
+      "text": "set up highlight comments",
+      "done": true
+    }
+  ],
+  "profile": {
+    "avatar": "",
+    "status": "online",
+    "joined": "2026.10",
+    "currently": {
+      "into": "sparse autoencoders",
+      "reading": "the elements of typographic style",
+      "building": "this site, slowly"
+    },
+    "bio": [
+      "hi. this is a personal notebook kept in public: longer notes on what I am learning, mostly machine learning and interpretability, with detours into design and typography.",
+      "posts are written slowly and revised often. if something is wrong or unclear, tell me — every post has a reply box, and you can highlight any sentence to reply to it directly."
+    ],
+    "links": [
+      {
+        "label": "github",
+        "url": "https://github.com/"
+      },
+      {
+        "label": "email",
+        "url": "mailto:you@your-domain.net"
+      },
+      {
+        "label": "rss",
+        "url": "/rss.xml"
+      }
+    ],
+    "timezone": "UTC+0 (london)",
+    "interests": [
+      "interpretability",
+      "typography",
+      "old websites",
+      "long walks"
+    ],
+    "progress": [
+      {
+        "label": "superposition post",
+        "percent": 60
+      },
+      {
+        "label": "reading list (2026)",
+        "percent": 35
+      },
+      {
+        "label": "site redesign",
+        "percent": 90
+      }
+    ]
+  },
+  "comments": {
+    "provider": "native",
+    "giscus": {
+      "repo": "",
+      "repoId": "",
+      "category": "Comments",
+      "categoryId": "",
+      "useCustomTheme": true
+    }
+  }
+}

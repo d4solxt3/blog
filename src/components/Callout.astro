@@ -1,0 +1,35 @@
+---
+/**
+ * Callouts for MDX (no import needed):
+ *   <Callout label="Note">…</Callout>                dashed annotation box
+ *   <Callout variant="warning" label="Caveat">…</Callout>
+ *   <Callout variant="tldr">…</Callout>              dotted "... tl;dr ..." box
+ * In plain Markdown use > [!NOTE], > [!WARNING], > [!TLDR], > [!EPISTEMIC], > [!QUOTE].
+ */
+interface Props {
+  label?: string;
+  variant?: 'note' | 'tldr' | 'warning';
+}
+
+const { variant = 'note', label = variant === 'tldr' ? 'tl;dr' : 'Note' } = Astro.props;
+---
+
+{
+  variant === 'tldr' ? (
+    <aside class="note-box note-box--tldr" aria-label={label}>
+      <p class="lsl" aria-hidden="true">{label}</p>
+      <div class="note-body">
+        <slot />
+      </div>
+    </aside>
+  ) : (
+    <aside class:list={['callout', `callout--${variant}`]} aria-label={label}>
+      <p class="callout-label" aria-hidden="true">
+        {variant === 'warning' ? label : `[ ${label} ]`}
+      </p>
+      <div class="callout-body">
+        <slot />
+      </div>
+    </aside>
+  )
+}

@@ -1,0 +1,120 @@
+/* Monochrome Giscus theme (light). Served from /giscus/light.css. */
+main {
+  --color-prettylights-syntax-comment: #94949a;
+  --color-prettylights-syntax-constant: #3c3c41;
+  --color-prettylights-syntax-entity: #1a1a1c;
+  --color-prettylights-syntax-storage-modifier-import: #1a1a1c;
+  --color-prettylights-syntax-entity-tag: #1a1a1c;
+  --color-prettylights-syntax-keyword: #1a1a1c;
+  --color-prettylights-syntax-string: #606066;
+  --color-prettylights-syntax-variable: #3c3c41;
+  --color-prettylights-syntax-brackethighlighter-unmatched: #1a1a1c;
+  --color-prettylights-syntax-invalid-illegal-text: #f8f8f6;
+  --color-prettylights-syntax-invalid-illegal-bg: #1a1a1c;
+  --color-prettylights-syntax-carriage-return-text: #f8f8f6;
+  --color-prettylights-syntax-carriage-return-bg: #1a1a1c;
+  --color-prettylights-syntax-string-regexp: #3c3c41;
+  --color-prettylights-syntax-markup-list: #3c3c41;
+  --color-prettylights-syntax-markup-heading: #1a1a1c;
+  --color-prettylights-syntax-markup-italic: #1a1a1c;
+  --color-prettylights-syntax-markup-bold: #1a1a1c;
+  --color-prettylights-syntax-markup-deleted-text: #606066;
+  --color-prettylights-syntax-markup-deleted-bg: #efefec;
+  --color-prettylights-syntax-markup-inserted-text: #1a1a1c;
+  --color-prettylights-syntax-markup-inserted-bg: #efefec;
+  --color-prettylights-syntax-markup-changed-text: #1a1a1c;
+  --color-prettylights-syntax-markup-changed-bg: #efefec;
+  --color-prettylights-syntax-markup-ignored-text: #606066;
+  --color-prettylights-syntax-markup-ignored-bg: #efefec;
+  --color-prettylights-syntax-meta-diff-range: #3c3c41;
+  --color-prettylights-syntax-sublimelinter-gutter-mark: #d0d0cc;
+
+  --color-btn-text: #1a1a1c;
+  --color-btn-bg: #f8f8f6;
+  --color-btn-border: #d0d0cc;
+  --color-btn-shadow: none;
+  --color-btn-inset-shadow: none;
+  --color-btn-hover-bg: #efefec;
+  --color-btn-hover-border: #1a1a1c;
+  --color-btn-active-bg: #efefec;
+  --color-btn-active-border: #1a1a1c;
+  --color-btn-selected-bg: #efefec;
+  --color-btn-primary-text: #f8f8f6;
+  --color-btn-primary-bg: #1a1a1c;
+  --color-btn-primary-border: #1a1a1c;
+  --color-btn-primary-shadow: none;
+  --color-btn-primary-inset-shadow: none;
+  --color-btn-primary-hover-bg: #3c3c41;
+  --color-btn-primary-hover-border: #3c3c41;
+  --color-btn-primary-selected-bg: #3c3c41;
+  --color-btn-primary-selected-shadow: none;
+  --color-btn-primary-disabled-text: #f8f8f6;
+  --color-btn-primary-disabled-bg: #a4a4a9;
+  --color-btn-primary-disabled-border: #a4a4a9;
+  --color-action-list-item-default-hover-bg: #efefec;
+  --color-segmented-control-bg: #efefec;
+  --color-segmented-control-button-bg: #f8f8f6;
+  --color-segmented-control-button-selected-border: #1a1a1c;
+
+  --color-fg-default: #1a1a1c;
+  --color-fg-muted: #606066;
+  --color-fg-subtle: #606066;
+  --color-canvas-default: #f8f8f6;
+  --color-canvas-overlay: #f8f8f6;
+  --color-canvas-inset: #efefec;
+  --color-canvas-subtle: #efefec;
+  --color-border-default: #d0d0cc;
+  --color-border-muted: #d0d0cc;
+  --color-neutral-muted: rgb(26 26 28 / 8%);
+  --color-accent-fg: #1a1a1c;
+  --color-accent-emphasis: #1a1a1c;
+  --color-accent-muted: rgb(26 26 28 / 8%);
+  --color-accent-subtle: #efefec;
+  --color-success-fg: #1a1a1c;
+  --color-attention-fg: #1a1a1c;
+  --color-attention-muted: rgb(26 26 28 / 8%);
+  --color-attention-subtle: #efefec;
+  --color-danger-fg: #1a1a1c;
+  --color-danger-muted: rgb(26 26 28 / 8%);
+  --color-danger-subtle: #efefec;
+  --color-primer-shadow-inset: none;
+  --color-scale-gray-1: #efefec;
+  --color-scale-blue-1: #efefec;
+  --color-social-reaction-bg-hover: var(--color-scale-gray-1);
+  --color-social-reaction-bg-reacted-hover: var(--color-scale-blue-1);
+}
+
+main .pagination-loader-container {
+  background-image: url("https://github.com/images/modules/pulls/progressive-disclosure-line.svg");
+}
+
+main .gsc-loading-image {
+  background-image: url("https://github.githubassets.com/images/mona-loading-default.gif");
+}
+
+/* Square corners and hairline structure to match the site. */
+main .btn,
+main .gsc-comment-box,
+main .gsc-comment > div,
+main .gsc-reply-box,
+main .gsc-reactions-button,
+main .gsc-social-reaction-summary-item,
+main .gsc-direct-reaction-button,
+main .color-box-border-info,
+main .gsc-comment-box-tabs,
+main .gsc-comment-box-textarea,
+main .gsc-comment-box-preview,
+main .rounded-md,
+main .rounded {
+  border-radius: 0 !important;
+}
+
+main .gsc-header,
+main .gsc-left-header,
+main .gsc-comments-count,
+main .gsc-comment-author,
+main time,
+main .btn {
+  font-family: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  letter-spacing: 0.02em;
+}

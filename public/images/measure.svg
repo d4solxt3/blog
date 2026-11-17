@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 220" font-family="ui-monospace, Menlo, Consolas, monospace" font-size="12">
+  <g fill="none" stroke="#8a8a90" stroke-width="1">
+    <path d="M40 40h200M40 52h196M40 64h204M40 76h150" />
+    <path d="M40 110h300M40 122h296M40 134h304M40 146h220" />
+    <path d="M40 180h560M40 192h552M40 204h330" />
+    <path d="M352 104v48M348 104h8M348 152h8" />
+  </g>
+  <g fill="#8a8a90">
+    <text x="40" y="26">45ch · too short, choppy</text>
+    <text x="40" y="100">65ch · comfortable</text>
+    <text x="40" y="170">110ch · the eye loses the return sweep</text>
+  </g>
+</svg>

@@ -1,0 +1,121 @@
+---
+/** LessWrong-style sequence box: "Part X of Y in <series>" with prev/next. */
+import { postUrl, pad, type SeriesInfo } from '../utils/posts';
+
+interface Props {
+  series: SeriesInfo;
+  position: 'top' | 'bottom';
+}
+
+const { series, position } = Astro.props;
+const prev = series.parts[series.index - 2];
+const next = series.parts[series.index];
+---
+
+<nav class:list={['dot-box', 'series', `series--${position}`]} aria-label={`Series: ${series.name}`}>
+  <p class="lsl">series</p>
+  <div class="series-body">
+    <p class="part">
+      Part <strong>{series.index}</strong> of {series.total} in <strong>{series.name}</strong>
+    </p>
+    {
+      position === 'bottom' && (
+        <ol class="parts">
+          {series.parts.map((p, i) => (
+            <li class:list={{ current: i + 1 === series.index }}>
+              <span class="n">{pad(i + 1)}.</span>
+              {i + 1 === series.index ? (
+                <span aria-current="page">{p.data.title}</span>
+              ) : (
+                <a href={postUrl(p)}>{p.data.title}</a>
+              )}
+            </li>
+          ))}
+        </ol>
+      )
+    }
+    <div class="pn">
+      {prev ? <a href={postUrl(prev)} rel="prev">&larr; {prev.data.title}</a> : <span class="none">&larr; start of series</span>}
+      {next ? <a href={postUrl(next)} rel="next">{next.data.title} &rarr;</a> : <span class="none">end of series &rarr;</span>}
+    </div>
+  </div>
+</nav>
+
+<style>
+  .series {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+  }
+
+  .series--top {
+    margin-bottom: 2rem;
+  }
+
+  .series--bottom {
+    margin-top: 3rem;
+  }
+
+  .series-body {
+    padding: 0;
+  }
+
+  .part {
+    margin: 0;
+    color: var(--muted);
+  }
+
+  .part strong {
+    color: var(--ink);
+  }
+
+  .parts {
+    margin: 0.7rem 0 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .parts li {
+    display: flex;
+    gap: 0.6rem;
+    padding: 0.25rem 0;
+    border-top: 1px dotted var(--rule);
+  }
+
+  .parts .current {
+    font-weight: 700;
+  }
+
+  .n {
+    color: var(--muted);
+  }
+
+  .pn {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-top: 0.7rem;
+    padding-top: 0.55rem;
+    border-top: 1px dotted var(--muted);
+  }
+
+  .pn a:last-child,
+  .pn .none:last-child {
+    text-align: right;
+  }
+
+  a {
+    color: var(--ink);
+    text-decoration: underline;
+    text-decoration-color: var(--rule);
+    text-underline-offset: 0.3em;
+    transition: text-decoration-color var(--fast) var(--ease);
+  }
+
+  a:hover {
+    text-decoration-color: var(--ink);
+  }
+
+  .none {
+    color: var(--faint);
+  }
+</style>

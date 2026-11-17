@@ -1,0 +1,843 @@
+/* ==========================================================================
+   Prose — long-form reading styles for rendered Markdown / MDX.
+   The reading column stays calm: the technical chrome lives around it.
+   ========================================================================== */
+
+.prose {
+  --flow: 1.3em;
+  max-width: var(--measure);
+  font-family: var(--font-read);
+  font-size: var(--read-size);
+  font-weight: var(--prose-weight);
+  line-height: 1.7;
+  color: var(--ink);
+  counter-reset: h2 h3;
+  hanging-punctuation: first;
+  font-variant-ligatures: common-ligatures;
+  overflow-wrap: break-word;
+}
+
+.prose > * {
+  margin-block: 0;
+}
+
+.prose > * + * {
+  margin-top: var(--flow);
+}
+
+.prose p {
+  text-wrap: pretty;
+}
+
+.prose strong {
+  font-weight: 650;
+}
+
+/* ---- Headings --------------------------------------------------------- */
+
+.prose h2,
+.prose h3,
+.prose h4 {
+  position: relative;
+  color: var(--ink);
+  text-wrap: balance;
+  scroll-margin-top: 2rem;
+}
+
+/* h2: section break — dashed rule, index number, generous space above. */
+.prose h2:not(.sr-only) {
+  counter-increment: h2;
+  counter-reset: h3;
+  margin-top: 3em;
+  padding-top: 0.9rem;
+  border-top: 1px dotted var(--muted);
+  font-family: var(--font-head);
+  font-size: 1.25rem;
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: -0.014em;
+}
+
+.prose h2:not(.sr-only)::before {
+  content: '\00a7\2009' counter(h2, decimal-leading-zero);
+  display: block;
+  margin-bottom: 0.85rem;
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: 0.14em;
+  color: var(--muted);
+}
+
+/* Solid ink tick anchoring the dashed rule at the top-left. */
+.prose h2:not(.sr-only)::after {
+  content: '';
+  position: absolute;
+  top: -1px;
+  left: 0;
+  width: 2.25rem;
+  height: 1px;
+  background: var(--ink);
+}
+
+/* h3: subsection — inline index, tighter, heavier. */
+.prose h3 {
+  counter-increment: h3;
+  margin-top: 2.2em;
+  font-family: var(--font-head);
+  font-size: 1.0625rem;
+  font-weight: 600;
+  line-height: 1.35;
+  letter-spacing: -0.008em;
+}
+
+.prose h3::before {
+  content: counter(h2, decimal-leading-zero) '.' counter(h3);
+  display: inline-block;
+  min-width: 3.4em;
+  margin-right: 0.35em;
+  font-family: var(--font-mono);
+  font-size: 0.56em;
+  font-weight: 450;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  vertical-align: 0.18em;
+}
+
+.prose h4 {
+  margin-top: 2em;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.prose h2 + *,
+.prose h3 + *,
+.prose h4 + * {
+  margin-top: 0.75em;
+}
+
+.heading-anchor {
+  margin-left: 0.4em;
+  font-family: var(--font-mono);
+  font-size: 0.6em;
+  font-weight: 400;
+  color: var(--faint);
+  text-decoration: none;
+  opacity: 0;
+  transition:
+    opacity var(--fast) var(--ease),
+    color var(--fast) var(--ease);
+}
+
+.heading-anchor::before {
+  content: '#';
+}
+
+.prose :is(h2, h3):hover .heading-anchor {
+  opacity: 1;
+}
+
+.heading-anchor:hover {
+  color: var(--ink);
+}
+
+/* ---- Links -------------------------------------------------------------- */
+
+.prose a {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.22em;
+  text-decoration-color: var(--faint);
+  transition: text-decoration-color var(--fast) var(--ease);
+}
+
+.prose a:hover {
+  text-decoration-color: var(--ink);
+}
+
+.prose a[href^='http']:not(.heading-anchor)::after {
+  content: '\2197';
+  margin-left: 0.12em;
+  font-family: var(--font-mono);
+  font-size: 0.65em;
+  vertical-align: 0.35em;
+  color: var(--muted);
+}
+
+/* ---- Lists -------------------------------------------------------------- */
+
+.prose ul,
+.prose ol {
+  padding-left: 1.6em;
+}
+
+.prose li + li,
+.prose li > ul,
+.prose li > ol {
+  margin-top: 0.45em;
+}
+
+.prose li > p {
+  margin: 0;
+}
+
+.prose ul > li::marker {
+  content: '\2013  ';
+  color: var(--muted);
+}
+
+.prose ol > li::marker {
+  content: counter(list-item, decimal-leading-zero) '  ';
+  font-family: var(--font-mono);
+  font-size: 0.72em;
+  color: var(--muted);
+}
+
+/* ---- Quotes, rules, misc ------------------------------------------------ */
+
+.prose blockquote {
+  margin-inline: 0;
+  padding: 0.1em 0 0.1em 1.4em;
+  border-left: 1px solid var(--line);
+  font-style: italic;
+  color: var(--ink-2);
+}
+
+.prose blockquote > * + * {
+  margin-top: 0.8em;
+}
+
+.prose hr {
+  position: relative;
+  height: 0;
+  margin-block: 3.2em;
+  border: 0;
+  border-top: 1px dashed var(--rule);
+  overflow: visible;
+}
+
+.prose hr::after {
+  content: '+';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  padding: 0 0.6em;
+  transform: translate(-50%, -55%);
+  background: var(--surface);
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  line-height: 1;
+  color: var(--muted);
+}
+
+.prose kbd {
+  padding: 0.05em 0.4em;
+  border: 1px solid var(--rule);
+  border-bottom-width: 2px;
+  font-family: var(--font-mono);
+  font-size: 0.78em;
+}
+
+.prose mark {
+  background: var(--ink);
+  color: var(--surface);
+  padding: 0 0.15em;
+}
+
+.prose figure {
+  margin-inline: 0;
+}
+
+.prose figcaption {
+  margin-top: 0.75rem;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
+/* ---- Code --------------------------------------------------------------- */
+
+.prose :not(pre) > code {
+  padding: 0.08em 0.34em;
+  border: 1px solid var(--rule);
+  background: var(--wash);
+  font-family: var(--font-mono);
+  font-size: 0.8em;
+  font-weight: 400;
+  overflow-wrap: anywhere;
+}
+
+/* Show code exactly as typed: no "--" or "->" ligatures. */
+.prose code,
+.prose pre {
+  font-variant-ligatures: none;
+}
+
+/* Grayscale syntax palette for the shiki css-variables theme. */
+:root {
+  --shiki-foreground: #18181a;
+  --shiki-background: transparent;
+  --shiki-token-keyword: #18181a;
+  --shiki-token-constant: #3c3c41;
+  --shiki-token-string: #5c5c62;
+  --shiki-token-string-expression: #5c5c62;
+  --shiki-token-comment: #94949a;
+  --shiki-token-function: #18181a;
+  --shiki-token-parameter: #3c3c41;
+  --shiki-token-punctuation: #85858b;
+  --shiki-token-link: #18181a;
+  --shiki-token-inserted: #18181a;
+  --shiki-token-deleted: #85858b;
+  --shiki-token-changed: #3c3c41;
+}
+
+:root[data-theme='dark'] {
+  --shiki-foreground: #e4e4e2;
+  --shiki-token-keyword: #f0f0ee;
+  --shiki-token-constant: #c9c9c7;
+  --shiki-token-string: #a6a6ad;
+  --shiki-token-string-expression: #a6a6ad;
+  --shiki-token-comment: #6c6c74;
+  --shiki-token-function: #f0f0ee;
+  --shiki-token-parameter: #c9c9c7;
+  --shiki-token-punctuation: #7c7c84;
+  --shiki-token-link: #f0f0ee;
+  --shiki-token-inserted: #f0f0ee;
+  --shiki-token-deleted: #7c7c84;
+  --shiki-token-changed: #c9c9c7;
+}
+
+/* .code-frame is added by the shiki transformer in astro.config.mjs: the frame
+   holds the border + label and never scrolls; only the <pre> inside does. */
+.prose .code-frame {
+  margin-block: 2em;
+  border: 1px solid var(--rule);
+  background: var(--wash);
+}
+
+.prose .code-label {
+  padding: 0.4rem 1.25rem;
+  border-bottom: 1px dashed var(--rule);
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.prose pre {
+  margin: 0;
+  padding: 1rem 1.25rem 1.15rem;
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  font-weight: 400;
+  line-height: 1.7;
+  tab-size: 2;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.prose pre code {
+  font-family: inherit;
+}
+
+/* ---- Tables ------------------------------------------------------------- */
+
+.prose table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875em;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.5;
+}
+
+.prose th {
+  padding: 0.55em 0.9em 0.55em 0;
+  border-bottom: 1px solid var(--line);
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-align: left;
+  text-transform: uppercase;
+  color: var(--muted);
+  vertical-align: bottom;
+}
+
+.prose td {
+  padding: 0.65em 0.9em 0.65em 0;
+  border-bottom: 1px dashed var(--rule);
+  vertical-align: top;
+}
+
+@media (max-width: 640px) {
+  .prose table {
+    display: block;
+    overflow-x: auto;
+  }
+}
+
+/* ---- Details / deep-dives (plain <details> in .md and <Details> in MDX) - */
+
+.prose details {
+  border: 1px dotted var(--muted);
+  background: var(--surface);
+}
+
+.prose details > summary {
+  position: relative;
+  display: block;
+  padding: 0.65rem 0.9rem 0.65rem 2.6rem;
+  cursor: pointer;
+  list-style: none;
+  font-family: var(--font-head);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--ink);
+}
+
+.prose details > summary::-webkit-details-marker {
+  display: none;
+}
+
+.prose details > summary::before {
+  content: '[+]';
+  position: absolute;
+  left: 0.8rem;
+  top: 0.78rem;
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  font-weight: 400;
+  color: var(--muted);
+  transition: color var(--fast) var(--ease);
+}
+
+.prose details > summary:hover::before {
+  color: var(--ink);
+}
+
+.prose details[open] > summary::before {
+  content: '[−]';
+}
+
+.prose details[open] > summary {
+  border-bottom: 1px dotted var(--rule);
+}
+
+.prose details > :not(summary) {
+  margin-inline: 0.95rem;
+}
+
+.prose details > summary + * {
+  margin-top: 0.9rem;
+}
+
+.prose details > :last-child:not(summary) {
+  margin-bottom: 1rem;
+}
+
+.prose details > * + *:not(summary) {
+  margin-top: 0.9em;
+}
+
+.prose details .code-frame {
+  margin-block: 1.1em;
+}
+
+.prose .dd-label {
+  display: block;
+  margin-bottom: 0.15rem;
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  font-weight: 400;
+  text-transform: lowercase;
+  color: var(--muted);
+}
+
+.prose .dd-label::before {
+  content: '// ';
+  color: var(--faint);
+}
+
+/* ---- Footnotes ---------------------------------------------------------- */
+
+.prose [data-footnote-ref] {
+  font-family: var(--font-mono);
+  font-size: 0.68em;
+  font-weight: 450;
+  text-decoration: none;
+  color: var(--muted);
+  padding-inline: 0.1em;
+  transition: color var(--fast) var(--ease);
+}
+
+.prose [data-footnote-ref]::before {
+  content: '[';
+}
+
+.prose [data-footnote-ref]::after {
+  content: ']';
+}
+
+.prose [data-footnote-ref]:hover {
+  color: var(--ink);
+}
+
+.prose sup {
+  line-height: 0;
+}
+
+.prose .footnotes {
+  margin-top: 4em;
+  padding-top: 1.1rem;
+  border-top: 1px dashed var(--rule);
+  font-size: 0.86em;
+  line-height: 1.6;
+  color: var(--ink-2);
+}
+
+.prose .footnotes::before {
+  content: 'Notes';
+  display: block;
+  margin-bottom: 1rem;
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.prose .footnotes ol {
+  padding-left: 2.2em;
+}
+
+.prose .footnotes li {
+  scroll-margin-top: 2rem;
+}
+
+.prose .footnotes li:target {
+  outline: 1px solid var(--line);
+  outline-offset: 0.5em;
+}
+
+.prose [data-footnote-backref] {
+  margin-left: 0.3em;
+  font-family: var(--font-mono);
+  font-size: 0.8em;
+  text-decoration: none;
+  color: var(--muted);
+}
+
+.prose [data-footnote-backref]:hover {
+  color: var(--ink);
+}
+
+.prose [id^='user-content-fnref']:target {
+  outline: 1px solid var(--line);
+  outline-offset: 2px;
+}
+
+/* ---- Callouts ----------------------------------------------------------- */
+
+.prose > .win,
+.prose > .callout {
+  margin-block: 2.4em;
+}
+
+.prose > :first-child:is(.win, .callout) {
+  margin-top: 0.25rem;
+}
+
+.win-body.callout-body,
+.callout-body {
+  font-size: 0.94em;
+  line-height: 1.65;
+}
+
+.callout-body > * {
+  margin: 0;
+}
+
+.callout-body > * + * {
+  margin-top: 0.75em;
+}
+
+.callout-body ul {
+  padding-left: 1.3em;
+}
+
+/* Note: label set into a dashed border (technical drawing annotation). */
+.callout {
+  position: relative;
+  padding: 1.55rem 1.5rem 1.35rem;
+  border: 1px dashed var(--line);
+}
+
+.callout-label {
+  position: absolute;
+  top: 0;
+  left: 1.1rem;
+  margin: 0;
+  padding: 0 0.5rem;
+  transform: translateY(-50%);
+  background: var(--surface);
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink);
+}
+
+/* Warning: inverted tab with ● ● ● (specimen-sheet style). */
+.callout--warning {
+  border-style: solid;
+}
+
+.callout--warning .callout-label {
+  display: flex;
+  gap: 0.8rem;
+  padding: 0.35rem 0.6rem;
+  background: var(--ink);
+  color: var(--surface);
+}
+
+.callout--warning .callout-label::after {
+  content: '\25CF \25CF \25CF';
+  letter-spacing: 0.1em;
+}
+
+/* ---- Dotted note boxes: TL;DR + epistemic status ----------------------- */
+
+.note-box {
+  padding: 0.7rem 0.9rem 0.8rem;
+  border: 1px dotted var(--muted);
+  background: var(--surface);
+}
+
+.prose > .note-box {
+  margin-block: 2em;
+}
+
+.prose > .note-box:first-child {
+  margin-top: 0.25rem;
+}
+
+.note-box .lsl {
+  margin-bottom: 0.4rem;
+}
+
+.note-box .note-body {
+  font-size: 0.95em;
+  line-height: 1.6;
+}
+
+.note-box .note-body > * {
+  margin: 0;
+}
+
+.note-box .note-body > * + * {
+  margin-top: 0.6em;
+}
+
+.note-box .note-body ul {
+  padding-left: 1.2em;
+}
+
+.note-box--epistemic .note-body {
+  font-style: italic;
+  color: var(--ink-2);
+}
+
+/* ---- Pull-quote (> [!QUOTE] Attribution) -------------------------------- */
+
+.prose .pullquote {
+  margin-block: 2.6em;
+  padding: 1.2rem 0;
+  border-block: 1px solid var(--line);
+}
+
+.prose .pullquote blockquote {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  font-size: 1.32em;
+  font-style: italic;
+  line-height: 1.4;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+
+.prose .pullquote blockquote > * {
+  margin: 0;
+}
+
+.prose .pullquote figcaption {
+  margin-top: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 0.6875rem;
+}
+
+/* ---- Figures (![caption](src)) ------------------------------------------ */
+
+.prose .figure {
+  margin-block: 2.2em;
+}
+
+.prose .figure img {
+  width: 100%;
+  border: 1px solid var(--rule);
+  background: var(--surface);
+}
+
+.prose .figure figcaption::before {
+  content: 'fig. ';
+  color: var(--ink);
+}
+
+/* ---- Wiki-links ([[slug]]) ---------------------------------------------- */
+
+.prose a.wikilink {
+  text-decoration-style: dotted;
+  text-decoration-color: var(--muted);
+}
+
+.prose a.wikilink::before {
+  content: '[[';
+  font-family: var(--font-mono);
+  font-size: 0.72em;
+  color: var(--faint);
+}
+
+.prose a.wikilink::after {
+  content: ']]';
+  font-family: var(--font-mono);
+  font-size: 0.72em;
+  color: var(--faint);
+}
+
+.prose .wikilink-missing {
+  font-style: normal;
+  text-decoration: line-through;
+  text-decoration-color: var(--muted);
+  color: var(--muted);
+}
+
+/* ---- Maths (KaTeX) ------------------------------------------------------- */
+
+.prose .katex {
+  font-size: 1.05em;
+}
+
+.prose .katex-display {
+  margin: 1.6em 0;
+  padding: 0.4em 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+}
+
+/* ---- Copy button in code frames ------------------------------------------ */
+
+.prose .code-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.prose .copy-code {
+  padding: 0 0.3rem;
+  border: 1px solid transparent;
+  background: none;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  color: var(--muted);
+  cursor: pointer;
+  transition:
+    color var(--fast) var(--ease),
+    border-color var(--fast) var(--ease);
+}
+
+.prose .copy-code:hover {
+  color: var(--ink);
+  border-color: var(--rule);
+}
+
+/* ---- Inline annotations (highlight-to-comment) --------------------------- */
+
+.prose mark.anno {
+  padding: 0;
+  background: rgb(26 26 28 / 0.08);
+  color: inherit;
+  border-bottom: 1px dotted var(--muted);
+  cursor: pointer;
+  transition: background-color var(--fast) var(--ease);
+}
+
+:root[data-theme='dark'] .prose mark.anno {
+  background: rgb(226 226 224 / 0.1);
+}
+
+.prose mark.anno:hover,
+.prose mark.anno.is-active {
+  background: rgb(26 26 28 / 0.14);
+}
+
+:root[data-theme='dark'] .prose mark.anno:hover,
+:root[data-theme='dark'] .prose mark.anno.is-active {
+  background: rgb(226 226 224 / 0.16);
+}
+
+.prose .anno-badge {
+  margin-left: 0.1em;
+  padding: 0 0.15em;
+  border: 0;
+  background: none;
+  font-family: var(--font-mono);
+  font-size: 0.62em;
+  font-weight: 600;
+  line-height: 1;
+  vertical-align: super;
+  color: var(--muted);
+  cursor: pointer;
+  transition: color var(--fast) var(--ease);
+}
+
+.prose .anno-badge:hover {
+  color: var(--ink);
+}
+
+@keyframes anno-pulse {
+  0%,
+  100% {
+    outline-color: transparent;
+  }
+  30%,
+  70% {
+    outline-color: var(--ink);
+  }
+}
+
+.prose mark.anno.is-pulse {
+  outline: 1px solid transparent;
+  outline-offset: 3px;
+  animation: anno-pulse 1.4s var(--ease) 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .prose mark.anno.is-pulse {
+    animation: none;
+    outline-color: var(--ink);
+  }
+}

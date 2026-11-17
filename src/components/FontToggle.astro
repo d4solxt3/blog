@@ -1,0 +1,79 @@
+---
+/** [Aa: Sans | Serif | Mono] — reader's font choice, remembered across posts. */
+---
+
+<div class="aa" role="group" aria-label="Reading font">
+  <span class="aa-label" aria-hidden="true">Aa:</span>
+  <button type="button" data-font-choice="sans" aria-pressed="false">Sans</button>
+  <button type="button" data-font-choice="serif" aria-pressed="false">Serif</button>
+  <button type="button" data-font-choice="mono" aria-pressed="false">Mono</button>
+</div>
+
+<style>
+  .aa {
+    display: inline-flex;
+    align-items: stretch;
+    border: 1px solid var(--rule);
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+  }
+
+  .aa-label {
+    display: grid;
+    place-items: center;
+    padding: 0 0.45rem;
+    border-right: 1px solid var(--rule);
+    font-weight: 700;
+    color: var(--muted);
+  }
+
+  button {
+    padding: 0.25rem 0.5rem;
+    border: 0;
+    background: none;
+    font: inherit;
+    color: var(--muted);
+    cursor: pointer;
+    transition:
+      color var(--fast) var(--ease),
+      background-color var(--fast) var(--ease);
+  }
+
+  button + button {
+    border-left: 1px solid var(--rule);
+  }
+
+  button:hover {
+    color: var(--ink);
+  }
+
+  button[aria-pressed='true'] {
+    background: var(--ink);
+    color: var(--surface);
+  }
+</style>
+
+<script>
+  import { onPage } from '../scripts/lifecycle';
+
+  onPage((signal) => {
+    const root = document.documentElement;
+    const buttons = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-font-choice]'));
+    const sync = () =>
+      buttons.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.fontChoice === root.dataset.font)));
+    buttons.forEach((b) =>
+      b.addEventListener(
+        'click',
+        () => {
+          root.dataset.font = b.dataset.fontChoice!;
+          try {
+            localStorage.setItem('reader-font', b.dataset.fontChoice!);
+          } catch {}
+          sync();
+        },
+        { signal },
+      ),
+    );
+    sync();
+  });
+</script>

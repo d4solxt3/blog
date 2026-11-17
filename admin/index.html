@@ -1,0 +1,391 @@
+<!doctype html>
+<html lang="en" data-font="sans">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <title>admin.exe — local editor</title>
+    <script>
+      (function () {
+        var t = null;
+        try { t = localStorage.getItem('theme'); } catch (e) {}
+        if (t !== 'light' && t !== 'dark') t = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        document.documentElement.setAttribute('data-theme', t);
+      })();
+    </script>
+    <link rel="stylesheet" href="/node_modules/@fontsource/ibm-plex-mono/latin-400.css" />
+    <link rel="stylesheet" href="/node_modules/@fontsource/ibm-plex-mono/latin-600.css" />
+    <link rel="stylesheet" href="/node_modules/@fontsource-variable/ibm-plex-sans/wght.css" />
+    <link rel="stylesheet" href="/src/styles/global.css" />
+    <style>
+      :root { --frame-max: 1180px; }
+      main { padding: 1.25rem clamp(12px, 2.4vw, 20px) 2rem; }
+      .tabs { display: flex; gap: 0.3rem; }
+      .tab { padding: 0.25rem 0.5rem; border: 1px solid transparent; background: none; font: 600 0.75rem var(--font-mono); color: var(--muted); cursor: pointer; }
+      .tab:hover { color: var(--ink); border-color: var(--rule); }
+      .tab[aria-selected='true'] { background: var(--ink); color: var(--surface); }
+      .topbar a { font: 0.75rem var(--font-mono); color: var(--ink); text-underline-offset: 0.3em; }
+      .intro { margin: 0 0 1rem; font: 0.75rem/1.6 var(--font-mono); color: var(--muted); }
+
+      /* settings */
+      .settings { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 330px), 1fr)); gap: 1rem; align-items: start; }
+      .win-body.fields { display: grid; gap: 0.75rem; }
+      .field { display: grid; gap: 0.3rem; }
+      .field > span { font: 600 0.6875rem var(--font-mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+      .field small { font: 0.6875rem/1.5 var(--font-mono); color: var(--faint); }
+      .field input[type='text'], .field input[type='number'], .field input[type='url'], .field select, .field textarea {
+        width: 100%; padding: 0.45rem 0.55rem; border: 1px solid var(--rule); border-radius: 0; background: var(--surface);
+        font: 0.75rem/1.55 var(--font-mono); color: var(--ink);
+      }
+      .field textarea { resize: vertical; min-height: 4.5rem; }
+      .field :focus { outline: none; border-color: var(--ink); }
+      .check { display: flex; gap: 0.5rem; align-items: flex-start; font: 0.75rem/1.5 var(--font-mono); cursor: pointer; }
+      .check input { margin-top: 0.2rem; accent-color: var(--ink); }
+      .art-row { display: grid; grid-template-columns: 72px 1fr; gap: 0.6rem; align-items: center; }
+      .art-row img { width: 72px; height: 72px; object-fit: contain; border: 1px solid var(--rule); background: var(--surface); mix-blend-mode: multiply; }
+      :root[data-theme='dark'] .art-row img { filter: invert(1) brightness(0.886); mix-blend-mode: screen; }
+      .savebar { position: sticky; bottom: 0; display: flex; justify-content: space-between; align-items: center; gap: 1rem; margin-top: 1rem; padding: 0.6rem 0.75rem; border: 1px solid var(--line); background: var(--bar); font: 0.75rem var(--font-mono); }
+      .btn { padding: 0.35rem 0.75rem; border: 1px solid var(--line); background: var(--ink); color: var(--surface); font: 700 0.75rem var(--font-mono); letter-spacing: 0.04em; text-transform: uppercase; cursor: pointer; }
+      .btn.ghost { background: transparent; color: var(--ink); }
+      .btn:disabled { opacity: 0.5; cursor: progress; }
+
+      /* posts */
+      .posts { display: grid; grid-template-columns: 220px minmax(0, 1fr) minmax(0, 1fr); gap: 1rem; min-height: 70vh; }
+      .post-list { margin: 0; padding: 0; list-style: none; }
+      .post-list button { display: block; width: 100%; padding: 0.5rem 0.6rem; border: 0; border-top: 1px dashed var(--rule); background: none; text-align: left; font: 0.75rem/1.45 var(--font-mono); color: var(--ink); cursor: pointer; }
+      .post-list li:first-child button { border-top: 0; }
+      .post-list button:hover { background: var(--wash); }
+      .post-list button[aria-current='true'] { background: var(--ink); color: var(--surface); }
+      .post-list small { display: block; opacity: 0.7; }
+      .editor-win, .preview-win { display: flex; flex-direction: column; min-height: 70vh; }
+      .editor-tools { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; justify-content: space-between; padding: 0.4rem 0.6rem; border-bottom: 1px solid var(--rule); font: 0.6875rem var(--font-mono); color: var(--muted); }
+      #editor { flex: 1; width: 100%; min-height: 60vh; padding: 0.8rem; border: 0; resize: none; background: var(--surface); font: 0.8125rem/1.7 var(--font-mono); color: var(--ink); tab-size: 2; }
+      #editor:focus { outline: none; }
+      #preview { flex: 1; width: 100%; min-height: 60vh; border: 0; background: var(--surface); }
+      .empty-state { padding: 1rem; font: 0.75rem/1.6 var(--font-mono); color: var(--muted); }
+      .dirty { color: var(--ink); font-weight: 700; }
+      @media (max-width: 1000px) { .posts { grid-template-columns: 1fr; } .editor-win, .preview-win { min-height: 50vh; } }
+    </style>
+  </head>
+  <body>
+    <div class="shell">
+      <div class="viewport">
+        <div class="titlebar" aria-hidden="true">
+          <span class="lights"><i></i><i></i><i></i></span>
+          <span class="title">admin.exe — local editor (only works on this computer)</span>
+          <span class="pill"></span>
+        </div>
+        <header class="topbar" style="height: 40px; display: flex; align-items: center; justify-content: space-between; padding: 0 16px; border-bottom: 1px solid var(--rule)">
+          <div class="tabs" role="tablist">
+            <button class="tab" role="tab" aria-selected="true" data-tab="settings">[site settings]</button>
+            <button class="tab" role="tab" aria-selected="false" data-tab="posts">[posts]</button>
+          </div>
+          <a href="/" target="_blank" rel="noopener">view site ↗</a>
+        </header>
+
+        <main>
+          <!-- ============================ SITE SETTINGS ============================ -->
+          <section id="tab-settings" role="tabpanel">
+            <p class="intro">&gt; everything here is saved to <b>site.config.json</b>. press save, and any open tab of the site reloads by itself.</p>
+            <form id="settings" class="settings" autocomplete="off">
+              <section class="win"><div class="win-bar"><span class="win-title">identity.cfg</span><span class="win-ctl"></span></div>
+                <div class="win-body fields">
+                  <label class="field"><span>Site name</span><input type="text" data-key="siteName" placeholder="my notebook" /><small>the wordmark, the window bar, browser tabs and the footer all use this</small></label>
+                  <label class="field"><span>Site subtitle</span><textarea data-key="siteSubtitle" rows="2"></textarea><small>one line about the site, for search engines and RSS readers</small></label>
+                  <label class="field"><span>Your name</span><input type="text" data-key="authorName" /></label>
+                  <label class="field"><span>Your handle</span><input type="text" data-key="authorHandle" placeholder="yourhandle" /><small>shown as @handle on the about page</small></label>
+                  <label class="field"><span>Website address</span><input type="url" data-key="siteUrl" placeholder="https://my-notebook.net" /><small>leave blank until you have a domain</small></label>
+                  <label class="field"><span>Footer text</span><input type="text" data-key="footerText" /><small>{year}, {siteName} and {authorName} fill themselves in</small></label>
+                </div>
+              </section>
+
+              <section class="win"><div class="win-bar"><span class="win-title">look.cfg</span><span class="win-ctl"></span></div>
+                <div class="win-body fields">
+                  <div class="field"><span>Front-page image</span>
+                    <div class="art-row"><img id="art-thumb" alt="" /><div class="field">
+                      <input type="text" data-key="frontpageImage" />
+                      <input type="file" id="art-file" accept="image/png,image/jpeg,image/gif,image/webp,image/svg+xml" />
+                    </div></div>
+                    <small>pick a file to upload it into public/images and use it</small>
+                  </div>
+                  <label class="check"><input type="checkbox" data-key="invertFrontpageImageInDarkMode" /> invert the image in dark mode (for black-on-white drawings)</label>
+                  <label class="field"><span>Default reading font</span>
+                    <select data-key="defaultFont"><option value="sans">sans (IBM Plex Sans)</option><option value="serif">serif (Newsreader)</option><option value="mono">mono (JetBrains Mono)</option></select>
+                    <small>posts can override with font: in their frontmatter; readers can switch with Aa</small>
+                  </label>
+                  <label class="check"><input type="checkbox" data-key="accentBorders" /> crisp dark borders (off = softer grey)</label>
+                  <label class="field"><span>Days a post counts as [NEW]</span><input type="number" min="0" max="365" data-key="newBadgeDays" /></label>
+                </div>
+              </section>
+
+              <section class="win"><div class="win-bar"><span class="win-title">comments.cfg</span><span class="win-ctl"></span></div>
+                <div class="win-body fields">
+                  <label class="check"><input type="checkbox" data-key="inlineAnnotations" /> let readers highlight a passage and comment on it</label>
+                  <label class="field"><span>Comment system</span>
+                    <select data-key="comments.provider"><option value="native">built-in (needs the comment server, see CUSTOMIZING.md)</option><option value="giscus">giscus (GitHub Discussions)</option></select>
+                  </label>
+                  <label class="field"><span>Giscus repo</span><input type="text" data-key="comments.giscus.repo" placeholder="user/repo" /></label>
+                  <label class="field"><span>Giscus repo id</span><input type="text" data-key="comments.giscus.repoId" /></label>
+                  <label class="field"><span>Giscus category</span><input type="text" data-key="comments.giscus.category" /></label>
+                  <label class="field"><span>Giscus category id</span><input type="text" data-key="comments.giscus.categoryId" /></label>
+                </div>
+              </section>
+
+              <section class="win"><div class="win-bar"><span class="win-title">front_page.txt</span><span class="win-ctl"></span></div>
+                <div class="win-body fields">
+                  <label class="field"><span>Intro (2–3 lines)</span><textarea data-key="intro" rows="3"></textarea><small>the casual hello at the top of the front page</small></label>
+                  <label class="field"><span>Status: mood</span><input type="text" data-key="status.mood" placeholder="tired but curious" /></label>
+                  <label class="field"><span>Status: current thought</span><input type="text" data-key="status.thought" /></label>
+                  <label class="field"><span>Status: last updated</span><input type="text" data-key="status.updated" placeholder="2026-11-17 01:40" /></label>
+                  <label class="field"><span>Updates (changelog)</span><textarea data-key="updates" data-type="updates" rows="4"></textarea><small>one per line: 2026-11-17 | what changed (newest first)</small></label>
+                  <label class="field"><span>Side note (notice)</span><textarea data-key="notice" rows="2"></textarea><small>the little card on the left; leave blank to hide it</small></label>
+                  <label class="field"><span>Todo / reading list</span><textarea data-key="todo" data-type="todo" rows="4"></textarea><small>one per line; start with [x] when it's done</small></label>
+                </div>
+              </section>
+
+              <section class="win"><div class="win-bar"><span class="win-title">profile.txt</span><span class="win-ctl"></span></div>
+                <div class="win-body fields">
+                  <label class="field"><span>Status badge</span><select data-key="profile.status"><option>online</option><option>away</option><option>offline</option></select></label>
+                  <label class="field"><span>Timezone</span><input type="text" data-key="profile.timezone" placeholder="UTC+0 (london)" /></label>
+                  <label class="field"><span>Here since</span><input type="text" data-key="profile.joined" placeholder="2026.10" /></label>
+                  <label class="field"><span>Avatar image</span><input type="text" data-key="profile.avatar" placeholder="(blank = front-page image)" /></label>
+                  <label class="field"><span>Currently into</span><input type="text" data-key="profile.currently.into" /></label>
+                  <label class="field"><span>Currently reading</span><input type="text" data-key="profile.currently.reading" /></label>
+                  <label class="field"><span>Currently building</span><input type="text" data-key="profile.currently.building" /></label>
+                  <label class="field"><span>Progress bars</span><textarea data-key="profile.progress" data-type="progress" rows="3"></textarea><small>one per line: 60 | what you're working on</small></label>
+                </div>
+              </section>
+
+              <section class="win"><div class="win-bar"><span class="win-title">bio.txt</span><span class="win-ctl"></span></div>
+                <div class="win-body fields">
+                  <label class="field"><span>Bio</span><textarea data-key="profile.bio" data-type="paragraphs" rows="6"></textarea><small>leave a blank line between paragraphs</small></label>
+                  <label class="field"><span>Interests</span><textarea data-key="profile.interests" data-type="lines" rows="3"></textarea><small>one per line</small></label>
+                  <label class="field"><span>Links</span><textarea data-key="profile.links" data-type="links" rows="4"></textarea><small>one per line: label | https://address</small></label>
+                </div>
+              </section>
+            </form>
+            <div class="savebar"><span id="settings-status">&gt; loading…</span><button class="btn" id="save-settings" type="button">[ save settings ]</button></div>
+          </section>
+
+          <!-- ================================ POSTS ================================ -->
+          <section id="tab-posts" role="tabpanel" hidden>
+            <p class="intro">&gt; posts live in <b>content/posts</b>. new posts start as drafts: they show on your computer only until you set <b>draft: false</b>.</p>
+            <div class="posts">
+              <section class="win"><div class="win-bar"><span class="win-title">posts.dir</span><span class="win-ctl"></span></div>
+                <div style="padding: 0.6rem"><button class="btn ghost" id="new-post" type="button" style="width: 100%">[ + new post ]</button></div>
+                <ul class="post-list" id="post-list"></ul>
+              </section>
+              <section class="win editor-win"><div class="win-bar"><span class="win-title" id="editor-title">editor.exe</span><span class="win-ctl"></span></div>
+                <div class="editor-tools"><span id="editor-status">&gt; pick a post on the left</span>
+                  <span style="display: flex; gap: 0.5rem"><a id="open-post" href="/" target="_blank" rel="noopener" hidden>open ↗</a><button class="btn" id="save-post" type="button" disabled>[ save ]</button></span>
+                </div>
+                <textarea id="editor" spellcheck="true" disabled placeholder="markdown goes here…"></textarea>
+              </section>
+              <section class="win preview-win"><div class="win-bar"><span class="win-title">preview.exe</span><span class="win-ctl"></span></div>
+                <iframe id="preview" title="Live preview"></iframe>
+              </section>
+            </div>
+          </section>
+        </main>
+      </div>
+      <footer class="outside"><p class="colophon">local editor // files are written straight to your project folder</p></footer>
+    </div>
+
+    <script type="module">
+      const $ = (s) => document.querySelector(s);
+      const api = async (path, opts = {}) => {
+        const res = await fetch(`/_admin/api/${path}`, { headers: { 'Content-Type': 'application/json' }, ...opts });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+        return data;
+      };
+      const now = () => new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+      /* ---------------- tabs ---------------- */
+      document.querySelectorAll('[data-tab]').forEach((b) =>
+        b.addEventListener('click', () => {
+          document.querySelectorAll('[data-tab]').forEach((x) => x.setAttribute('aria-selected', String(x === b)));
+          $('#tab-settings').hidden = b.dataset.tab !== 'settings';
+          $('#tab-posts').hidden = b.dataset.tab !== 'posts';
+          if (b.dataset.tab === 'posts') loadPosts();
+        }),
+      );
+
+      /* ---------------- settings ---------------- */
+      let config = {};
+      const getPath = (o, path) => path.split('.').reduce((v, k) => (v == null ? undefined : v[k]), o);
+      const setPath = (o, path, val) => {
+        const keys = path.split('.');
+        let cur = o;
+        keys.slice(0, -1).forEach((k) => (cur = cur[k] && typeof cur[k] === 'object' ? cur[k] : (cur[k] = {})));
+        cur[keys.at(-1)] = val;
+      };
+      const toField = (el, v) => {
+        const type = el.dataset.type;
+        if (el.type === 'checkbox') el.checked = v !== false;
+        else if (type === 'paragraphs') el.value = (v || []).join('\n\n');
+        else if (type === 'lines') el.value = (v || []).join('\n');
+        else if (type === 'links') el.value = (v || []).map((l) => `${l.label} | ${l.url}`).join('\n');
+        else if (type === 'updates') el.value = (v || []).map((u) => `${u.date} | ${u.text}`).join('\n');
+        else if (type === 'todo') el.value = (v || []).map((t) => `${t.done ? '[x] ' : ''}${t.text}`).join('\n');
+        else if (type === 'progress') el.value = (v || []).map((p) => `${p.percent} | ${p.label}`).join('\n');
+        else el.value = v ?? '';
+      };
+      const fromField = (el) => {
+        const type = el.dataset.type;
+        if (el.type === 'checkbox') return el.checked;
+        if (el.type === 'number') return Number(el.value) || 0;
+        if (type === 'paragraphs') return el.value.split(/\n\s*\n/).map((s) => s.replace(/\s*\n\s*/g, ' ').trim()).filter(Boolean);
+        if (type === 'lines') return el.value.split('\n').map((s) => s.trim()).filter(Boolean);
+        if (type === 'links')
+          return el.value.split('\n').map((line) => {
+            const [label, ...rest] = line.split('|');
+            return { label: (label || '').trim(), url: rest.join('|').trim() };
+          }).filter((l) => l.label && l.url);
+        if (type === 'updates')
+          return el.value.split('\n').map((line) => {
+            const [date, ...rest] = line.split('|');
+            return { date: (date || '').trim(), text: rest.join('|').trim() };
+          }).filter((u) => u.text);
+        if (type === 'progress')
+          return el.value.split('\n').map((line) => {
+            const [pct, ...rest] = line.split('|');
+            return { label: rest.join('|').trim(), percent: Math.max(0, Math.min(100, Number.parseInt(pct, 10) || 0)) };
+          }).filter((p) => p.label);
+        if (type === 'todo')
+          return el.value.split('\n').map((line) => line.trim()).filter(Boolean).map((line) => {
+            const done = /^\[x\]\s*/i.test(line);
+            return { text: line.replace(/^\[[x ]?\]\s*/i, ''), done };
+          });
+        return el.value.trim();
+      };
+      const thumb = () => ($('#art-thumb').src = $('[data-key="frontpageImage"]').value || '');
+
+      async function loadSettings() {
+        config = await api('config');
+        document.querySelectorAll('#settings [data-key]').forEach((el) => toField(el, getPath(config, el.dataset.key)));
+        thumb();
+        $('#settings-status').textContent = '> loaded site.config.json';
+      }
+      $('[data-key="frontpageImage"]').addEventListener('input', thumb);
+      $('#art-file').addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        $('#settings-status').textContent = '> uploading image…';
+        const data = await new Promise((ok) => { const r = new FileReader(); r.onload = () => ok(r.result); r.readAsDataURL(file); });
+        try {
+          const { path } = await api('upload', { method: 'POST', body: JSON.stringify({ name: file.name, data }) });
+          $('[data-key="frontpageImage"]').value = path;
+          thumb();
+          $('#settings-status').textContent = `> uploaded ${path} — press save to use it`;
+        } catch (err) { $('#settings-status').textContent = `> ${err.message}`; }
+      });
+      $('#save-settings').addEventListener('click', async () => {
+        const next = structuredClone(config);
+        document.querySelectorAll('#settings [data-key]').forEach((el) => setPath(next, el.dataset.key, fromField(el)));
+        $('#save-settings').disabled = true;
+        try {
+          await api('config', { method: 'PUT', body: JSON.stringify(next) });
+          config = next;
+          $('#settings-status').textContent = `> saved ✓ ${now()}`;
+        } catch (err) { $('#settings-status').textContent = `> could not save: ${err.message}`; }
+        $('#save-settings').disabled = false;
+      });
+
+      /* ---------------- posts ---------------- */
+      let current = null;
+      let dirty = false;
+      let previewTimer = 0;
+      const editor = $('#editor');
+      const setDirty = (d) => {
+        dirty = d;
+        $('#editor-status').innerHTML = current ? `${d ? '<span class="dirty">● unsaved</span>' : `&gt; saved ${now()}`} · ${current}` : '&gt; pick a post';
+      };
+
+      async function loadPosts() {
+        const posts = await api('posts');
+        const list = $('#post-list');
+        list.replaceChildren(...posts.map((p) => {
+          const li = document.createElement('li');
+          const b = document.createElement('button');
+          b.type = 'button';
+          b.setAttribute('aria-current', String(p.file === current));
+          b.append(p.title);
+          const small = document.createElement('small');
+          small.textContent = `${p.date}${p.draft ? ' · [DRAFT]' : ''}`;
+          b.append(small);
+          b.addEventListener('click', () => openPost(p.file));
+          li.append(b);
+          return li;
+        }));
+      }
+
+      async function openPost(file) {
+        if (dirty && !confirm('You have unsaved changes. Discard them?')) return;
+        const { content } = await api(`post?file=${encodeURIComponent(file)}`);
+        current = file;
+        editor.value = content;
+        editor.disabled = false;
+        $('#save-post').disabled = false;
+        $('#editor-title').textContent = file;
+        const open = $('#open-post');
+        open.hidden = false;
+        open.href = `/posts/${file.replace(/\.(md|mdx)$/, '')}/`;
+        setDirty(false);
+        $('#editor-status').innerHTML = `&gt; editing ${file}`;
+        renderPreview();
+        loadPosts();
+      }
+
+      async function savePost() {
+        if (!current) return;
+        $('#save-post').disabled = true;
+        try {
+          await api(`post?file=${encodeURIComponent(current)}`, { method: 'PUT', body: JSON.stringify({ content: editor.value }) });
+          setDirty(false);
+          loadPosts();
+        } catch (err) { $('#editor-status').textContent = `> could not save: ${err.message}`; }
+        $('#save-post').disabled = false;
+      }
+
+      async function renderPreview() {
+        try {
+          const { html } = await api('preview', { method: 'POST', body: JSON.stringify({ content: editor.value }) });
+          const theme = document.documentElement.dataset.theme;
+          const font = (editor.value.match(/^font:\s*(sans|serif|mono)/m) || [])[1] || (config.defaultFont ?? 'serif');
+          $('#preview').srcdoc = `<!doctype html><html data-theme="${theme}" data-font="${font}"><head><meta charset="utf-8">
+            <link rel="stylesheet" href="/node_modules/@fontsource-variable/newsreader/opsz.css">
+            <link rel="stylesheet" href="/node_modules/@fontsource-variable/newsreader/opsz-italic.css">
+            <link rel="stylesheet" href="/node_modules/@fontsource-variable/ibm-plex-sans/wght.css"><link rel="stylesheet" href="/node_modules/@fontsource/ibm-plex-mono/latin-400.css">
+            <link rel="stylesheet" href="/node_modules/@fontsource-variable/jetbrains-mono/wght.css">
+            <link rel="stylesheet" href="/node_modules/katex/dist/katex.min.css">
+            <link rel="stylesheet" href="/src/styles/global.css"><link rel="stylesheet" href="/src/styles/prose.css">
+            <style>body{background:var(--surface);margin:0;padding:20px 22px 60px}</style></head>
+            <body><div class="prose">${html}</div></body></html>`;
+        } catch (err) { $('#editor-status').textContent = `> preview failed: ${err.message}`; }
+      }
+
+      editor.addEventListener('input', () => {
+        setDirty(true);
+        clearTimeout(previewTimer);
+        previewTimer = setTimeout(renderPreview, 350);
+      });
+      $('#save-post').addEventListener('click', savePost);
+      document.addEventListener('keydown', (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's' && !$('#tab-posts').hidden) { e.preventDefault(); savePost(); }
+      });
+      $('#new-post').addEventListener('click', async () => {
+        const title = prompt('Title of the new post:');
+        if (!title) return;
+        try {
+          const { file } = await api('new-post', { method: 'POST', body: JSON.stringify({ title }) });
+          await loadPosts();
+          openPost(file);
+        } catch (err) { alert(err.message); }
+      });
+      window.addEventListener('beforeunload', (e) => { if (dirty) { e.preventDefault(); e.returnValue = ''; } });
+
+      loadSettings().catch((err) => ($('#settings-status').textContent = `> could not load settings: ${err.message}`));
+    </script>
+  </body>
+</html>

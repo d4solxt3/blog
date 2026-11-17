@@ -1,0 +1,141 @@
+---
+title: Reading the residual stream
+subtitle: A working mental model for where a transformer keeps its intermediate state, and three ways to start looking at it.
+description: Notes from working through transformer interpretability exercises. The residual stream as a shared bus, reading it with the logit lens, and what activation patching actually tells you.
+date: 2026-11-09
+tags: [machine learning, interpretability]
+series: Interpretability, slowly
+seriesOrder: 1
+tldr:
+  - Treat the residual stream as a shared bus. Every attention head and MLP reads from it and writes back to it by addition.
+  - Because writes are additive, the final logits decompose into per-component contributions, so you can ask which component pushed toward which answer.
+  - The logit lens and direct attribution are cheap first looks. Activation patching is the tool that supports causal claims.
+---
+
+When I first started reading transformer code, I pictured the model as a stack: layer one hands its output to layer two, which hands its output to layer three, and so on up to the logits. That picture isn't wrong, but it hides the single most useful fact about the architecture. Every layer's output is *added* to a running total, and that running total, the **residual stream**, is the only thing that flows all the way through the network.
+
+This post is the mental model I wish I'd had on day one, plus the three tools I now reach for first. It assumes you know roughly what attention does. It doesn't assume any interpretability background.
+
+## The stream is a bus, not a pipe
+
+In a decoder-only transformer, each token position carries a vector of width `d_model`. The embedding layer writes its first value. After that, every block does exactly two things:
+
+```python
+# one transformer block, pre-LayerNorm style
+resid_mid  = resid_pre + attn(ln1(resid_pre))
+resid_post = resid_mid + mlp(ln2(resid_mid))
+```
+
+Nothing is ever overwritten. Each component reads a normalised copy of the stream and *adds* its output back. Elhage and colleagues describe the stream as a communication channel between components[^1], and once you see it that way the whole model reorganises itself in your head: it is less a pipeline and more a shared bus that dozens of small modules read from and write to.
+
+### Why addition matters
+
+Because the final stream is a sum, you can write it out term by term: the token embedding, plus the positional embedding, plus every attention head's output, plus every MLP's output. The unembedding $W_U$ that turns the stream into logits is a single matrix multiply. Put those together and the logits decompose into a sum of contributions, one per component:
+
+$$
+\text{logits} = W_U \Big( x_{\text{embed}} + x_{\text{pos}} + \sum_{h} \text{head}_h + \sum_{l} \text{mlp}_l \Big)
+$$
+
+That decomposition is what makes the question *"which part of the model said this?"* answerable at all.
+
+<Callout label="Note">
+The final LayerNorm is the one non-linear step between the stream and the logits. The usual trick is to freeze its scale factor at the value from the clean forward pass, which makes the decomposition exactly linear *for that input*. Good enough for a first look, but worth remembering when a result looks suspiciously tidy.
+</Callout>
+
+### Subspaces as private channels
+
+`d_model` is large, and components don't have to share the whole space. A head in layer 2 can write "this token is a name" into a direction that only a head in layer 5 ever reads. That is the basis of *composition*: a later head's queries, keys or values can be built out of an earlier head's output, so small circuits form across layers.
+
+<Details summary="Why nearly-orthogonal directions are so plentiful">
+
+In high dimensions, random unit vectors are almost orthogonal. The cosine similarity between two of them concentrates around zero with a standard deviation of roughly 1/√d. At `d = 768` that is about 0.036.
+
+So a model can pack many more *almost* independent directions than it has dimensions, at the cost of a little interference between them. That trade-off is the seed of the superposition story, which deserves a post of its own.
+
+</Details>
+
+## Three tools, in the order I reach for them
+
+Each of these answers a different question, and they get more expensive and more trustworthy as you go down the list.
+
+| Tool | Question it answers | Causal? | Cost |
+| --- | --- | --- | --- |
+| Logit lens | What does the stream "say" at layer L? | No | One matmul per layer |
+| Direct logit attribution | Which components push toward the answer? | No, direct effects only | One dot product per component |
+| Activation patching | Which activations are *necessary* for the behaviour? | Yes | One forward pass per patch |
+
+### The logit lens
+
+Take the residual stream at any intermediate layer, apply the final LayerNorm and the unembedding, and read off what the model *would* predict if it stopped there[^2]. It costs almost nothing and gives a rough sense of when the answer "arrives".
+
+```python
+import torch
+
+def logit_lens(model, cache, layer: int, pos: int = -1, k: int = 5) -> list[str]:
+    """Top-k next-token guesses read straight off the residual stream."""
+    resid = cache[f"blocks.{layer}.hook_resid_post"][0, pos]      # [d_model]
+    logits = model.unembed(model.ln_final(resid[None, None]))     # [1, 1, d_vocab]
+    top = torch.topk(logits[0, 0], k)
+    return [model.to_string(i) for i in top.indices]
+```
+
+Expect early layers to look like noise. The stream there isn't yet in a basis the unembedding knows how to read, which is why later work trains a small probe per layer instead of reusing the final one.
+
+### Direct logit attribution
+
+Pick a prompt where the correct next token is *A* and a plausible wrong answer is *B*. The difference between their unembedding columns is a single direction in the stream: anything written along it pushes the model toward *A* over *B*. Dot every component's output with that direction and you get a ranked list of who argued for which answer.
+
+```python
+def logit_diff_direction(model, correct: str, wrong: str) -> torch.Tensor:
+    a, b = model.to_single_token(correct), model.to_single_token(wrong)
+    return model.W_U[:, a] - model.W_U[:, b]                      # [d_model]
+
+direction = logit_diff_direction(model, " Mary", " John")
+heads, labels = cache.stack_head_results(layer=-1, pos_slice=-1, return_labels=True)
+heads = cache.apply_ln_to_stack(heads, layer=-1, pos_slice=-1)
+scores = heads[:, 0] @ direction                                  # one score per head
+```
+
+This only measures *direct* effects: what a component writes that goes straight to the logits. A head whose job is to move information for a later head will score near zero here, even if the behaviour depends on it entirely.
+
+### Activation patching
+
+Patching is where you start making causal claims. Run the model on a *clean* prompt and a *corrupted* one (say, with the two names swapped) and cache the clean activations. Then rerun the corrupted prompt, but splice in one clean activation, and measure how much of the correct behaviour comes back.
+
+```python
+from functools import partial
+
+def patch_resid(resid, hook, clean_cache, pos):
+    resid[:, pos] = clean_cache[hook.name][:, pos]
+    return resid
+
+def patched_metric(model, corrupted_tokens, clean_cache, layer, pos, metric):
+    hook_name = f"blocks.{layer}.hook_resid_pre"
+    logits = model.run_with_hooks(
+        corrupted_tokens,
+        fwd_hooks=[(hook_name, partial(patch_resid, clean_cache=clean_cache, pos=pos))],
+    )
+    return metric(logits)
+```
+
+Normalise the result so that 0 means "no better than corrupted" and 1 means "fully restored". Sweep over layers and positions and you get a heat map of where the information the model needs actually lives.
+
+> Direct attribution tells you who spoke. Patching tells you who mattered. The interesting findings are usually in the gap between the two.
+
+### Common traps
+
+1. Patching the residual stream at one position restores *everything* upstream at that position. Great for localising information, useless for crediting a single head. Patch head outputs for that.
+2. Clean and corrupted prompts must tokenise to the same length, or positions silently stop lining up.
+3. A component with a large direct effect can still turn out to be unnecessary, because something downstream compensates when you remove it[^3].
+
+## Where I'm going next
+
+None of this is new, and all of it is easier to understand by poking at a small model than by reading about it. Part two slows down on the last tool and its maths: [[activation-patching-slowly]].
+
+If you've worked through the same material and found a cleaner way to explain any of this, I'd genuinely like to hear it in the comments.
+
+[^1]: Elhage et al., [A Mathematical Framework for Transformer Circuits](https://transformer-circuits.pub/2021/framework/index.html), 2021. The "residual stream as communication channel" framing comes from its opening sections.
+
+[^2]: The technique was popularised by nostalgebraist's 2020 post [interpreting GPT: the logit lens](https://www.lesswrong.com/posts/AcKRB8wDpdaN6v6ru/interpreting-gpt-the-logit-lens).
+
+[^3]: Wang et al., [Interpretability in the Wild](https://arxiv.org/abs/2211.00593), 2022, describe "backup name mover" heads in GPT-2 small that take over when the primary heads are ablated.

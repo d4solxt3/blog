@@ -1,0 +1,135 @@
+---
+/** "index" in the nav: every post, plus series and topic directories. */
+import BaseLayout from '../layouts/BaseLayout.astro';
+import PostFeed from '../components/PostFeed.astro';
+import { getPosts, pad, postUrl, tagSlug, seriesOf, formatDate } from '../utils/posts';
+
+const posts = await getPosts();
+
+const seriesNames = [...new Set(posts.map((p) => p.data.series).filter(Boolean))] as string[];
+const series = seriesNames.map((name) => seriesOf(posts.find((p) => p.data.series === name)!, posts)!);
+
+const tagCounts = new Map<string, { label: string; count: number }>();
+for (const post of posts) {
+  for (const tag of post.data.tags) {
+    const slug = tagSlug(tag);
+    const entry = tagCounts.get(slug) ?? { label: tag, count: 0 };
+    entry.count += 1;
+    tagCounts.set(slug, entry);
+  }
+}
+const tags = [...tagCounts.entries()].sort((a, b) => a[1].label.localeCompare(b[1].label));
+---
+
+<BaseLayout title="Index" description="Every post, plus series and topics.">
+  <h1 class="sr-only">Index of all posts</h1>
+  <div class="container page">
+    <PostFeed posts={posts} label="index" id="index-feed" />
+
+    <div class="dirs">
+      <section class="dot-box" aria-label="Series">
+        <p class="lsl">series</p>
+        {
+          series.length ? (
+            series.map((s) => (
+              <div class="series">
+                <p class="s-name">{s.name}</p>
+                <ol class="dot-list">
+                  {s.parts.map((p, i) => (
+                    <li>
+                      <span class="n">{pad(i + 1)}.</span> <a href={postUrl(p)}>{p.data.title}</a>
+                      <span class="d">{formatDate(p.data.date)}</span>
+                    </li>
+                  ))}
+                </ol>
+              </div>
+            ))
+          ) : (
+            <p class="none">no series yet. add "series" to a post's frontmatter.</p>
+          )
+        }
+      </section>
+
+      <section class="dot-box" aria-label="Topics">
+        <p class="lsl">topics</p>
+        <ul class="dot-list">
+          {
+            tags.map(([slug, { label, count }]) => (
+              <li>
+                <a href={`/?tag=${encodeURIComponent(slug)}`}>#{label}</a>
+                <span class="d">{count}</span>
+              </li>
+            ))
+          }
+        </ul>
+      </section>
+    </div>
+  </div>
+</BaseLayout>
+
+<style>
+  .page {
+    display: grid;
+    gap: 1.75rem;
+    padding-top: clamp(1.25rem, 3.5vw, 1.9rem);
+  }
+
+  .dirs {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1rem;
+    align-items: start;
+  }
+
+  @media (min-width: 680px) {
+    .dirs {
+      grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+    }
+  }
+
+  .s-name {
+    margin: 0 0 0.2rem;
+    font-family: var(--font-head);
+    font-size: 0.9375rem;
+    font-weight: 600;
+  }
+
+  .series + .series {
+    margin-top: 0.9rem;
+  }
+
+  .dot-list li {
+    display: flex;
+    gap: 0.5rem;
+    align-items: baseline;
+  }
+
+  .n,
+  .d {
+    color: var(--muted);
+  }
+
+  .d {
+    margin-left: auto;
+    white-space: nowrap;
+  }
+
+  a {
+    color: var(--ink);
+    text-decoration: underline;
+    text-decoration-color: var(--rule);
+    text-underline-offset: 0.3em;
+    transition: text-decoration-color var(--fast) var(--ease);
+  }
+
+  a:hover {
+    text-decoration-color: var(--ink);
+  }
+
+  .none {
+    margin: 0;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--muted);
+  }
+</style>

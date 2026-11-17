@@ -1,0 +1,243 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import InkImage from '../components/InkImage.astro';
+import PostFeed from '../components/PostFeed.astro';
+import { SITE } from '../site.config';
+import { getPosts } from '../utils/posts';
+
+const posts = await getPosts();
+const dotDate = (d: string) => d.replace(/-/g, '.');
+---
+
+<BaseLayout>
+  <h1 class="sr-only">{SITE.name}</h1>
+
+  <div class="container home">
+    {
+      SITE.notice && (
+        <aside class="float-note float-note--left dot-box" aria-label="Notice">
+          <p class="lsl">notice</p>
+          <p class="note-text">{SITE.notice}</p>
+        </aside>
+      )
+    }
+    {
+      SITE.todo.length > 0 && (
+        <aside class="float-note float-note--right dot-box" aria-label="To do">
+          <p class="lsl">todo</p>
+          <ul class="check-list">
+            {SITE.todo.map((t) => (
+              <li>
+                <span class="box" aria-hidden="true">
+                  {t.done ? '[x]' : '[ ]'}
+                </span>
+                <span class:list={{ done: t.done }}>{t.text}</span>
+              </li>
+            ))}
+          </ul>
+        </aside>
+      )
+    }
+
+    <section class="intro" aria-label="Introduction">
+      <div class="intro-text">
+        <div class="hello-row">
+          <p class="hello">hello, welcome in<span class="cursor" aria-hidden="true"></span></p>
+          <!-- Narrow screens: a compact doodle beside the greeting. -->
+          <div class="sticker sticker--inline" aria-hidden="true">
+            <InkImage src={SITE.frontpageImage} alt="" loading="eager" />
+          </div>
+        </div>
+        <p class="bio">{SITE.intro}</p>
+        <p class="meta-line">
+          <a href="/about/">about me</a><span class="sep">·</span>
+          <a href="/archive/">full index</a><span class="sep">·</span>
+          <a href="/rss.xml">rss</a>
+        </p>
+      </div>
+
+      <div class="strip">
+        {
+          (SITE.status.mood || SITE.status.thought) && (
+            <div class="dot-box status">
+              <p class="lsl">status</p>
+              {SITE.status.mood && (
+                <p class="mood">
+                  <span class="pixel">online</span> {SITE.status.mood}
+                </p>
+              )}
+              {SITE.status.thought && <p class="thought">“{SITE.status.thought}”</p>}
+              {SITE.status.updated && <p class="stamp">updated {dotDate(SITE.status.updated)}</p>}
+            </div>
+          )
+        }
+        {
+          SITE.updates.length > 0 && (
+            <div class="dot-box updates">
+              <p class="lsl">changelog</p>
+              <ul class="dot-list">
+                {SITE.updates.slice(0, 4).map((u) => (
+                  <li>
+                    <span class="d">{dotDate(u.date)}</span> — {u.text}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )
+        }
+      </div>
+    </section>
+
+    <div class="feed-wrap">
+      <PostFeed posts={posts} label="writing" />
+    </div>
+  </div>
+
+  <!-- Wide screens: the doodle stands on the frame's bottom-left corner. -->
+  <div slot="frame-edge" class="sticker sticker--corner" aria-hidden="true">
+    <InkImage src={SITE.frontpageImage} alt="" />
+  </div>
+</BaseLayout>
+
+<style>
+  .home {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    padding-top: clamp(1.25rem, 3.5vw, 1.75rem);
+  }
+
+  .intro {
+    order: 1;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1rem;
+  }
+
+  .float-note--left {
+    order: 2;
+  }
+
+  .float-note--right {
+    order: 3;
+  }
+
+  .feed-wrap {
+    order: 4;
+  }
+
+  @media (min-width: 720px) {
+    .intro {
+      grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+      gap: 1.4rem;
+      align-items: start;
+    }
+  }
+
+  @media (min-width: 1180px) {
+    .home {
+      display: block;
+    }
+
+    .home > * + * {
+      margin-top: 1.5rem;
+    }
+  }
+
+  /* ---- greeting + character ---- */
+  .hello-row {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 0.75rem;
+  }
+
+  .hello {
+    margin: 0;
+    font-family: var(--font-head);
+    font-size: 1.25rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+
+  .hello .cursor {
+    width: 0.45em;
+    height: 0.95em;
+    margin-left: 0.2em;
+    vertical-align: -0.1em;
+  }
+
+  /* Narrow screens: a compact 72px doodle beside the greeting. */
+  .sticker--inline {
+    flex: none;
+    width: 72px;
+  }
+
+  /* Wide screens: grounded at the frame's bottom-left corner, standing on the
+     bottom border and overlapping only the outer edge line. (.frame-edge is a
+     zero-height strip right under the frame, outside its isolated group.) */
+  .sticker--corner {
+    display: none;
+  }
+
+  @media (min-width: 1024px) {
+    .sticker--inline {
+      display: none;
+    }
+
+    .sticker--corner {
+      display: block;
+      position: absolute;
+      z-index: 2;
+      bottom: -1px;
+      left: -115px;
+      width: 140px;
+    }
+  }
+
+  .bio {
+    margin: 0.5rem 0 0.7rem;
+    max-width: 52ch;
+    font-size: 0.9375rem;
+    line-height: 1.65;
+    color: var(--ink-2);
+  }
+
+  .strip {
+    display: grid;
+    gap: 0.75rem;
+  }
+
+  .status p,
+  .note-text {
+    margin: 0;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    line-height: 1.55;
+  }
+
+  .mood {
+    display: flex;
+    align-items: baseline;
+    gap: 0.45rem;
+  }
+
+  .thought {
+    margin-top: 0.35rem !important;
+    color: var(--ink-2);
+  }
+
+  .stamp {
+    margin-top: 0.35rem !important;
+    font-size: 0.6875rem !important;
+    color: var(--faint);
+  }
+
+  .note-text {
+    color: var(--ink-2);
+  }
+
+  .updates .d {
+    color: var(--muted);
+  }
+</style>
