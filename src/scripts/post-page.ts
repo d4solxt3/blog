@@ -8,6 +8,32 @@ import { initPreviews } from './previews';
 export function initPostPage(signal: AbortSignal) {
   const body = document.querySelector<HTMLElement>('[data-post-body]');
   if (!body) return;
+
+  // Came here from a writing list? "← writing" goes back to it, filters and all,
+  // and the list restores its scroll position (see PostFeed.astro).
+  try {
+    const saved = JSON.parse(sessionStorage.getItem('feed-return') || 'null');
+    if (saved && typeof saved.path === 'string' && saved.path.startsWith('/')) {
+      // The first post opened from the list: going back is a real history step.
+      if (!saved.seenPost) saved.from = location.pathname;
+      saved.seenPost = true;
+      sessionStorage.setItem('feed-return', JSON.stringify(saved));
+      const back = document.querySelector<HTMLAnchorElement>('[data-back-to-list]');
+      if (back) {
+        back.href = `${saved.path}${saved.search ?? ''}`;
+        back.textContent = saved.path === '/' ? '← home' : '← writing';
+        back.addEventListener(
+          'click',
+          (e) => {
+            if (saved.from !== location.pathname || e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
+            e.preventDefault();
+            history.back(); // restores the list's filters and scroll position exactly
+          },
+          { signal },
+        );
+      }
+    }
+  } catch {}
   const bar = document.querySelector<HTMLElement>('[data-progress]');
   const headings = Array.from(document.querySelectorAll<HTMLElement>('.prose h2[id]:not(.sr-only), .prose h3[id]'));
   const links = Array.from(document.querySelectorAll<HTMLAnchorElement>('[data-toc-link]'));

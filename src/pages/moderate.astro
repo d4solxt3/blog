@@ -25,7 +25,7 @@ const titles = Object.fromEntries((await getPosts()).map((p) => [p.id, p.data.ti
       <form class="cm-form mod-signin" data-signin hidden>
         <p class="label cm-sub">owner sign-in</p>
         <p class="mod-note">
-          Enter the passphrase you set as <code>COMMENTS_ADMIN_KEY</code> on your host. It's remembered in this browser only.
+          Enter your admin password (the one for the writing studio). The older <code>COMMENTS_ADMIN_KEY</code> passphrase also works.
         </p>
         <label class="sr-only" for="mod-key">Passphrase</label>
         <input id="mod-key" name="key" type="password" autocomplete="current-password" placeholder="passphrase" required />
@@ -44,7 +44,7 @@ const titles = Object.fromEntries((await getPosts()).map((p) => [p.id, p.data.ti
           Newest first, across every post. You'll also see <strong>[ delete ]</strong> under each post while you're signed in.
         </p>
         <ol class="cm-feed" data-list></ol>
-        <p class="cm-empty" data-empty hidden>&gt; no comments yet.</p>
+        <p class="cm-empty" data-empty hidden>no comments yet.</p>
       </div>
     </div>
   </div>

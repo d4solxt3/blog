@@ -31,7 +31,9 @@ npm run build                    # dist/client (static) + dist/server (comments 
 | Posts | `content/posts/*.md(x)`, schema in `src/content.config.ts` |
 | Markdown pipeline (shared by site + admin preview) | `plugins/markdown.mjs` (wiki-links, callouts, figures, KaTeX, code frames) |
 | Comments API | `src/pages/api/comments.ts` + `src/lib/comment-store.ts` (JSON / Turso / Supabase) |
-| Comment moderation | `/moderate/` (`src/pages/moderate.astro`, `src/scripts/moderate.ts`, `src/scripts/owner.ts`), protected by the `COMMENTS_ADMIN_KEY` env var |
+| Comment moderation | `/moderate/` (`src/pages/moderate.astro`, `src/scripts/moderate.ts`, `src/scripts/owner.ts`), for the signed-in owner |
+| Owner sign-in | `src/lib/auth.ts`, `src/pages/api/auth.ts`, hidden triggers in `src/scripts/owner-ui.ts` (`ADMIN_PASSWORD`, changeable on `/write/settings/`) |
+| Writing studio | `/write` (`src/pages/write/`, `src/scripts/write.ts`, `src/styles/write.css`); drafts, publishing and media in `src/lib/content.ts`; APIs in `src/pages/api/write/`, `upload-media.ts`, `media/` |
 | Highlight & comment UI | `src/scripts/comments.ts`, markup in `src/components/Comments.astro` |
 | Hover previews, ToC, progress | `src/scripts/previews.ts`, `src/scripts/post-page.ts` |
 | Client-side navigation lifecycle | `src/scripts/lifecycle.ts`: every script re-initialises on `astro:page-load` and cleans up on the next one |

@@ -54,7 +54,8 @@ const minutes = readingTime(post.body);
 const code = entryCode(index);
 const annotations = SITE.inlineAnnotations && post.data.annotations !== false;
 
-// Subtle 180ms fade-in for the prose and contents column while the frame widens.
+// Reader reveal while the frame widens: the prose fades in, the contents
+// column slides in from the right (translateX 14px → 0, 220ms).
 const fadeIn = {
   forwards: {
     old: { name: 'hud-fade-out', duration: '120ms', easing: 'linear', fillMode: 'both' },
@@ -63,6 +64,16 @@ const fadeIn = {
   backwards: {
     old: { name: 'hud-fade-out', duration: '120ms', easing: 'linear', fillMode: 'both' },
     new: { name: 'hud-fade-in', duration: '180ms', delay: '80ms', easing: 'linear', fillMode: 'both' },
+  },
+};
+const slideIn = {
+  forwards: {
+    old: { name: 'hud-fade-out', duration: '100ms', easing: 'linear', fillMode: 'both' },
+    new: { name: 'slide-in-right', duration: '220ms', delay: '100ms', easing: 'cubic-bezier(0.19, 1, 0.22, 1)', fillMode: 'both' },
+  },
+  backwards: {
+    old: { name: 'hud-fade-out', duration: '100ms', easing: 'linear', fillMode: 'both' },
+    new: { name: 'slide-in-right', duration: '220ms', delay: '100ms', easing: 'cubic-bezier(0.19, 1, 0.22, 1)', fillMode: 'both' },
   },
 };
 ---
@@ -74,7 +85,7 @@ const fadeIn = {
     <header class="container post-head">
       <div class="head-top">
         <p class="crumb">
-          <a href="/archive/">← writing</a>
+          <a href="/archive/" data-back-to-list>← writing</a>
           <span class="sep" aria-hidden="true">/</span>
           <span>entry {code}</span>
           {draft && <span class="pixel pixel--dashed">draft</span>}
@@ -82,7 +93,7 @@ const fadeIn = {
         <FontToggle />
       </div>
       {draft && <p class="draft-banner">draft — only visible while running npm run dev. set "draft: false" to publish.</p>}
-      <h1 class="display-title" transition:name={`post-${post.id}`}>{title}</h1>
+      <h1 class="display-title" transition:name={`post-title-${post.id}`}>{title}</h1>
       {subtitle && <p class="display-subtitle">{subtitle}</p>}
       <p class="meta-line post-meta">
         <time datetime={isoDate(date)}>{formatDate(date)}</time>
@@ -131,7 +142,7 @@ const fadeIn = {
       </div>
 
       <!-- Right column, inside the frame: sticky contents + the quote-reply panel. -->
-      <aside class="post-side" aria-label="Contents and quote replies" transition:name="post-side" transition:animate={fadeIn}>
+      <aside class="post-side" aria-label="Contents and quote replies" transition:name="post-side" transition:animate={slideIn}>
         {toc.length > 0 && <Toc headings={toc} variant="sidebar" />}
         {annotations && <QuoteDrawer />}
       </aside>
@@ -141,8 +152,36 @@ const fadeIn = {
 
 <style>
   .post-head {
-    padding-top: clamp(1.4rem, 4vw, 2.2rem);
-    padding-bottom: clamp(1.2rem, 3vw, 1.75rem);
+    position: relative;
+    overflow: hidden;
+    padding-top: clamp(0.9rem, 2.5vw, 1.4rem);
+    padding-bottom: clamp(0.8rem, 2vw, 1.1rem);
+  }
+
+  /* On arrival a 1px scan line sweeps down across the header once. */
+  .post-head::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(var(--ink), var(--ink)) top / 100% 1px no-repeat;
+    opacity: 0;
+    pointer-events: none;
+    animation: scan-sweep 420ms var(--snap) 80ms both;
+  }
+
+  @keyframes scan-sweep {
+    from {
+      opacity: 0.55;
+      transform: translateY(0);
+    }
+    to {
+      opacity: 0;
+      transform: translateY(100%);
+    }
+  }
+
+  .post-head :global(.display-title) {
+    margin-top: 0.55rem;
   }
 
   .head-top {
@@ -180,10 +219,22 @@ const fadeIn = {
     color: var(--faint);
   }
 
+  /* The divider draws itself left to right on arrival (240ms). */
   .post-meta {
-    margin-top: 0.75rem;
-    padding-top: 0.6rem;
+    position: relative;
+    margin-top: 0.6rem;
+    padding-top: 0.5rem;
+  }
+
+  .post-meta::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
     border-top: 1px dotted var(--muted);
+    transform-origin: left;
+    animation: rule-draw 240ms var(--snap) 120ms both;
   }
 
   .draft-banner {

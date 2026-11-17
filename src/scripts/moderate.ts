@@ -1,5 +1,5 @@
 /** /moderate/: sign in with the owner passphrase, list recent comments, delete them. */
-import { deleteComment, deleteThread, ownerFetch, ownerKey, setOwnerKey } from './owner';
+import { deleteComment, deleteThread, ownerFetch, ownerKey, SESSION, setOwnerKey } from './owner';
 
 type Comment = {
   id: string;
@@ -56,7 +56,7 @@ export function initModerate(signal: AbortSignal) {
     if (c.anchor) {
       const q = document.createElement('p');
       q.className = 'cm-quote';
-      q.textContent = `> "${truncate(c.anchor.exact, 160)}"`;
+      q.textContent = `“${truncate(c.anchor.exact, 160)}”`;
       const n = comments.filter((x) => x.post === c.post && x.anchor?.id === c.anchor!.id).length;
       const t = document.createElement('button');
       t.type = 'button';
@@ -89,7 +89,7 @@ export function initModerate(signal: AbortSignal) {
   async function open(key: string) {
     const data = await ownerFetch('/api/comments?recent=1', key);
     comments = data.comments ?? [];
-    setOwnerKey(key);
+    if (key !== SESSION) setOwnerKey(key);
     signin.hidden = true;
     inbox.hidden = false;
     render();
@@ -102,13 +102,20 @@ export function initModerate(signal: AbortSignal) {
     if (!key) return;
     const button = signin.querySelector<HTMLButtonElement>('button[type="submit"]')!;
     button.disabled = true;
-    status.textContent = '> checking…';
+    status.textContent = 'checking…';
     try {
-      await open(key);
+      // Your admin password signs this browser in (session cookie, nothing stored);
+      // anything else is tried as the older COMMENTS_ADMIN_KEY passphrase.
+      const login = await fetch('/api/auth', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', accept: 'application/json' },
+        body: JSON.stringify({ password: key }),
+      }).catch(() => null);
+      await open(login?.ok ? SESSION : key);
       input.value = '';
       status.textContent = '';
     } catch (err) {
-      status.textContent = `> ${err instanceof Error ? err.message : 'could not sign in'}`;
+      status.textContent = err instanceof Error ? err.message : 'could not sign in';
     } finally {
       button.disabled = false;
     }
@@ -116,9 +123,13 @@ export function initModerate(signal: AbortSignal) {
 
   root.querySelector('[data-signout]')?.addEventListener('click', () => {
     setOwnerKey(null);
+    fetch('/api/auth', { method: 'DELETE' }).catch(() => {});
+    try {
+      sessionStorage.removeItem('owner-verified');
+    } catch {}
     comments = [];
     list.replaceChildren();
-    showSignin('> signed out on this browser');
+    showSignin('signed out on this browser');
   });
 
   // Delete a highlighted passage: every reply in that quote thread.
@@ -128,7 +139,7 @@ export function initModerate(signal: AbortSignal) {
     const anchor = c?.anchor;
     const key = ownerKey();
     if (!btn || !c || !anchor) return;
-    if (!key) return showSignin('> sign in again');
+    if (!key) return showSignin('sign in again');
     const n = comments.filter((x) => x.post === c.post && x.anchor?.id === anchor.id).length;
     const what = n === 1 ? 'its 1 reply' : `all ${n} replies`;
     if (!window.confirm(`Delete this highlight and ${what}?\n\n> "${truncate(anchor.exact, 140)}"\n\nThis can't be undone.`)) return;
@@ -138,7 +149,7 @@ export function initModerate(signal: AbortSignal) {
       await deleteThread(c.post, anchor.id, key);
     } catch (err) {
       const code = (err as { status?: number }).status;
-      if (code === 401) return showSignin('> wrong or changed passphrase — sign in again');
+      if (code === 401) return showSignin('wrong or changed password. sign in again.');
       if (code !== 404) {
         window.alert(err instanceof Error ? err.message : 'Could not delete the thread.');
         return render();
@@ -153,7 +164,7 @@ export function initModerate(signal: AbortSignal) {
     const c = btn && comments.find((x) => x.id === btn.dataset.del);
     const key = ownerKey();
     if (!btn || !c) return;
-    if (!key) return showSignin('> sign in again');
+    if (!key) return showSignin('sign in again');
     if (!window.confirm(`Delete this comment by ${c.name || 'anon'}?\n\n"${truncate(c.body, 140)}"\n\nThis can't be undone.`)) return;
     btn.disabled = true;
     btn.textContent = '[ deleting… ]';
@@ -161,7 +172,7 @@ export function initModerate(signal: AbortSignal) {
       await deleteComment(c.id, key);
     } catch (err) {
       const code = (err as { status?: number }).status;
-      if (code === 401) return showSignin('> wrong or changed passphrase — sign in again');
+      if (code === 401) return showSignin('wrong or changed password. sign in again.');
       if (code !== 404) {
         window.alert(err instanceof Error ? err.message : 'Could not delete the comment.');
         btn.disabled = false;
@@ -178,6 +189,6 @@ export function initModerate(signal: AbortSignal) {
   if (!saved) return showSignin();
   open(saved).catch((err) => {
     const code = (err as { status?: number }).status;
-    showSignin(code === 401 ? '' : `> ${err instanceof Error ? err.message : 'could not load comments'}`);
+    showSignin(code === 401 ? '' : err instanceof Error ? err.message : 'could not load comments');
   });
 }

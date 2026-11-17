@@ -1,0 +1,97 @@
+---
+/** Writing studio home: start a post, or pick one to edit. Owner only. */
+import '../../styles/write.css';
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { isOwner } from '../../lib/auth';
+import { listPosts, MODE, PUBLISHING } from '../../lib/content';
+
+export const prerender = false;
+if (!isOwner(Astro.request)) return Astro.redirect('/?auth=1&next=/write/');
+
+const posts = listPosts();
+const dot = (d: string) => d.replace(/-/g, '.');
+const modeLabel =
+  MODE === 'local' ? 'saves to content/posts on this computer' : MODE === 'github' ? `commits to ${PUBLISHING.repo} (${PUBLISHING.branch})` : 'off: add GITHUB_TOKEN to publish';
+---
+
+<BaseLayout title="Write" description="Writing studio." banner={false}>
+  <meta slot="head" name="robots" content="noindex, nofollow" />
+  <h1 class="sr-only">Writing studio</h1>
+
+  <div class="portal portal--wide">
+    <section class="panel" aria-labelledby="new-h">
+      <div class="panel-bar"><h2 class="panel-title" id="new-h">new post</h2></div>
+      <div class="panel-body">
+        <form class="studio-form" data-new>
+          <label class="sr-only" for="new-title">Title</label>
+          <input id="new-title" name="title" type="text" placeholder="title of the new post" maxlength="300" autocomplete="off" required />
+          <button type="submit" class="cm-submit">[ start writing ]</button>
+          <span class="status" data-status aria-live="polite"></span>
+        </form>
+      </div>
+    </section>
+
+    <section class="panel" aria-labelledby="list-h">
+      <div class="panel-bar">
+        <h2 class="panel-title" id="list-h">posts &amp; drafts <span class="count">({posts.length})</span></h2>
+        <span>publishing: {modeLabel}</span>
+      </div>
+      {
+        posts.length ? (
+          <ol class="studio-list">
+            {posts.map((p) => (
+              <li>
+                <span class="d">{dot(p.date)}</span>
+                <a class="t" href={`/write/${p.slug}`}>
+                  {p.title}
+                </a>
+                <span class="flags">
+                  {p.unsaved ? 'unpublished changes' : p.draft ? 'draft' : 'live'}
+                </span>
+              </li>
+            ))}
+          </ol>
+        ) : (
+          <p class="panel-body studio-note">nothing yet. start a post above.</p>
+        )
+      }
+    </section>
+
+    <p class="studio-note">
+      <kbd>ctrl+shift+e</kbd> opens this page from anywhere · <kbd>e</kbd> on a post edits it · <a href="/write/settings/">settings &amp; password</a>
+    </p>
+  </div>
+</BaseLayout>
+
+<script>
+  import { navigate } from 'astro:transitions/client';
+  import { onPage } from '../../scripts/lifecycle';
+
+  onPage((signal) => {
+    const form = document.querySelector<HTMLFormElement>('[data-new]');
+    if (!form) return;
+    const status = form.querySelector<HTMLElement>('[data-status]')!;
+    form.addEventListener(
+      'submit',
+      async (e) => {
+        e.preventDefault();
+        const title = (form.elements.namedItem('title') as HTMLInputElement).value.trim();
+        if (!title) return;
+        status.textContent = 'starting…';
+        try {
+          const res = await fetch('/api/write/new', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json', accept: 'application/json' },
+            body: JSON.stringify({ title }),
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error ?? 'Could not start the post.');
+          navigate(`/write/${data.slug}`);
+        } catch (err) {
+          status.textContent = err instanceof Error ? err.message : 'Could not start the post.';
+        }
+      },
+      { signal },
+    );
+  });
+</script>

@@ -222,7 +222,7 @@ export function initComments(signal: AbortSignal) {
         m.classList.remove('is-pulse');
         void m.offsetWidth;
         m.classList.add('is-pulse');
-        window.setTimeout(() => m.classList.remove('is-pulse'), 1600);
+        window.setTimeout(() => m.classList.remove('is-pulse'), 700);
       });
     const r = marks[0].getBoundingClientRect();
     const onScreen = r.top > 60 && r.bottom < window.innerHeight - 60;
@@ -276,7 +276,7 @@ export function initComments(signal: AbortSignal) {
       q.type = 'button';
       q.className = 'cm-quote';
       q.dataset.jump = c.anchor.id;
-      q.textContent = `> "${truncate(c.anchor.exact, 160)}"`;
+      q.textContent = `“${truncate(c.anchor.exact, 160)}”`;
       if (n) {
         const tag = document.createElement('span');
         tag.className = 'cm-quote-no';
@@ -310,10 +310,14 @@ export function initComments(signal: AbortSignal) {
     if (!drawer || !qtQuote || !qtList || !qtCount) return;
     const anchor = openAnchorId ? located.get(openAnchorId)?.anchor ?? comments.find((c) => c.anchor?.id === openAnchorId)?.anchor : pending;
     if (!anchor) return;
-    qtQuote.textContent = `> "${anchor.exact}"`;
+    qtQuote.textContent = `“${anchor.exact}”`;
     const replies = openAnchorId ? comments.filter((c) => c.anchor?.id === openAnchorId) : [];
     qtList.replaceChildren(...replies.map((c) => commentItem(c, { jump: false })));
-    qtCount.textContent = replies.length ? `${pad(replies.length)} ${replies.length === 1 ? 'reply' : 'replies'}` : 'new thread // be the first to reply';
+    const n = openAnchorId ? numberOf(openAnchorId) : 0;
+    const where = n ? `passage ${pad(n)} · ` : '';
+    qtCount.textContent = replies.length
+      ? `${where}${pad(replies.length)} ${replies.length === 1 ? 'reply' : 'replies'}`
+      : `${where}new thread · be the first to reply`;
     if (qtDelThread) {
       qtDelThread.hidden = !(owner && replies.length);
       qtDelThread.disabled = false;
@@ -405,14 +409,14 @@ export function initComments(signal: AbortSignal) {
     const name = String(fd.get('name') ?? '').trim();
     const body = String(fd.get('body') ?? '').trim();
     if (body.length < 2) {
-      if (status) status.textContent = '> write something first';
+      if (status) status.textContent = 'write something first';
       return;
     }
     try {
       localStorage.setItem('comment-name', name);
     } catch {}
     if (button) button.disabled = true;
-    if (status) status.textContent = '> posting…';
+    if (status) status.textContent = 'posting…';
     try {
       const res = await fetch('/api/comments', {
         method: 'POST',
@@ -431,7 +435,7 @@ export function initComments(signal: AbortSignal) {
       const comment: Comment = data.comment;
       comments.push(comment);
       form.querySelector<HTMLTextAreaElement>('textarea')!.value = '';
-      if (status) status.textContent = '> posted ✓';
+      if (status) status.textContent = 'posted ✓';
       if (comment.anchor) {
         openAnchorId = comment.anchor.id;
         pending = null;
@@ -441,7 +445,7 @@ export function initComments(signal: AbortSignal) {
       }
       renderFeed();
     } catch (err) {
-      if (status) status.textContent = `> ${err instanceof Error ? err.message : 'could not post'}`;
+      if (status) status.textContent = err instanceof Error ? err.message : 'could not post';
     } finally {
       if (button) button.disabled = false;
     }
@@ -551,6 +555,17 @@ export function initComments(signal: AbortSignal) {
     const q = (e.target as HTMLElement).closest<HTMLButtonElement>('[data-jump]');
     if (q?.dataset.jump) pulse(q.dataset.jump);
   });
+
+  // Hovering or focusing a quote in the feed lights up its passage in the post.
+  const light = (e: Event, on: boolean) => {
+    const q = (e.target as HTMLElement).closest<HTMLElement>('[data-jump]');
+    if (!q?.dataset.jump || q.dataset.jump === openAnchorId) return;
+    prose.querySelectorAll(`mark.anno[data-anchor="${CSS.escape(q.dataset.jump)}"]`).forEach((m) => m.classList.toggle('is-active', on));
+  };
+  feed?.addEventListener('mouseover', (e) => light(e, true));
+  feed?.addEventListener('mouseout', (e) => light(e, false));
+  feed?.addEventListener('focusin', (e) => light(e, true));
+  feed?.addEventListener('focusout', (e) => light(e, false));
 
   // Owner mode: [ delete ] buttons in the feed and in quote threads.
   feed?.addEventListener('click', onDelete);

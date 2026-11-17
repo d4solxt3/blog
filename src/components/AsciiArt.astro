@@ -2,14 +2,20 @@
 /**
  * Front-page ASCII drawing. The text comes from the file named by
  * "frontpageAscii" in site.config.json (make it with `npm run ascii` or the
- * converter in /_admin). Being plain text, it follows the theme's ink colour.
+ * converter in /_admin). It follows the theme's ink colour.
+ *
+ * The converter assumes each character cell is 0.6 wide by 1 tall (IBM Plex
+ * Mono at line-height 1), and it's drawn on exactly that grid. At small sizes
+ * real text turns into hinted blotches, so the script draws the same
+ * characters onto a canvas at 2–4× resolution and lets the browser scale it
+ * down smoothly. Without JavaScript the plain text shows instead.
  */
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { SITE } from '../site.config';
 
 interface Props {
-  /** Rendered width of the whole drawing (any CSS length). */
+  /** Rendered width of the whole drawing (any CSS length; `100cqi` = fill a container query box). */
   width?: string;
 }
 
@@ -19,12 +25,14 @@ try {
   art = readFileSync(resolve(process.cwd(), 'public', SITE.frontpageAscii.replace(/^\//, '')), 'utf8').replace(/\s+$/, '');
 } catch {}
 const cols = Math.max(1, ...art.split('\n').map((l) => l.length));
+const rows = art ? art.split('\n').length : 0;
 ---
 
 {
   art && (
-    <figure class="ascii" style={`--cols: ${cols}; --w: ${width}`} aria-label="ASCII drawing">
+    <figure class="ascii" style={`--cols: ${cols}; --rows: ${rows}; --w: ${width}`} aria-label="ASCII drawing" data-ascii>
       <pre aria-hidden="true">{art}</pre>
+      <canvas aria-hidden="true" hidden />
     </figure>
   )
 }
@@ -46,4 +54,64 @@ const cols = Math.max(1, ...art.split('\n').map((l) => l.length));
     white-space: pre;
     font-variant-ligatures: none;
   }
+
+  /* Same box as the text: --w wide, rows × (cell height) tall. */
+  canvas {
+    display: block;
+    width: var(--w);
+    height: calc(var(--w) / var(--cols) / 0.6 * var(--rows));
+    max-width: none;
+  }
 </style>
+
+<script>
+  import { onPage } from '../scripts/lifecycle';
+
+  const CELL = 0.6; // glyph width / line height — the converter's CHAR_ASPECT
+
+  let loaded: Promise<unknown> | null = null;
+
+  function draw(fig: HTMLElement) {
+    const pre = fig.querySelector('pre');
+    const canvas = fig.querySelector('canvas');
+    if (!pre || !canvas) return;
+    canvas.hidden = false;
+    const box = canvas.getBoundingClientRect();
+    if (!box.width) return void (canvas.hidden = true);
+    const lines = (pre.textContent ?? '').split('\n');
+    const cols = Math.max(1, ...lines.map((l) => l.length));
+    // Supersample: draw big, let the browser scale it down evenly.
+    const scale = Math.min(4, Math.max(2, Math.ceil(window.devicePixelRatio * 2)));
+    canvas.width = Math.round(box.width * scale);
+    canvas.height = Math.round(box.height * scale);
+    const size = canvas.width / cols / CELL;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = getComputedStyle(fig).color;
+    ctx.font = `${size}px "IBM Plex Mono", ui-monospace, monospace`;
+    ctx.textBaseline = 'top';
+    // Each character in its exact grid cell, so the proportions match the converter.
+    lines.forEach((line, r) => {
+      for (let c = 0; c < line.length; c++) {
+        const ch = line[c];
+        if (ch !== ' ') ctx.fillText(ch, c * size * CELL, r * size);
+      }
+    });
+    pre.hidden = true;
+  }
+
+  const drawAll = () => document.querySelectorAll<HTMLElement>('[data-ascii]').forEach(draw);
+
+  onPage((signal) => {
+    if (!document.querySelector('[data-ascii]')) return;
+    loaded ??= document.fonts.load('16px "IBM Plex Mono"').catch(() => {});
+    loaded.then(() => !signal.aborted && drawAll());
+    // Redraw in the new ink colour (synchronously, so the theme wipe captures it) and on resize.
+    document.addEventListener('themechange', drawAll, { signal });
+    let timer = 0;
+    window.addEventListener('resize', () => ((window.clearTimeout(timer), (timer = window.setTimeout(drawAll, 150)))), { signal });
+    // A <dialog> isn't laid out until it opens.
+    document.querySelectorAll('dialog').forEach((d) => new MutationObserver(drawAll).observe(d, { attributes: true, attributeFilter: ['open'] }));
+  });
+</script>

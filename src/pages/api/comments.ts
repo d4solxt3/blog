@@ -4,7 +4,7 @@
  * POST /api/comments               → { comment }           JSON body:
  *      { post, name?, body, anchor?: { id?, exact, prefix, suffix, blockIndex }, website (honeypot), elapsed }
  *
- * Owner only (header `Authorization: Bearer <COMMENTS_ADMIN_KEY>`):
+ * Owner only (signed-in session, or `Authorization: Bearer <admin password or COMMENTS_ADMIN_KEY>`):
  * GET    /api/comments?recent=1     → { comments: [...] }   (newest first, every post)
  * DELETE /api/comments?id=<id>      → { ok: true }
  * DELETE /api/comments?post=<slug>&anchor=<anchorId>
@@ -15,6 +15,7 @@
 import { createHash, timingSafeEqual } from 'node:crypto';
 import type { APIRoute } from 'astro';
 import { getCollection } from 'astro:content';
+import { checkPassword, isOwner, passwordSource } from '../../lib/auth';
 import { getStore, type Anchor, type CommentRecord } from '../../lib/comment-store';
 import { SITE } from '../../site.config';
 
@@ -43,28 +44,28 @@ function rateLimited(ip: string) {
   return false;
 }
 
-/* Owner check for moderation. The passphrase is the COMMENTS_ADMIN_KEY env var
- * on your host. Without it, moderation is off — except under `npm run dev`,
- * where it's open so you can try it locally. 10 wrong guesses per IP per
- * 10 minutes locks that IP out for the rest of the window. */
+/* Owner check for moderation: a signed-in owner session (see lib/auth.ts), or
+ * `Authorization: Bearer <password>` with your admin password or the older
+ * COMMENTS_ADMIN_KEY. Under `npm run dev` it's always open. 10 wrong guesses
+ * per IP per 10 minutes locks that IP out for the rest of the window. */
 const failures = new Map<string, number[]>();
 const digest = (s: string) => createHash('sha256').update(s).digest();
 
-function ownerError(request: Request, ip: string): Response | null {
+async function ownerError(request: Request, ip: string): Promise<Response | null> {
+  if (isOwner(request)) return null;
   const key = process.env.COMMENTS_ADMIN_KEY?.trim() || '';
-  if (!key && !import.meta.env.DEV) {
-    return json({ error: 'Moderation is off. Set COMMENTS_ADMIN_KEY on your host first.' }, 403);
+  if (!key && passwordSource() === 'none') {
+    return json({ error: 'Moderation is off. Set ADMIN_PASSWORD on your host first.' }, 403);
   }
   const now = Date.now();
   const fails = (failures.get(ip) ?? []).filter((t) => now - t < WINDOW_MS);
-  if (fails.length >= 10) return json({ error: 'Too many wrong passphrases. Try again in 10 minutes.' }, 429);
-  if (!key) return null;
+  if (fails.length >= 10) return json({ error: 'Too many wrong passwords. Try again in 10 minutes.' }, 429);
   const given = (request.headers.get('authorization') ?? '').replace(/^Bearer\s+/i, '').trim();
-  if (given && timingSafeEqual(digest(given), digest(key))) return null;
+  if (given && ((key && timingSafeEqual(digest(given), digest(key))) || (await checkPassword(given)))) return null;
   fails.push(now);
   failures.set(ip, fails);
   if (failures.size > 5000) failures.clear();
-  return json({ error: 'Wrong passphrase.' }, 401);
+  return json({ error: 'Wrong password.' }, 401);
 }
 
 const clean = (v: unknown, max: number) =>
@@ -80,7 +81,7 @@ async function postRules() {
 
 export const GET: APIRoute = async ({ url, request, clientAddress }) => {
   if (url.searchParams.has('recent')) {
-    const denied = ownerError(request, clientAddress || 'unknown');
+    const denied = await ownerError(request, clientAddress || 'unknown');
     if (denied) return denied;
   }
   try {
@@ -156,7 +157,7 @@ export const POST: APIRoute = async ({ request, clientAddress }) => {
 };
 
 export const DELETE: APIRoute = async ({ url, request, clientAddress }) => {
-  const denied = ownerError(request, clientAddress || 'unknown');
+  const denied = await ownerError(request, clientAddress || 'unknown');
   if (denied) return denied;
   const anchorId = url.searchParams.get('anchor');
   const post = clean(url.searchParams.get('post'), 120);

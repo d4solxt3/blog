@@ -26,6 +26,31 @@ const url = str(r.siteUrl, '').replace(/\/$/, '');
 const frontpageImage = str(r.frontpageImage, '/images/frontpage-art.png');
 const giscus = r.comments?.giscus ?? {};
 
+/** Tab-title emoticon presets; "frames" in the config overrides the preset's frames. */
+export const TAB_PRESETS: Record<string, string[]> = {
+  kaomoji: ['(´･_･`)', '(´･ω･`)', '( •_•)>⌐■-■', '(⌐■_■)', '(ﾉ´ヮ`)ﾉ*:･ﾟ'],
+  /** A signal moving down a residual stream. */
+  stream: ['▸···', '·▸··', '··▸·', '···▸'],
+  /** The same half-moon as the light / dark switch, turning. */
+  moon: ['◐', '◓', '◑', '◒'],
+  'cyber-hud': ['[▮    ]', '[▮▮   ]', '[▮▮▮  ]', '[▮▮▮▮ ]', '[▮▮▮▮▮]', '[ ok  ]'],
+  'classic-blink': ['>>', '> ', '  '],
+  off: [],
+};
+
+function tabAnimation(v: any) {
+  const preset = typeof v?.preset === 'string' && v.preset in TAB_PRESETS ? v.preset : 'kaomoji';
+  const custom = Array.isArray(v?.frames) ? v.frames.map(String).filter((f: string) => f.trim()) : [];
+  const frames = custom.length ? custom : TAB_PRESETS[preset];
+  const ms = Number(v?.intervalMs);
+  return {
+    enabled: v?.enabled !== false && preset !== 'off' && frames.length > 0,
+    preset,
+    intervalMs: Number.isFinite(ms) ? Math.min(10_000, Math.max(400, ms)) : 950,
+    frames,
+  };
+}
+
 const fill = (template: string) =>
   template
     .replace(/\{year\}/g, String(new Date().getFullYear()))
@@ -47,6 +72,11 @@ export const SITE = {
   /** Text file with the front-page ASCII drawing (made by `npm run ascii`). */
   frontpageAscii: str(r.frontpageAscii, '/images/frontpage-ascii.txt'),
   invertArt: r.invertFrontpageImageInDarkMode !== false,
+  /** "quiet" (default): only transitions move. "full": also the clock seconds, ticker,
+   *  blinking cursor and rotating HUD ring. Visitors can switch. */
+  motion: (r.motion === 'full' ? 'full' : 'quiet') as 'quiet' | 'full',
+  /** Animated emoticons before the browser tab title (pause when the tab is hidden or with reduced motion). */
+  tabAnimation: tabAnimation(r.tabAnimation),
   /** Slim dithered strip under the nav on the hub pages. image "" = the built-in horizon. */
   banner: {
     show: r.banner?.show !== false,

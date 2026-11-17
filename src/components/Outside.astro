@@ -1,10 +1,25 @@
 ---
 /** The colophon, sitting on the canvas just under the page's bottom-left edge. */
 import { SITE } from '../site.config';
+
+// The year is a hidden door: triple-click it to sign in (see scripts/owner-ui.ts).
+const year = String(new Date().getFullYear());
+const at = SITE.footerText.indexOf(year);
+const parts = at >= 0 ? [SITE.footerText.slice(0, at), SITE.footerText.slice(at + year.length)] : null;
 ---
 
 <footer class="outside">
-  <p class="colophon">{SITE.footerText}</p>
+  <p class="colophon">
+    {parts ? (
+      <>
+        {parts[0]}
+        <span data-owner-year>{year}</span>
+        {parts[1]}
+      </>
+    ) : (
+      <span data-owner-year>{SITE.footerText}</span>
+    )}
+  </p>
 </footer>
 
 <style>
@@ -18,5 +33,9 @@ import { SITE } from '../site.config';
     font-size: 0.6875rem;
     letter-spacing: 0.02em;
     color: var(--muted);
+  }
+
+  [data-owner-year] {
+    user-select: none;
   }
 </style>

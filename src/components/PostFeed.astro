@@ -1,10 +1,11 @@
 ---
 /**
- * The writing list: a dense early-web link table inside a panel. One row per
- * post (date · title + one-line summary · length and replies), dotted row
- * separators, "all | series | #tags" filters and a small filter box in the
- * bar. Post titles carry a transition:name, so clicking one morphs it into
- * the article header.
+ * The writing list: the main box on the hub pages. A dense early-web link
+ * table (date · title + summary · length and replies) with pinned posts set
+ * apart above the newest-first list, "all | series | #tags" filters, a small
+ * filter box, a visible filter status with a reset, and filters that survive a
+ * trip into a post and back. Post titles carry a transition:name, so clicking
+ * one glides it into the article header.
  */
 import { SITE } from '../site.config';
 import { formatDate, isoDate, pad, postUrl, readingTime, tagSlug, threadStatus, seriesOf, type Post } from '../utils/posts';
@@ -29,23 +30,28 @@ for (const post of posts) {
 }
 const tags = [...tagCounts.entries()].sort((a, b) => b[1].count - a[1].count || a[0].localeCompare(b[0]));
 
-const flags = { pin: 'pinned', new: 'new!', draft: 'draft' } as Record<string, string>;
-const rows = posts.map((post, i) => ({
-  post,
-  order: i,
-  flag: flags[threadStatus(post, now)] ?? '',
-  minutes: readingTime(post.body),
-  series: seriesOf(post, posts),
-  search: [post.data.title, post.data.subtitle, post.data.description, post.data.series, ...post.data.tags]
-    .filter(Boolean)
-    .join(' ')
-    .toLowerCase(),
-}));
+const rows = posts.map((post, i) => {
+  const status = threadStatus(post, now);
+  return {
+    post,
+    order: i,
+    pinned: status === 'pin',
+    flag: status === 'new' ? 'new' : status === 'draft' ? 'draft' : '',
+    minutes: readingTime(post.body),
+    series: seriesOf(post, posts),
+    search: [post.data.title, post.data.subtitle, post.data.description, post.data.series, ...post.data.tags]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase(),
+  };
+});
 const hasSeries = rows.some((r) => r.series);
+const hasPinned = rows.some((r) => r.pinned) && rows.some((r) => !r.pinned);
+const firstLatest = rows.findIndex((r) => !r.pinned);
 const repliesEnabled = SITE.comments.provider === 'native';
 ---
 
-<section class="panel feed" id={id} aria-labelledby={`${id}-label`} data-feed-list data-replies={repliesEnabled ? 'on' : 'off'}>
+<section class="panel panel--primary feed" id={id} aria-labelledby={`${id}-label`} data-feed-list data-replies={repliesEnabled ? 'on' : 'off'} data-total={posts.length}>
   <div class="panel-bar feed-bar">
     <h2 class="panel-title" id={`${id}-label`}>{label} <span class="count">(<span data-count>{pad(posts.length)}</span>)</span></h2>
     <div class="feed-tools">
@@ -89,14 +95,26 @@ const repliesEnabled = SITE.comments.provider === 'native';
     )
   }
 
+  <p class="filter-status" data-filter-status aria-live="polite" hidden>
+    <span data-filter-text></span>
+    <button type="button" data-reset>clear filters</button>
+  </p>
+
   <ol class="rows" data-rows>
     {
-      rows.map(({ post, order, flag, minutes, series, search }) => (
+      rows.map(({ post, order, pinned, flag, minutes, series, search }, i) => (
+        <>
+        {hasPinned && i === firstLatest && (
+          <li class="rows-sep" data-sep aria-hidden="true">
+            <span>latest</span>
+          </li>
+        )}
         <li
-          class="row"
+          class:list={['row', { 'row--pinned': pinned }]}
           data-thread
           data-slug={post.id}
           data-order={order}
+          data-pinned={pinned ? '1' : undefined}
           data-tags={post.data.tags.map(tagSlug).join(' ')}
           data-series={series ? `${series.name}::${pad(series.index, 3)}` : ''}
           data-search={search}
@@ -106,10 +124,10 @@ const repliesEnabled = SITE.comments.provider === 'native';
           </time>
           <div class="r-main">
             <p class="r-head">
-              <a class="r-title" href={postUrl(post)} transition:name={`post-${post.id}`}>
+              <a class="r-title" href={postUrl(post)} transition:name={`post-title-${post.id}`}>
                 {post.data.title}
               </a>
-              {flag && <span class:list={['r-flag', `r-flag--${flag.replace('!', '')}`]}>{flag}</span>}
+              {flag && <span class:list={['r-flag', `r-flag--${flag}`]}>{flag}</span>}
             </p>
             <p class="r-sum">
               {series && (
@@ -121,16 +139,25 @@ const repliesEnabled = SITE.comments.provider === 'native';
             </p>
           </div>
           <p class="r-meta">
-            <span>{minutes} min</span>
+            <span>
+              {pinned && (
+                <svg class="r-pin" viewBox="0 0 10 10" role="img" aria-label="pinned">
+                  <title>pinned</title>
+                  <path d="M3 1h4M3.5 1v3.2L2 6h6L6.5 4.2V1M5 6v3.2" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="square" />
+                </svg>
+              )}
+              {minutes} min
+            </span>
             {repliesEnabled && <span data-replies hidden />}
           </p>
         </li>
+        </>
       ))
     }
   </ol>
 
   <p class="empty" data-empty hidden>
-    nothing matches. <button type="button" data-reset>show everything</button>
+    nothing matches. <button type="button" data-reset>clear filters</button>
   </p>
 </section>
 
@@ -151,7 +178,7 @@ const repliesEnabled = SITE.comments.provider === 'native';
   .views {
     display: flex;
     align-items: center;
-    gap: 5px;
+    gap: 2px;
     font-size: 11px;
   }
 
@@ -159,10 +186,9 @@ const repliesEnabled = SITE.comments.provider === 'native';
     color: var(--faint);
   }
 
-  .views button,
-  .empty button,
-  .tag {
-    padding: 0;
+  .views button {
+    min-height: 22px;
+    padding: 0 3px;
     border: 0;
     background: none;
     font: inherit;
@@ -176,9 +202,7 @@ const repliesEnabled = SITE.comments.provider === 'native';
       text-decoration-color var(--fast) var(--ease);
   }
 
-  .views button:hover,
-  .empty button:hover,
-  .tag:hover {
+  .views button:hover {
     color: var(--ink);
     text-decoration-color: var(--rule);
   }
@@ -191,7 +215,7 @@ const repliesEnabled = SITE.comments.provider === 'native';
 
   .filter {
     width: 120px;
-    height: 15px;
+    height: 18px;
     padding: 0 4px;
     border: 1px solid var(--line);
     border-radius: 0;
@@ -199,17 +223,16 @@ const repliesEnabled = SITE.comments.provider === 'native';
     font-family: var(--font-mono);
     font-size: 10.5px;
     color: var(--ink);
-    outline: none;
-  }
-
-  .filter::placeholder {
-    color: var(--faint);
-    opacity: 1;
   }
 
   .filter:focus-visible {
     outline: 1px solid var(--ink);
     outline-offset: 0;
+  }
+
+  .filter::placeholder {
+    color: var(--faint);
+    opacity: 1;
   }
 
   .filter::-webkit-search-cancel-button {
@@ -219,12 +242,37 @@ const repliesEnabled = SITE.comments.provider === 'native';
   .tag-strip {
     display: flex;
     flex-wrap: wrap;
-    gap: 2px 10px;
-    padding: 4px 10px;
+    gap: 2px 6px;
+    padding: 4px 8px;
     border-bottom: 1px dotted var(--muted);
     background: var(--wash);
     font-family: var(--font-mono);
     font-size: 11px;
+  }
+
+  .tag,
+  .filter-status button,
+  .empty button {
+    min-height: 22px;
+    padding: 0 3px;
+    border: 0;
+    background: none;
+    font: inherit;
+    color: var(--muted);
+    text-decoration: underline;
+    text-decoration-color: transparent;
+    text-underline-offset: 0.25em;
+    cursor: pointer;
+    transition:
+      color var(--fast) var(--ease),
+      text-decoration-color var(--fast) var(--ease);
+  }
+
+  .tag:hover,
+  .filter-status button:hover,
+  .empty button:hover {
+    color: var(--ink);
+    text-decoration-color: var(--rule);
   }
 
   .tag .n {
@@ -232,7 +280,6 @@ const repliesEnabled = SITE.comments.provider === 'native';
   }
 
   .tag[aria-pressed='true'] {
-    padding: 0 3px;
     background: var(--ink);
     color: var(--surface);
     text-decoration: none;
@@ -241,6 +288,25 @@ const repliesEnabled = SITE.comments.provider === 'native';
   .tag[aria-pressed='true'] .n {
     color: inherit;
     opacity: 0.7;
+  }
+
+  .filter-status {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 2px 8px;
+    margin: 0;
+    padding: 3px 10px;
+    border-bottom: 1px dotted var(--muted);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--ink-2);
+  }
+
+  .filter-status button {
+    margin-left: auto;
+    color: var(--ink);
+    text-decoration-color: var(--ink);
   }
 
   .feed {
@@ -256,11 +322,12 @@ const repliesEnabled = SITE.comments.provider === 'native';
 
   /* date | title + summary | length & replies */
   .row {
+    position: relative;
     display: grid;
     grid-template-columns: 70px minmax(0, 1fr) auto;
     column-gap: 10px;
     align-items: baseline;
-    padding: 6px 0;
+    padding: 6px 0 6px 12px;
     border-bottom: 1px dotted var(--rule);
   }
 
@@ -269,6 +336,100 @@ const repliesEnabled = SITE.comments.provider === 'native';
     box-shadow:
       -10px 0 0 var(--wash),
       10px 0 0 var(--wash);
+  }
+
+  /* Hover: a → pointer slides in and a 2px accent lights up on the left. */
+  .row::before {
+    content: '→';
+    position: absolute;
+    top: 6px;
+    left: 0;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    line-height: 1.45;
+    color: var(--ink);
+    opacity: 0;
+    transform: translateX(-6px);
+    transition:
+      opacity 140ms var(--snap),
+      transform 140ms var(--snap);
+  }
+
+  .row::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: -1px;
+    left: -10px;
+    width: 2px;
+    background: var(--ink);
+    opacity: 0;
+    transition: opacity 140ms var(--snap);
+  }
+
+  .row:hover::before,
+  .row:focus-within::before {
+    opacity: 1;
+    transform: none;
+  }
+
+  .row:hover::after,
+  .row:focus-within::after {
+    opacity: 1;
+  }
+
+  /* Selection flash: the clicked row deepens to a soft ink wash (fading in),
+     then the page transition starts. */
+  .row {
+    --flash: color-mix(in srgb, var(--ink) 13%, var(--surface));
+    transition:
+      background-color 120ms var(--snap),
+      box-shadow 120ms var(--snap);
+  }
+
+  .row.is-flash,
+  .row.is-flash:hover {
+    background: var(--flash);
+    box-shadow:
+      -10px 0 0 var(--flash),
+      10px 0 0 var(--flash);
+  }
+
+  .row.is-flash::before {
+    opacity: 1;
+    transform: none;
+  }
+
+  /* Pinned posts sit on a faint wash above the "latest" divider. */
+  .row--pinned {
+    background: color-mix(in srgb, var(--wash) 60%, transparent);
+    box-shadow:
+      -10px 0 0 color-mix(in srgb, var(--wash) 60%, transparent),
+      10px 0 0 color-mix(in srgb, var(--wash) 60%, transparent);
+  }
+
+  /* Equal space above and below the label (the next row's top padding is trimmed to match). */
+  .rows-sep {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 11px 0 2px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    line-height: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .rows-sep::after {
+    content: '';
+    flex: 1;
+    border-top: 1px solid var(--rule);
+  }
+
+  .rows-sep + .row {
+    padding-top: 3px;
   }
 
   .r-date,
@@ -289,42 +450,65 @@ const repliesEnabled = SITE.comments.provider === 'native';
   }
 
   .row .r-title {
-    font-family: var(--font-head);
-    font-size: 13px;
+    font-family: var(--font-sans);
+    font-size: 13.5px;
     font-weight: 600;
     color: var(--ink);
-    text-decoration: none;
+    text-decoration: underline;
+    text-decoration-color: transparent;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 0.2em;
+    transition: text-decoration-color var(--fast) var(--ease);
+  }
+
+  .row .r-title:visited {
+    color: var(--ink-2);
   }
 
   .row .r-title:hover {
-    text-decoration: underline;
-    text-decoration-thickness: 1px;
-    text-underline-offset: 0.2em;
+    text-decoration-color: currentColor;
   }
 
+  .row .r-title:focus-visible {
+    outline: 2px solid var(--ink);
+    outline-offset: 2px;
+  }
+
+  /* Pinned: a tiny pushpin before the reading time, so titles stay aligned. */
+  .r-pin {
+    display: inline-block;
+    width: 9px;
+    height: 9px;
+    margin-right: 5px;
+    vertical-align: -1px;
+    color: var(--ink);
+  }
+
+  /* Silkscreen micro-badge, no box. */
   .r-flag {
     margin-left: 6px;
-    font-family: var(--font-mono);
-    font-size: 10.5px;
-    font-style: italic;
+    font-family: var(--font-pixel);
+    font-size: 9px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
     color: var(--ink);
     white-space: nowrap;
   }
 
-  .r-flag--pinned,
   .r-flag--draft {
-    font-style: normal;
     color: var(--muted);
   }
 
   .r-sum {
     margin: 1px 0 0;
-    font-size: 11.5px;
+    font-family: var(--font-sans);
+    font-size: 12px;
     line-height: 1.45;
     color: var(--muted);
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
     overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis;
   }
 
   .r-series {
@@ -354,8 +538,20 @@ const repliesEnabled = SITE.comments.provider === 'native';
       justify-content: space-between;
     }
 
+    .filter {
+      flex: 1;
+      max-width: 160px;
+      height: 24px;
+    }
+
+    .views button {
+      min-height: 26px;
+      padding: 0 6px;
+    }
+
     .row {
       grid-template-columns: minmax(0, 1fr) auto;
+      padding-block: 8px;
     }
 
     .r-date {
@@ -373,24 +569,32 @@ const repliesEnabled = SITE.comments.provider === 'native';
       grid-row: 2;
     }
 
+    .row .r-title {
+      font-size: 14.5px;
+    }
+
     .r-sum {
-      white-space: normal;
-      display: -webkit-box;
-      -webkit-line-clamp: 2;
-      -webkit-box-orient: vertical;
+      font-size: 12.5px;
     }
   }
 </style>
 
 <script>
+  import { navigate } from 'astro:transitions/client';
   import { onPage } from '../scripts/lifecycle';
 
   const pad = (n: number) => String(n).padStart(2, '0');
+  const SNAP = 'cubic-bezier(0.19, 1, 0.22, 1)';
+  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+  /** Where to come back to after reading a post: this list, its filters and scroll. */
+  const RETURN = 'feed-return';
+  type Return = { path: string; search: string; y: number; seenPost?: boolean };
 
   onPage((signal) => {
     document.querySelectorAll<HTMLElement>('[data-feed-list]').forEach((feed) => {
       const list = feed.querySelector<HTMLElement>('[data-rows]')!;
       const rows = Array.from(feed.querySelectorAll<HTMLElement>('[data-thread]'));
+      const sep = feed.querySelector<HTMLElement>('[data-sep]');
       const views = Array.from(feed.querySelectorAll<HTMLButtonElement>('[data-view]'));
       const pills = Array.from(feed.querySelectorAll<HTMLButtonElement>('[data-tag]'));
       const strip = feed.querySelector<HTMLElement>('[data-tag-strip]');
@@ -398,6 +602,9 @@ const repliesEnabled = SITE.comments.provider === 'native';
       const input = feed.querySelector<HTMLInputElement>('[data-search]');
       const countEl = feed.querySelector<HTMLElement>('[data-count]');
       const emptyEl = feed.querySelector<HTMLElement>('[data-empty]');
+      const status = feed.querySelector<HTMLElement>('[data-filter-status]');
+      const statusText = feed.querySelector<HTMLElement>('[data-filter-text]');
+      const total = rows.length;
       const known = new Set(pills.map((p) => p.dataset.tag));
       let view = 'all';
       let tag = '';
@@ -408,7 +615,16 @@ const repliesEnabled = SITE.comments.provider === 'native';
         toggle.setAttribute('aria-expanded', String(open));
       }
 
-      function apply(updateUrl = true) {
+      function apply(updateUrl = true, animate = updateUrl) {
+        // FLIP: remember where visible rows were, then glide them to their new places.
+        const flip = animate && !reducedMotion.matches;
+        const before = new Map<HTMLElement, number>();
+        if (flip) {
+          for (const row of rows) {
+            row.getAnimations().forEach((a) => a.cancel());
+            if (!row.hidden) before.set(row, row.getBoundingClientRect().top);
+          }
+        }
         const terms = (input?.value ?? '').trim().toLowerCase().split(/\s+/).filter(Boolean);
         const sorted = [...rows].sort((a, b) =>
           view === 'series'
@@ -425,8 +641,33 @@ const repliesEnabled = SITE.comments.provider === 'native';
           if (match) shown += 1;
           list.appendChild(row);
         }
+        // "latest" divider between the pinned posts and the rest (in the "all" order only).
+        if (sep) {
+          const firstLatest = sorted.find((r) => !r.hidden && !r.dataset.pinned);
+          const anyPinned = sorted.some((r) => !r.hidden && r.dataset.pinned);
+          sep.hidden = view !== 'all' || !firstLatest || !anyPinned;
+          if (firstLatest) list.insertBefore(sep, firstLatest);
+        }
+        if (flip) {
+          for (const row of rows) {
+            if (row.hidden) continue;
+            const was = before.get(row);
+            const now = row.getBoundingClientRect().top;
+            if (was === undefined) {
+              row.animate([{ opacity: 0, clipPath: 'inset(0 100% 0 0)' }, { opacity: 1, clipPath: 'inset(0 0 0 0)' }], { duration: 200, easing: SNAP });
+            } else if (Math.abs(was - now) > 0.5) {
+              row.animate([{ transform: `translateY(${was - now}px)` }, { transform: 'none' }], { duration: 200, easing: SNAP });
+            }
+          }
+        }
+        const filtered = view !== 'all' || !!tag || terms.length > 0;
         if (countEl) countEl.textContent = pad(shown);
         if (emptyEl) emptyEl.hidden = shown > 0;
+        if (status && statusText) {
+          status.hidden = !filtered || shown === 0;
+          const parts = [view === 'series' ? 'series only' : '', tag ? `#${pills.find((p) => p.dataset.tag === tag)?.textContent?.trim().replace(/\s+\d+$/, '').replace(/^#/, '') ?? tag}` : '', terms.length ? `“${terms.join(' ')}”` : ''].filter(Boolean);
+          statusText.textContent = `showing ${shown} of ${total} · ${parts.join(' · ')}`;
+        }
         views.forEach((v) => v.setAttribute('aria-pressed', String(v.dataset.view === view)));
         pills.forEach((p) => p.setAttribute('aria-pressed', String(p.dataset.tag === tag)));
         if (tag) showTags(true);
@@ -436,6 +677,14 @@ const repliesEnabled = SITE.comments.provider === 'native';
         view !== 'all' ? url.searchParams.set('view', view) : url.searchParams.delete('view');
         terms.length ? url.searchParams.set('q', terms.join(' ')) : url.searchParams.delete('q');
         history.replaceState(history.state, '', url);
+      }
+
+      function reset() {
+        view = 'all';
+        tag = '';
+        if (input) input.value = '';
+        apply();
+        input?.focus();
       }
 
       const params = new URLSearchParams(location.search);
@@ -456,12 +705,33 @@ const repliesEnabled = SITE.comments.provider === 'native';
       input?.addEventListener('keydown', (e) => {
         if (e.key === 'Escape' && input.value) ((input.value = ''), apply());
       });
-      feed.querySelector('[data-reset]')?.addEventListener('click', () => {
-        view = 'all';
-        tag = '';
-        if (input) input.value = '';
-        apply();
-      });
+      feed.querySelectorAll('[data-reset]').forEach((b) => b.addEventListener('click', reset));
+
+      // Clicking a post: remember this list (filters + scroll), deepen the row
+      // for 90ms, then start the page transition.
+      for (const row of rows) {
+        const link = row.querySelector<HTMLAnchorElement>('.r-title');
+        if (!link) continue;
+        const unflash = () => row.classList.remove('is-flash');
+        link.addEventListener('pointerdown', (e) => e.button === 0 && row.classList.add('is-flash'), { signal });
+        link.addEventListener('pointerleave', unflash, { signal });
+        link.addEventListener('pointercancel', unflash, { signal });
+        link.addEventListener(
+          'click',
+          (e) => {
+            if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return unflash();
+            try {
+              sessionStorage.setItem(RETURN, JSON.stringify({ path: location.pathname, search: location.search, y: window.scrollY } satisfies Return));
+            } catch {}
+            if (reducedMotion.matches) return;
+            e.preventDefault();
+            row.classList.add('is-flash');
+            window.setTimeout(() => navigate(link.href), 90);
+          },
+          { signal },
+        );
+      }
+
       document.addEventListener(
         'keydown',
         (e) => {
@@ -473,9 +743,19 @@ const repliesEnabled = SITE.comments.provider === 'native';
         },
         { signal },
       );
-      if (tag || view !== 'all' || input?.value) apply(false);
 
-      // Reply counts from the comments API (stay hidden if it isn't running).
+      apply(false);
+
+      // Back from a post (browser back or "← writing"): same filters, same scroll position.
+      try {
+        const saved = JSON.parse(sessionStorage.getItem(RETURN) || 'null') as Return | null;
+        if (saved?.seenPost && saved.path === location.pathname && saved.search === location.search) {
+          sessionStorage.removeItem(RETURN);
+          requestAnimationFrame(() => window.scrollTo({ top: saved.y, behavior: 'instant' }));
+        }
+      } catch {}
+
+      // Reply counts from the comments API (only shown when there are replies).
       if (feed.dataset.replies === 'on') {
         fetch('/api/comments?counts=1', { headers: { accept: 'application/json' }, signal })
           .then((r) => (r.ok ? r.json() : Promise.reject()))
@@ -483,7 +763,7 @@ const repliesEnabled = SITE.comments.provider === 'native';
             rows.forEach((row) => {
               const el = row.querySelector<HTMLElement>('[data-replies]');
               const n = counts[row.dataset.slug ?? ''] ?? 0;
-              if (!el) return;
+              if (!el || n === 0) return;
               el.textContent = `${n} ${n === 1 ? 'reply' : 'replies'}`;
               el.hidden = false;
             });

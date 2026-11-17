@@ -70,7 +70,7 @@
   color: var(--muted);
 }
 
-/* Solid ink tick anchoring the dashed rule at the top-left. */
+/* Solid ink tick anchoring the dashed rule at the top-left; draws in on arrival. */
 .prose h2:not(.sr-only)::after {
   content: '';
   position: absolute;
@@ -79,6 +79,8 @@
   width: 2.25rem;
   height: 1px;
   background: var(--ink);
+  transform-origin: left;
+  animation: rule-draw 240ms var(--snap) 160ms both;
 }
 
 /* h3: subsection — inline index, tighter, heavier. */
@@ -576,7 +578,7 @@
 /* Note: label set into a dashed border (technical drawing annotation). */
 .callout {
   position: relative;
-  padding: 1.55rem 1.5rem 1.35rem;
+  padding: 1.15rem 1.1rem 0.95rem;
   border: 1px dashed var(--line);
 }
 
@@ -624,7 +626,42 @@
 }
 
 .prose > .note-box {
-  margin-block: 2em;
+  margin-block: 1.6em;
+}
+
+/* Epistemic status: a quiet, left-ruled aside rather than a full box. */
+.prose > .note-box[data-callout='epistemic'] {
+  padding: 0.15rem 0 0.15rem 0.85rem;
+  border: 0;
+  border-left: 2px solid var(--rule);
+  background: none;
+  color: var(--muted);
+}
+
+.note-box[data-callout='epistemic'] .lsl {
+  margin-bottom: 0.15rem;
+}
+
+.note-box[data-callout='epistemic'] .lsl::after {
+  display: none;
+}
+
+.note-box[data-callout='epistemic'] .note-body {
+  font-size: 0.9em;
+}
+
+/* The post's own heading ("Epistemic status") replaces the generated label. */
+.note-box[data-callout='epistemic']:has(.note-heading) .lsl {
+  display: none;
+}
+
+.note-box[data-callout='epistemic'] .note-heading {
+  margin: 0 0 0.15rem !important;
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  letter-spacing: 0.04em;
+  text-transform: lowercase;
+  color: var(--muted);
 }
 
 .prose > .note-box:first-child {
@@ -818,21 +855,23 @@
   color: var(--ink);
 }
 
+/* 650ms monochrome pulse when you jump to a quoted passage: border + wash. */
 @keyframes anno-pulse {
   0%,
   100% {
     outline-color: transparent;
   }
-  30%,
-  70% {
+  25%,
+  60% {
     outline-color: var(--ink);
+    background-color: color-mix(in srgb, var(--ink) 22%, transparent);
   }
 }
 
 .prose mark.anno.is-pulse {
   outline: 1px solid transparent;
   outline-offset: 3px;
-  animation: anno-pulse 1.4s var(--ease) 1;
+  animation: anno-pulse 650ms var(--snap) 1;
 }
 
 @media (prefers-reduced-motion: reduce) {

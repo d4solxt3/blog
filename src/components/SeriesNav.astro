@@ -13,7 +13,7 @@ const next = series.parts[series.index];
 ---
 
 <nav class:list={['dot-box', 'series', `series--${position}`]} aria-label={`Series: ${series.name}`}>
-  <p class="lsl">series</p>
+  {position === 'bottom' && <p class="lsl">series</p>}
   <div class="series-body">
     <p class="part">
       Part <strong>{series.index}</strong> of {series.total} in <strong>{series.name}</strong>
@@ -47,8 +47,25 @@ const next = series.parts[series.index];
     font-size: 0.75rem;
   }
 
+  /* Top of the post: one compact line — "Part 2 of 2 in …" plus previous / next. */
   .series--top {
-    margin-bottom: 2rem;
+    margin-bottom: 1.25rem;
+    padding: 0.4rem 0.7rem;
+  }
+
+  .series--top .series-body {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.25rem 1.25rem;
+  }
+
+  .series--top .pn {
+    gap: 1rem;
+    margin: 0;
+    padding: 0;
+    border: 0;
   }
 
   .series--bottom {

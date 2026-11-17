@@ -3,10 +3,9 @@
 // It can only write to: site.config.json, content/posts/*.md(x), public/images/*.
 import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { createMarkdownProcessor } from '@astrojs/markdown-remark';
 import { createPost, POSTS_DIR } from '../scripts/post-template.mjs';
 import { writeAsciiFromImage } from '../scripts/ascii-lib.mjs';
-import { shikiConfig, remarkPlugins, rehypePlugins, remarkRehype } from './markdown.mjs';
+import { renderPreview } from './preview.mjs';
 
 const ROOT = process.cwd();
 const CONFIG = resolve(ROOT, 'site.config.json');
@@ -16,10 +15,6 @@ const POST_NAME = /^[a-z0-9][a-z0-9-]*\.(md|mdx)$/;
 const IMAGE_NAME = /\.(png|jpe?g|gif|webp|svg|avif)$/i;
 const LOCAL = new Set(['127.0.0.1', '::1', '::ffff:127.0.0.1']);
 const MAX_BODY = 8 * 1024 * 1024;
-
-let processor;
-const getProcessor = async () =>
-  (processor ??= await createMarkdownProcessor({ shikiConfig, remarkPlugins, rehypePlugins, remarkRehype }));
 
 function send(res, status, data, type = 'application/json; charset=utf-8') {
   res.statusCode = status;
@@ -68,24 +63,6 @@ function listPosts() {
       };
     })
     .sort((a, b) => b.date.localeCompare(a.date));
-}
-
-// Rough MDX → Markdown so the preview shows components too.
-function mdxToPreview(src) {
-  return src
-    .replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, '')
-    .replace(/^\s*(import|export)\s.*$/gm, '')
-    .replace(/<Details([^>]*)>/g, (_, attrs) => {
-      const summary = attrs.match(/summary="([^"]*)"/)?.[1] ?? 'Details';
-      return `<details><summary>${summary}</summary>\n`;
-    })
-    .replace(/<\/Details>/g, '\n</details>')
-    .replace(/<Callout([^>]*)>/g, (_, attrs) => {
-      const label = attrs.match(/label="([^"]*)"/)?.[1] ?? 'Note';
-      const variant = attrs.match(/variant="([^"]*)"/)?.[1] ?? 'note';
-      return `<aside class="callout callout--${variant}"><p class="callout-label">[ ${label} ]</p><div class="callout-body">\n`;
-    })
-    .replace(/<\/Callout>/g, '\n</div></aside>');
 }
 
 async function handle(req, res, url) {
@@ -138,9 +115,7 @@ async function handle(req, res, url) {
 
   if (path === '/_admin/api/preview' && method === 'POST') {
     const { content } = JSON.parse(await readBody(req));
-    const md = await getProcessor();
-    const { code } = await md.render(mdxToPreview(String(content ?? '')));
-    return send(res, 200, { html: code });
+    return send(res, 200, { html: await renderPreview(String(content ?? '')) });
   }
 
   if (path === '/_admin/api/upload' && method === 'POST') {

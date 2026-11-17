@@ -13,6 +13,13 @@
     "image": "",
     "alt": ""
   },
+  "motion": "quiet",
+  "tabAnimation": {
+    "enabled": true,
+    "preset": "kaomoji",
+    "intervalMs": 950,
+    "frames": []
+  },
   "defaultFont": "sans",
   "accentBorders": true,
   "newBadgeDays": 21,
@@ -109,6 +116,10 @@
         "percent": 90
       }
     ]
+  },
+  "publishing": {
+    "repo": "d4solxt3/blog",
+    "branch": "master"
   },
   "comments": {
     "provider": "native",

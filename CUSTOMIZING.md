@@ -51,18 +51,20 @@ Open `site.config.json` in any text editor. Change only the text between the quo
 | `frontpageAscii` | The text file with the ASCII drawing in the front page's portrait box (see section 5). Normally `"/images/frontpage-ascii.txt"` |
 | `frontpageImage` | The picture used as your avatar on the About page, e.g. `"/images/me.png"`. The front page uses it too if there's no ASCII drawing |
 | `invertFrontpageImageInDarkMode` | `true` for black-on-white drawings (they turn light in dark mode). Use `false` for photos and colour images |
+| `motion` | `"quiet"` (default) or `"full"`: how much moves for a first-time visitor. Quiet keeps just the page transitions; full adds the ticking clock seconds, the scrolling "now" ticker, the blinking cursor and the turning background ring. Visitors switch with **quiet / full** in the window bar, and their choice is remembered |
+| `tabAnimation` | Emoticons cycling in front of the browser-tab title (the page and site name always stay). `"preset"`: `"kaomoji"`, `"stream"` (a signal moving down a residual stream ▸···), `"moon"` (◐◓◑◒), `"cyber-hud"`, `"classic-blink"` or `"off"`. `"intervalMs"`: milliseconds per frame (950). `"frames"`: your own list, which replaces the preset's. `"enabled": false` turns it off. It pauses when the tab is hidden or the reader prefers reduced motion |
 | `banner` | The slim strip under the menu on the front page, writing and about pages. `"show": false` hides it. Leave `"image": ""` for the built-in dithered horizon, or set your own, e.g. `"/images/banner.jpg"` (shown in grayscale with a halftone screen; wide pictures work best). `"alt"` describes your picture for screen readers |
 | `defaultFont` | `"sans"`, `"serif"` or `"mono"`: the reading font for posts. Readers can still switch with the **Aa** buttons |
 | `accentBorders` | `true` for crisp dark borders, `false` for softer grey ones |
-| `newBadgeDays` | How many days a post is marked **new!** in the writing list |
+| `newBadgeDays` | How many days a post is marked **NEW** in the writing list. Pinned posts (`pinned: true`) sit above a "latest" divider, with a small pin icon |
 | `inlineAnnotations` | `true` lets readers highlight a sentence and comment on it. `false` turns that off everywhere |
 | `footerText` | The small line under the page. `{year}`, `{siteName}` and `{authorName}` fill themselves in |
 | `intro` | The 2–3 line hello in the front page's **about** box |
 | `status` | Your current `mood`, `thought`, and when you `updated` them (the front page's **now** box) |
 | `updates` | The little changelog in the front page's **updates** box (newest first) |
-| `notice` | The small **note** box on the front page (`""` hides it) |
+| `notice` | The small **note** box at the bottom of the front page's left column (`""` hides it) |
 | `todo` | The **todo** box on the front page (and the About checklist). Set `"done": true` to cross an item off |
-| `profile` | The rest of the About page: timezone, bio, interests, links, what you're currently into, reading and building, and `progress` bars (`{ "label": "…", "percent": 60 }`). Your timezone, links and "currently" lines also appear on the front page. If one link is an email (`"url": "mailto:you@…"`), the menu gets a **write** link to it |
+| `profile` | The rest of the About page: timezone, bio, interests, links, what you're currently into, reading and building, and `progress` bars (`{ "label": "…", "percent": 60 }`). Your timezone, links and "currently" lines also appear on the front page. If one link is an email (`"url": "mailto:you@…"`), the menu gets an **email** link to it |
 | `comments` | Which comment system to use (see section 6) |
 
 If the site stops loading after an edit, you probably removed a comma or a quote. Undo your last change, or use `/_admin` instead.
@@ -127,7 +129,7 @@ Put images for posts in `public/images/` and refer to them as `/images/name.png`
 
 ## 5. The front-page ASCII drawing and your avatar
 
-The front page shows an **ASCII version of a drawing** in the framed portrait box at the top of the left column. Because it's plain text, it matches light and dark mode automatically. To use a different drawing:
+The front page shows an **ASCII version of a drawing** in the framed portrait box at the top of the left column. It's drawn on exactly the character grid the converter uses and follows light and dark mode; click it to see it full size. To use a different drawing:
 
 - **In `/_admin`:** in the **ascii_art.exe** box, pick a black-on-white **PNG**. It's converted and saved straight away, and the big preview shows the result; reload the front page to see it there. Drag the **detail** slider for more columns (sharper, smaller characters) or fewer (chunkier ones). The drawing re-converts as you drag.
 - **Or in the terminal:** put the PNG in `public/images/` and run
@@ -177,14 +179,13 @@ Spam protection is built in: a hidden trap field, a minimum time before posting,
 
 ### Deleting comments
 
-1. **Pick a passphrase** and add it on your host as the environment variable `COMMENTS_ADMIN_KEY`. On Railway, open the service → **Variables** → **New variable**. Use something long; anyone who knows it can delete comments.
-2. **Open `/moderate/`** on your site (for example `https://your-site/moderate/`). It isn't linked anywhere and search engines are told to skip it. Enter the passphrase.
-3. You'll see every comment, newest first, each with **[ delete ]**. While you're signed in, that browser also shows **[ delete ]** next to each comment under your posts, including quote threads.
-4. **To remove a highlighted passage entirely**, click the highlight in the post to open its quote thread and press **[ delete thread ]**. That deletes the highlight and every reply on it. On `/moderate/` the same option is **[ delete highlight ]**, under each quoted passage.
+1. **Sign in** with your admin password (see section 7): press `Ctrl + Shift + E`, or open **`/moderate/`** on your site and enter it there. `/moderate/` isn't linked anywhere and search engines are told to skip it.
+2. On `/moderate/` you'll see every comment, newest first, each with **[ delete ]**. While you're signed in, that browser also shows **[ delete ]** next to each comment under your posts, including quote threads.
+3. **To remove a highlighted passage entirely**, click the highlight in the post to open its quote thread and press **[ delete thread ]**. That deletes the highlight and every reply on it. On `/moderate/` the same option is **[ delete highlight ]**, under each quoted passage.
 
-Deleting can't be undone. **[ sign out ]** on `/moderate/` forgets the passphrase on that browser. Changing `COMMENTS_ADMIN_KEY` signs every browser out.
+Deleting can't be undone. **[ sign out ]** on `/moderate/` signs that browser out. An older `COMMENTS_ADMIN_KEY` passphrase, if you set one, still works on `/moderate/`.
 
-Without `COMMENTS_ADMIN_KEY`, moderation is switched off on the live site. On your computer (`npm run dev`) any passphrase works, so you can try it with your test comments.
+Without a password, moderation is switched off on the live site. On your computer (`npm run dev`) you're always signed in, so you can try it with your test comments.
 
 **Prefer GitHub Discussions?** Set `"provider": "giscus"` under `comments` and fill in the giscus values from [giscus.app](https://giscus.app). Highlight replies still use the built-in system.
 
@@ -192,7 +193,44 @@ To turn highlight-comments off everywhere, set `"inlineAnnotations": false`. To 
 
 ---
 
-## 7. Publishing
+## 7. Writing on the live site (the hidden studio)
+
+There's a writing studio at **`/write`**. Visitors never see a link to it.
+
+**Getting in**
+- Press **`Ctrl + Shift + E`** (`Cmd + Shift + E` on a Mac) on any page, or **triple-click the year** in the footer. A small **auth.exe** box asks for your password.
+- Once you're signed in (for 30 days on that browser), small **[+ write] [edit] [config]** links appear in the window bar, and pressing **`e`** on a post opens it in the editor.
+- On your computer (`npm run dev`) you're always signed in, with no password.
+
+**Your password**
+1. In Railway, open the `web` service → **Variables** → add **`ADMIN_PASSWORD`** with a long password.
+2. To change it later, sign in and open **[config]** (`/write/settings/`). The new password is stored scrambled (hashed) on the server's disk and replaces `ADMIN_PASSWORD`. Changing it signs out every other browser.
+3. **Forgot it?** Change `ADMIN_PASSWORD` in Railway to something new. A new value always takes over again.
+
+**Publishing from the studio** (one-time setup)
+1. On GitHub: **Settings → Developer settings → Personal access tokens → Fine-grained tokens → Generate new token**. Under *Repository access*, pick **Only select repositories** and choose this blog's repo. Under *Permissions*, set **Contents** to **Read and write**. Generate it and copy it.
+2. In Railway, add it to the `web` service as the variable **`GITHUB_TOKEN`**.
+3. In Railway, open the `web` service → **Settings → Source → Connect repo**, and pick the same repo and branch (`master`). From then on every commit rebuilds the site.
+
+The repo and branch it commits to are set under `"publishing"` in `site.config.json`.
+
+**How it works**
+- Drafts save on their own: every keystroke is kept in your browser, and the server saves a copy 2.5 seconds after you stop typing. If the page crashes, it offers to **restore** the unsaved draft.
+- **[ publish ]** commits the post (and any images it uses) to GitHub in one commit. Railway rebuilds, and the post is live in about 1–2 minutes. With the status set to **draft**, the button says **[ commit draft ]** and the post stays hidden.
+- After publishing from the site, run `git pull` before editing on your computer, so you have the new post.
+
+**Writing**
+- Type **`/`** at the start of a line for blocks: headings, TL;DR box, epistemic status, collapsible details, math block, image/GIF, footnote, pull quote. Use the arrow keys and Enter.
+- Type **`[[`** to link another post.
+- Select text for the **B / I / code / link / $ / quote** bubble. Shortcuts: `Ctrl+B`, `Ctrl+I`, `Ctrl+K` (link), `Ctrl+Shift+F` (footnote). **[ keys ]** in the top bar lists them all.
+- **Paste or drag in** png, jpg, gif, webp or svg images (up to 20 MB). They're uploaded to `public/images/posts/<post>/` and keep their colours and GIF animation.
+- `Ctrl+P` previews, `Ctrl+\` is focus mode, `Ctrl+S` saves now. Your cursor and scroll position come back when you leave the preview or close the details.
+- **[ details ]** holds the description, tags, series, date, font, pin and draft/published status. Every tag you've used shows as a pill (with how many posts use it): click to add or remove it, or type a new one (Enter completes a partly typed tag). Existing series are listed too; picking one fills in the next part number if part # is empty.
+- The top bar shows three things separately: the **server draft** ("draft saved 14:02"), how the text compares with the **published file** ("unpublished changes" / "same as the committed version"), and **kept in this browser** when there are keystrokes the server hasn't got yet.
+
+---
+
+## 8. Publishing
 
 ```bash
 npm run build
@@ -211,7 +249,7 @@ Before publishing, set `siteUrl` in `site.config.json` to your real address.
 
 ---
 
-## 8. If something looks wrong
+## 9. If something looks wrong
 
 - **The page didn't update:** save the file again, or refresh the browser.
 - **An error page after editing `site.config.json`:** a missing comma or quote. Undo your last change.

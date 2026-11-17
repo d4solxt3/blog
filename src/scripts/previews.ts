@@ -101,7 +101,7 @@ async function wikiContent(link: HTMLAnchorElement) {
   go.textContent = 'open thread →';
   const gp = document.createElement('p');
   gp.append(go);
-  return { title: 'wiki // linked post', body: [t, m, s, gp] };
+  return { title: 'linked post', body: [t, m, s, gp] };
 }
 
 async function open(target: HTMLAnchorElement) {

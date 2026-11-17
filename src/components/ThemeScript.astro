@@ -4,23 +4,29 @@
  * the wrong theme. It runs again right after every client-side navigation
  * (astro:after-swap), because Astro replaces <html>'s attributes on swap.
  * Stored choice wins; otherwise follow the OS. A reader's Aa font choice
- * beats the page default.
+ * beats the page default. Same for the quiet / full motion switch.
  */
+import { SITE } from '../site.config';
+
+const motionDefault = SITE.motion;
 ---
 
-<script is:inline>
+<script is:inline define:vars={{ motionDefault }}>
   (function () {
     function apply() {
       var root = document.documentElement;
       var theme = null;
       var font = null;
+      var motion = null;
       try {
         theme = localStorage.getItem('theme');
         font = localStorage.getItem('reader-font');
+        motion = localStorage.getItem('motion');
       } catch (e) {}
       if (theme !== 'light' && theme !== 'dark') {
         theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
       }
+      root.setAttribute('data-motion', motion === 'full' || motion === 'quiet' ? motion : motionDefault);
       root.setAttribute('data-theme', theme);
       if (font === 'sans' || font === 'serif' || font === 'mono') root.setAttribute('data-font', font);
       var meta = document.querySelector('meta[name="theme-color"]');

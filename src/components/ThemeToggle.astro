@@ -83,8 +83,7 @@
     document.querySelector('meta[name="theme-color"]')?.setAttribute('content', current() === 'dark' ? '#141416' : '#f3f3f1');
   }
 
-  function apply(theme: Theme, persist: boolean) {
-    if (!reducedMotion.matches) root.classList.add('theme-switching');
+  function swap(theme: Theme, persist: boolean) {
     root.dataset.theme = theme;
     if (persist) {
       try {
@@ -93,7 +92,36 @@
     }
     sync();
     document.dispatchEvent(new CustomEvent('themechange', { detail: { theme } }));
-    window.setTimeout(() => root.classList.remove('theme-switching'), 200);
+  }
+
+  /**
+   * With a click origin: the new theme spreads out from the toggle as a circle
+   * (View Transitions, 260ms). Without View Transitions or with reduced motion
+   * the switch is instant. OS-driven changes keep the gentle colour fade.
+   */
+  function apply(theme: Theme, persist: boolean, origin?: { x: number; y: number }) {
+    const vt = (document as Document & { startViewTransition?: (cb: () => void) => { ready: Promise<void>; finished: Promise<void> } })
+      .startViewTransition;
+    if (origin && vt && !reducedMotion.matches) {
+      root.classList.add('theme-wipe');
+      const t = vt.call(document, () => swap(theme, persist));
+      t.ready
+        .then(() => {
+          const r = Math.hypot(Math.max(origin.x, innerWidth - origin.x), Math.max(origin.y, innerHeight - origin.y));
+          root.animate(
+            { clipPath: [`circle(0px at ${origin.x}px ${origin.y}px)`, `circle(${Math.ceil(r)}px at ${origin.x}px ${origin.y}px)`] },
+            { duration: 260, easing: 'cubic-bezier(0.19, 1, 0.22, 1)', pseudoElement: '::view-transition-new(root)' },
+          );
+        })
+        .catch(() => {});
+      t.finished.finally(() => root.classList.remove('theme-wipe'));
+      return;
+    }
+    if (!origin && !reducedMotion.matches) {
+      root.classList.add('theme-switching');
+      window.setTimeout(() => root.classList.remove('theme-switching'), 200);
+    }
+    swap(theme, persist);
   }
 
   // Follow OS changes live, unless the reader has made an explicit choice.
@@ -106,9 +134,18 @@
   });
 
   onPage((signal) => {
-    document
-      .querySelector('[data-theme-toggle]')
-      ?.addEventListener('click', () => apply(current() === 'dark' ? 'light' : 'dark', true), { signal });
+    const toggle = document.querySelector<HTMLElement>('[data-theme-toggle]');
+    toggle?.addEventListener(
+      'click',
+      (e) => {
+        // Keyboard clicks have no pointer position: wipe from the button's centre.
+        const box = toggle.getBoundingClientRect();
+        const pointer = e.clientX || e.clientY;
+        const origin = pointer ? { x: e.clientX, y: e.clientY } : { x: box.left + box.width / 2, y: box.top + box.height / 2 };
+        apply(current() === 'dark' ? 'light' : 'dark', true, origin);
+      },
+      { signal },
+    );
     sync();
   });
 </script>

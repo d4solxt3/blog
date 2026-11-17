@@ -1,0 +1,194 @@
+---
+/** The editor. Owner only. See src/scripts/write.ts for how it behaves. */
+import 'katex/dist/katex.min.css';
+import '../../styles/write.css';
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { SITE } from '../../site.config';
+import { isOwner } from '../../lib/auth';
+import { listPosts, metaIndex, MODE, parsePost, readDraft, readPublished, SLUG } from '../../lib/content';
+
+export const prerender = false;
+const slug = Astro.params.slug ?? '';
+if (!isOwner(Astro.request)) return Astro.redirect(`/?auth=1&next=/write/${SLUG.test(slug) ? slug : ''}`);
+if (!SLUG.test(slug)) return Astro.redirect('/write/');
+
+let error = '';
+let published = null;
+let draft = null;
+try {
+  const pub = await readPublished(slug);
+  published = pub ? { doc: parsePost(slug, pub.ext, pub.source), sha: pub.sha } : null;
+  draft = readDraft(slug);
+} catch (err) {
+  error = err instanceof Error ? err.message : 'Could not load this post.';
+}
+if (!error && !published && !draft) return Astro.redirect('/write/');
+
+const current = draft ?? published?.doc;
+const title = current?.fields.title || slug;
+const data = {
+  slug,
+  mode: MODE,
+  published,
+  draft,
+  siteFont: SITE.defaultFont,
+  posts: listPosts().map((p) => ({ slug: p.slug, title: p.title })),
+  meta: metaIndex(),
+};
+const json = JSON.stringify(data).replace(/</g, '\\u003c');
+---
+
+<BaseLayout title={`Editing: ${title}`} description="Writing studio." frame="article" banner={false} font={current?.fields.font || undefined}>
+  <meta slot="head" name="robots" content="noindex, nofollow" />
+  {
+    error ? (
+      <div class="container" style="padding-block: 2rem">
+        <p class="studio-banner">
+          couldn't load this post: {error} · <a href="/write/">back to the studio</a>
+        </p>
+      </div>
+    ) : (
+      <div class="studio" data-studio>
+        <script type="application/json" data-studio-data set:html={json} />
+
+        <div class="studio-bar">
+          <a href="/write/">← studio</a>
+          <span class="sb-slug">{slug}</span>
+          <span class="sb-state" aria-live="polite">
+            <span class="sb-status" data-status title="Server copy (saved 2.5s after you stop typing)">loading…</span>
+            <span class="sb-pub" data-pubstate title="Compared with the published post file"></span>
+            <span class="sb-local" data-local title="Every keystroke is also kept in this browser" hidden>kept in this browser</span>
+          </span>
+          <span class="sb-tools">
+            <button type="button" data-act="keys" aria-expanded="false" aria-controls="keys">
+              [ keys ]
+            </button>
+            <button type="button" data-act="meta" aria-expanded="false" aria-controls="meta">
+              [ details ]
+            </button>
+            <button type="button" data-act="preview" aria-pressed="false" title="Ctrl/Cmd + P">
+              [ preview ]
+            </button>
+            <button type="button" data-act="focus" aria-pressed="false" title="Ctrl/Cmd + \">
+              [ focus ]
+            </button>
+            <button type="button" data-act="publish" class="sb-publish">
+              [ publish ]
+            </button>
+          </span>
+        </div>
+
+        <div class="studio-banner studio-keys" id="keys" data-keys hidden>
+          <dl>
+            <dt>/</dt><dd>block menu (at the start of a line)</dd>
+            <dt>[[</dt><dd>link another post</dd>
+            <dt data-mod>ctrl+b / i / k</dt><dd>bold / italic / link</dd>
+            <dt data-mod>ctrl+shift+f</dt><dd>footnote</dd>
+            <dt data-mod>ctrl+p</dt><dd>preview</dd>
+            <dt data-mod>ctrl+\</dt><dd>focus mode</dd>
+            <dt data-mod>ctrl+s</dt><dd>save now</dd>
+            <dt>paste / drop</dt><dd>add an image or gif</dd>
+          </dl>
+        </div>
+
+        <div class="studio-banner" data-restore hidden>
+          <span>this browser has newer text than the server.</span>
+          <button type="button" data-restore-yes>
+            [ restore it ]
+          </button>
+          <button type="button" data-restore-no>
+            [ discard ]
+          </button>
+        </div>
+        <div class="studio-banner" data-older hidden>
+          <span>
+            there's a server draft from <time data-older-time></time> based on an older version of this post.
+          </span>
+          <button type="button" data-older-yes>
+            [ open it ]
+          </button>
+          <button type="button" data-older-no>
+            [ delete it ]
+          </button>
+        </div>
+        <div class="studio-banner" data-msg role="status" hidden></div>
+
+        <div class="meta" id="meta" data-meta hidden>
+          <label class="wide">
+            description (front page &amp; search engines)
+            <textarea data-f="description" rows="2" maxlength="1000"></textarea>
+          </label>
+          <div class="wide meta-group">
+            <label>
+              tags (comma separated; click a tag below to add or remove it)
+              <input type="text" data-f="tags" autocomplete="off" aria-describedby="tag-picks" />
+            </label>
+            <div class="picks" id="tag-picks" data-tag-picks role="group" aria-label="Existing tags"></div>
+          </div>
+          <div class="wide meta-group">
+            <div class="meta-row">
+              <label class="grow">
+                series (type a new one or pick below)
+                <input type="text" data-f="series" autocomplete="off" />
+              </label>
+              <label class="narrow">
+                part #
+                <input type="number" data-f="seriesOrder" min="1" step="1" />
+              </label>
+            </div>
+            <div class="picks" data-series-picks role="group" aria-label="Existing series"></div>
+          </div>
+          <label>
+            date
+            <input type="date" data-f="date" />
+          </label>
+          <label>
+            font
+            <select data-f="font">
+              <option value="">site default ({SITE.defaultFont})</option>
+              <option value="sans">sans</option>
+              <option value="serif">serif</option>
+              <option value="mono">mono</option>
+            </select>
+          </label>
+          <fieldset>
+            <legend>status</legend>
+            <div class="row">
+              <label><input type="radio" name="status" value="draft" data-f="draft" /> draft</label>
+              <label><input type="radio" name="status" value="published" data-f="draft" /> published</label>
+            </div>
+          </fieldset>
+          <label class="row">
+            <input type="checkbox" data-f="pinned" /> pin to the top
+          </label>
+        </div>
+
+        <div class="canvas">
+          <input class="w-title" data-f="title" type="text" placeholder="Title" aria-label="Title" autocomplete="off" />
+          <textarea class="w-subtitle" data-f="subtitle" rows="1" placeholder="Subtitle (optional)" aria-label="Subtitle" autocomplete="off"></textarea>
+          <div class="w-editor" data-wrap>
+            <textarea
+              class="w-body"
+              data-body
+              aria-label="Post body (Markdown)"
+              placeholder="Start writing. Type / at the start of a line for blocks, [[ to link a post. Paste or drop images."
+              spellcheck="true"></textarea>
+            <div class="w-gutter" data-gutter aria-hidden="true"></div>
+            <div class="w-drop" data-drop hidden>
+              drop images or gifs to upload
+            </div>
+          </div>
+          <div class="w-preview prose" data-preview hidden></div>
+        </div>
+        <input type="file" data-file accept="image/png,image/jpeg,image/gif,image/webp,image/svg+xml" multiple hidden />
+      </div>
+    )
+  }
+</BaseLayout>
+
+<script>
+  import { onPage } from '../../scripts/lifecycle';
+  import { initWriter } from '../../scripts/write';
+
+  onPage((signal) => initWriter(signal));
+</script>

@@ -153,6 +153,16 @@
                     <input type="file" id="banner-file" accept="image/png,image/jpeg,image/gif,image/webp" />
                     <small>a wide picture works best; it's cropped to an 88px strip and shown in grayscale with a halftone screen</small>
                   </div>
+                  <label class="field"><span>Motion for new visitors</span>
+                    <select data-key="motion"><option value="quiet">quiet: only page transitions move</option><option value="full">full: also the ticking clock, ticker, blinking cursor, HUD ring</option></select>
+                    <small>visitors can switch with "quiet / full" in the window bar; their choice is remembered</small>
+                  </label>
+                  <label class="field"><span>Tab title emoticons</span>
+                    <select data-key="tabAnimation.preset"><option value="kaomoji">kaomoji (´･ω･`)</option><option value="stream">stream ·▸·· (a signal down the residual stream)</option><option value="moon">moon ◐ ◓ ◑ ◒</option><option value="cyber-hud">cyber-hud [▮▮▮  ]</option><option value="classic-blink">classic-blink &gt;&gt;</option><option value="off">off</option></select>
+                    <small>cycles in front of the page title; pauses while the tab is hidden or with reduced motion. the page and site name always stay in the tab</small>
+                  </label>
+                  <label class="field"><span>Emoticon speed (ms per frame)</span><input type="number" min="400" max="10000" step="50" data-key="tabAnimation.intervalMs" /></label>
+                  <label class="field"><span>Your own emoticons (optional)</span><textarea data-key="tabAnimation.frames" data-type="lines" rows="3" placeholder="(´･_･`)&#10;(´･ω･`)"></textarea><small>one per line; replaces the preset's frames. leave empty to use the preset</small></label>
                   <label class="field"><span>Default reading font</span>
                     <select data-key="defaultFont"><option value="sans">sans (IBM Plex Sans)</option><option value="serif">serif (Newsreader)</option><option value="mono">mono (JetBrains Mono)</option></select>
                     <small>posts can override with font: in their frontmatter; readers can switch with Aa</small>

@@ -35,7 +35,7 @@ const themeDark = useCustomTheme ? new URL('/giscus/dark.css', site).href : 'nob
   data-provider={native ? 'native' : 'giscus'}
   data-annotations={annotations ? 'on' : 'off'}
 >
-  <h2 class="label section-label" id="comments-label"><span class="ink">[ Comments ]</span></h2>
+  <h2 class="label section-label" id="comments-label"><span class="ink">comments</span></h2>
 
   <div class="win cm-win">
     <div class="win-bar">
@@ -52,12 +52,12 @@ const themeDark = useCustomTheme ? new URL('/giscus/dark.css', site).href : 'nob
           <p class="cm-empty" data-feed-empty hidden>
             {native
               ? annotations
-                ? '> no replies yet. write one below, or highlight any sentence above to reply to it.'
-                : '> no replies yet. be the first.'
-              : '> no quote threads yet. highlight any sentence above to start one.'}
+                ? 'no replies yet. write one below, or select any sentence above to reply to it.'
+                : 'no replies yet. be the first.'
+              : 'no quote threads yet. select any sentence above to start one.'}
           </p>
           <p class="cm-empty" data-offline hidden>
-            &gt; comments are read-only on this copy of the site (no comment server attached).
+            comments are read-only on this copy of the site (no comment server attached).
           </p>
         </div>
       )
@@ -105,7 +105,7 @@ const themeDark = useCustomTheme ? new URL('/giscus/dark.css', site).href : 'nob
     {
       !native && !giscusReady && import.meta.env.DEV && (
         <p class="cm-empty">
-          &gt; comments.provider is "giscus" but site.config.json has no giscus repo yet — see CUSTOMIZING.md.
+          comments.provider is "giscus" but site.config.json has no giscus repo yet — see CUSTOMIZING.md.
         </p>
       )
     }

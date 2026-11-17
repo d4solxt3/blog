@@ -1,0 +1,135 @@
+---
+/** Owner settings on the live site: change the password, check publishing, sign out. */
+import '../../styles/write.css';
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { DEV, isOwner, MIN_PASSWORD, passwordChangedAt, passwordSource } from '../../lib/auth';
+import { MODE, PUBLISHING } from '../../lib/content';
+
+export const prerender = false;
+if (!isOwner(Astro.request)) return Astro.redirect('/?auth=1&next=/write/settings/');
+
+const source = passwordSource();
+const changed = passwordChangedAt();
+const sourceLabel =
+  source === 'site'
+    ? `set on this page${changed ? ` (${changed.slice(0, 10).replace(/-/g, '.')})` : ''}`
+    : source === 'env'
+      ? 'from ADMIN_PASSWORD on your host'
+      : DEV
+        ? 'none needed while running npm run dev'
+        : 'not set';
+---
+
+<BaseLayout title="Settings" description="Owner settings." banner={false}>
+  <meta slot="head" name="robots" content="noindex, nofollow" />
+  <h1 class="sr-only">Owner settings</h1>
+
+  <div class="portal portal--wide">
+    <section class="panel" aria-labelledby="pw-h">
+      <div class="panel-bar">
+        <h2 class="panel-title" id="pw-h">password</h2>
+        <span>current: {sourceLabel}</span>
+      </div>
+      <div class="panel-body">
+        <form class="studio-form" data-password>
+          <label class="sr-only" for="pw-current">Current password</label>
+          <input id="pw-current" name="current" type="password" placeholder="current password" autocomplete="current-password" />
+          <label class="sr-only" for="pw-next">New password</label>
+          <input id="pw-next" name="next" type="password" placeholder={`new password (${MIN_PASSWORD}+ characters)`} autocomplete="new-password" minlength={MIN_PASSWORD} required />
+          <label class="sr-only" for="pw-again">New password again</label>
+          <input id="pw-again" name="again" type="password" placeholder="new password again" autocomplete="new-password" required />
+          <button type="submit" class="cm-submit">[ change password ]</button>
+          <span class="status" data-status aria-live="polite"></span>
+        </form>
+        <p class="studio-note" style="margin-top: 8px">
+          The new password is stored scrambled (hashed) on the server's disk and replaces <code>ADMIN_PASSWORD</code>. Changing it signs out
+          every other browser. Forgot it? Change <code>ADMIN_PASSWORD</code> on your host; a new value always takes over again.
+        </p>
+      </div>
+    </section>
+
+    <section class="panel" aria-labelledby="pub-h">
+      <div class="panel-bar"><h2 class="panel-title" id="pub-h">publishing</h2></div>
+      <div class="panel-body">
+        <dl class="kv">
+          <dt>mode</dt>
+          <dd>{MODE === 'local' ? 'local files (npm run dev)' : MODE === 'github' ? 'github commit → railway rebuild' : 'off'}</dd>
+          <dt>repo</dt>
+          <dd>{PUBLISHING.repo || '(not set)'}</dd>
+          <dt>branch</dt>
+          <dd>{PUBLISHING.branch}</dd>
+          <dt>token</dt>
+          <dd>{PUBLISHING.token ? 'set' : 'not set'}</dd>
+        </dl>
+        {
+          MODE === 'off' && (
+            <p class="studio-note" style="margin-top: 8px">
+              To publish from here, add a <code>GITHUB_TOKEN</code> variable on your host (see CUSTOMIZING.md → "Writing on the live site"). Drafts still
+              autosave without it.
+            </p>
+          )
+        }
+      </div>
+    </section>
+
+    <section class="panel" aria-labelledby="more-h">
+      <div class="panel-bar"><h2 class="panel-title" id="more-h">more</h2></div>
+      <div class="panel-body">
+        <ul class="px-list">
+          <li><a href="/write/">writing studio</a></li>
+          <li><a href="/moderate/">comments (delete)</a></li>
+          <li>site settings: <code>/_admin</code> while running <code>npm run dev</code></li>
+        </ul>
+        <p style="margin: 10px 0 0"><button type="button" class="cm-submit" data-signout>[ sign out ]</button></p>
+      </div>
+    </section>
+  </div>
+</BaseLayout>
+
+<script>
+  import { navigate } from 'astro:transitions/client';
+  import { onPage } from '../../scripts/lifecycle';
+  import { forgetOwner } from '../../scripts/owner-ui';
+
+  onPage((signal) => {
+    const form = document.querySelector<HTMLFormElement>('[data-password]');
+    if (!form) return;
+    const status = form.querySelector<HTMLElement>('[data-status]')!;
+    const field = (n: string) => form.elements.namedItem(n) as HTMLInputElement;
+    form.addEventListener(
+      'submit',
+      async (e) => {
+        e.preventDefault();
+        if (field('next').value !== field('again').value) {
+          status.textContent = "the two new passwords don't match.";
+          return field('again').focus();
+        }
+        status.textContent = 'saving…';
+        try {
+          const res = await fetch('/api/auth', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json', accept: 'application/json' },
+            body: JSON.stringify({ action: 'change', current: field('current').value, next: field('next').value }),
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) throw new Error(data.error ?? 'Could not change the password.');
+          form.reset();
+          status.textContent = 'password changed. other browsers are signed out.';
+        } catch (err) {
+          status.textContent = err instanceof Error ? err.message : 'Could not change the password.';
+        }
+      },
+      { signal },
+    );
+
+    document.querySelector('[data-signout]')?.addEventListener(
+      'click',
+      async () => {
+        await fetch('/api/auth', { method: 'DELETE' }).catch(() => {});
+        forgetOwner();
+        navigate('/');
+      },
+      { signal },
+    );
+  });
+</script>

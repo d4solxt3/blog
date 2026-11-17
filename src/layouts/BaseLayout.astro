@@ -54,7 +54,8 @@ const showBanner = frame === 'hub' && banner && SITE.banner.show;
     <title>{fullTitle}</title>
     <meta name="description" content={description} />
     {canonical && <link rel="canonical" href={canonical} />}
-    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <!-- No tab icon: an empty one also stops browsers asking for /favicon.ico. -->
+    <link rel="icon" href="data:," />
     <link rel="alternate" type="application/rss+xml" title={SITE.name} href="/rss.xml" />
 
     <link rel="preload" href={plexSans} as="font" type="font/woff2" crossorigin />
@@ -71,24 +72,29 @@ const showBanner = frame === 'hub' && banner && SITE.banner.show;
     <ClientRouter fallback="none" />
     <slot name="head" />
   </head>
-  <body>
+  <body data-tab-animation={JSON.stringify(SITE.tabAnimation)}>
     <a class="skip-link" href="#main">Skip to content</a>
     <slot name="before-frame" />
     <div class="shell" id="top" data-frame={frame}>
       <HudBackdrop />
-      <div class="viewport" transition:name="main-shell" transition:animate={{
+      <div class="frame-box">
+      <div class="viewport" transition:name="site-shell" transition:animate={{
         forwards: {
-          old: { name: 'hud-fade-out', duration: '180ms', easing: 'linear', fillMode: 'both' },
-          new: { name: 'hud-fade-in', duration: '180ms', delay: '60ms', easing: 'linear', fillMode: 'both' },
+          old: { name: 'hud-fade-out', duration: '120ms', easing: 'linear', fillMode: 'both' },
+          new: { name: 'hud-fade-in', duration: '160ms', delay: '60ms', easing: 'linear', fillMode: 'both' },
         },
         backwards: {
-          old: { name: 'hud-fade-out', duration: '180ms', easing: 'linear', fillMode: 'both' },
-          new: { name: 'hud-fade-in', duration: '180ms', delay: '60ms', easing: 'linear', fillMode: 'both' },
+          old: { name: 'hud-fade-out', duration: '120ms', easing: 'linear', fillMode: 'both' },
+          new: { name: 'hud-fade-in', duration: '160ms', delay: '60ms', easing: 'linear', fillMode: 'both' },
         },
       }}>
         <div class="titlebar">
-          <span class="title">{SITE.name}</span>
+          <span class="title">{SITE.name}<span class="bar-cursor" aria-hidden="true">▮</span><time class="bar-clock" data-clock aria-hidden="true"></time></span>
           <span class="bar-right">
+            <button type="button" class="motion-switch" data-motion-toggle aria-pressed="false" title="Background motion: quiet or full">
+              <span class="sr-only">Full motion</span>
+              <span class="opt opt-quiet" aria-hidden="true">quiet</span><span class="sep" aria-hidden="true">/</span><span class="opt opt-full" aria-hidden="true">full</span>
+            </button>
             <ThemeToggle />
             <span class="squares" aria-hidden="true"><i>_</i><i class="max"></i></span>
           </span>
@@ -99,6 +105,12 @@ const showBanner = frame === 'hub' && banner && SITE.banner.show;
           <slot />
         </main>
       </div>
+      <!-- Corner ticks have their own transition names, so they glide outward with the frame. -->
+      <i class="frame-tick frame-tick--tl" aria-hidden="true" transition:name="tick-tl"></i>
+      <i class="frame-tick frame-tick--tr" aria-hidden="true" transition:name="tick-tr"></i>
+      <i class="frame-tick frame-tick--bl" aria-hidden="true" transition:name="tick-bl"></i>
+      <i class="frame-tick frame-tick--br" aria-hidden="true" transition:name="tick-br"></i>
+      </div>
       <!-- Decorations that sit on the frame's edge live outside it: the frame is an
            isolated view-transition group, so blends inside it can't reach the desk. -->
       <div class="frame-edge"><slot name="frame-edge" /></div>
@@ -106,6 +118,11 @@ const showBanner = frame === 'hub' && banner && SITE.banner.show;
     </div>
   </body>
 </html>
+
+<script>
+  import '../scripts/owner-ui';
+  import '../scripts/ambient';
+</script>
 
 <style>
   main:focus {
