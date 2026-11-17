@@ -34,3 +34,9 @@ export async function ownerFetch(path: string, key: string, init: RequestInit = 
 
 export const deleteComment = (id: string, key: string) =>
   ownerFetch(`/api/comments?id=${encodeURIComponent(id)}`, key, { method: 'DELETE' });
+
+/** Delete a highlighted passage: every reply in its quote thread. */
+export const deleteThread = (post: string, anchorId: string, key: string) =>
+  ownerFetch(`/api/comments?post=${encodeURIComponent(post)}&anchor=${encodeURIComponent(anchorId)}`, key, {
+    method: 'DELETE',
+  });

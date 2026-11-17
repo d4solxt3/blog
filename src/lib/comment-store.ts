@@ -29,6 +29,8 @@ export interface CommentStore {
   add(comment: CommentRecord): Promise<CommentRecord>;
   /** Delete one comment by id. Resolves false if it didn't exist. */
   remove(id: string): Promise<boolean>;
+  /** Delete a highlight: every reply on one quoted passage. Resolves how many went. */
+  removeThread(post: string, anchorId: string): Promise<number>;
 }
 
 const newestFirst = (a: CommentRecord, b: CommentRecord) => b.createdAt.localeCompare(a.createdAt);
@@ -91,6 +93,14 @@ function jsonStore(): CommentStore {
         if (kept.length === all.length) return false;
         await writeAll(kept);
         return true;
+      });
+    },
+    removeThread(post, anchorId) {
+      return serial(async () => {
+        const all = await readAll();
+        const kept = all.filter((c) => !(c.post === post && c.anchor?.id === anchorId));
+        if (kept.length !== all.length) await writeAll(kept);
+        return all.length - kept.length;
       });
     },
   };
@@ -198,6 +208,10 @@ function tursoStore(): CommentStore {
       await init();
       return (await exec('DELETE FROM comments WHERE id = ?', [id])).affected > 0;
     },
+    async removeThread(post, anchorId) {
+      await init();
+      return (await exec('DELETE FROM comments WHERE post = ? AND anchor_id = ?', [post, anchorId])).affected;
+    },
   };
 }
 
@@ -242,6 +256,13 @@ function supabaseStore(): CommentStore {
         headers: { Prefer: 'return=representation' },
       });
       return (rows?.length ?? 0) > 0;
+    },
+    async removeThread(post, anchorId) {
+      const rows: Row[] | null = await req(
+        `comments?post=eq.${encodeURIComponent(post)}&anchor_id=eq.${encodeURIComponent(anchorId)}`,
+        { method: 'DELETE', headers: { Prefer: 'return=representation' } },
+      );
+      return rows?.length ?? 0;
     },
   };
 }

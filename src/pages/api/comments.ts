@@ -7,6 +7,8 @@
  * Owner only (header `Authorization: Bearer <COMMENTS_ADMIN_KEY>`):
  * GET    /api/comments?recent=1     → { comments: [...] }   (newest first, every post)
  * DELETE /api/comments?id=<id>      → { ok: true }
+ * DELETE /api/comments?post=<slug>&anchor=<anchorId>
+ *                                   → { ok: true, removed }  (a whole quote thread)
  *
  * Runs on the server (not pre-built), so it needs the Node adapter at deploy time.
  */
@@ -156,9 +158,18 @@ export const POST: APIRoute = async ({ request, clientAddress }) => {
 export const DELETE: APIRoute = async ({ url, request, clientAddress }) => {
   const denied = ownerError(request, clientAddress || 'unknown');
   if (denied) return denied;
+  const anchorId = url.searchParams.get('anchor');
+  const post = clean(url.searchParams.get('post'), 120);
   const id = url.searchParams.get('id') ?? '';
-  if (!/^[a-z0-9-]{8,64}$/i.test(id)) return json({ error: 'Missing or invalid ?id=' }, 400);
+  if (anchorId !== null ? !post || !/^[a-z0-9-]{8,40}$/i.test(anchorId) : !/^[a-z0-9-]{8,64}$/i.test(id)) {
+    return json({ error: 'Pass ?id=<comment> or ?post=<slug>&anchor=<thread>.' }, 400);
+  }
   try {
+    if (anchorId !== null) {
+      const removed = await getStore().removeThread(post, anchorId);
+      if (!removed) return json({ error: 'That quote thread no longer exists.' }, 404);
+      return json({ ok: true, removed });
+    }
     if (!(await getStore().remove(id))) return json({ error: 'That comment no longer exists.' }, 404);
     return json({ ok: true });
   } catch (err) {

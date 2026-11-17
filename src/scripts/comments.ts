@@ -7,7 +7,7 @@
  * then the others, and pick the occurrence whose surrounding text matches
  * best — so edits elsewhere in the post don't break existing highlights.
  */
-import { deleteComment, ownerKey } from './owner';
+import { deleteComment, deleteThread, ownerKey } from './owner';
 
 type Anchor = { id: string; exact: string; prefix: string; suffix: string; blockIndex: number };
 type Comment = { id: string; post: string; name: string; body: string; createdAt: string; anchor: Anchor | null };
@@ -46,6 +46,7 @@ export function initComments(signal: AbortSignal) {
   const qtList = drawer?.querySelector<HTMLOListElement>('[data-qt-replies]');
   const qtCount = drawer?.querySelector<HTMLElement>('[data-qt-count]');
   const qtForm = drawer?.querySelector<HTMLFormElement>('[data-qt-form]');
+  const qtDelThread = drawer?.querySelector<HTMLButtonElement>('[data-qt-del-thread]');
   const tip = document.querySelector<HTMLElement>('[data-anno-tip]');
 
   let comments: Comment[] = [];
@@ -313,6 +314,11 @@ export function initComments(signal: AbortSignal) {
     const replies = openAnchorId ? comments.filter((c) => c.anchor?.id === openAnchorId) : [];
     qtList.replaceChildren(...replies.map((c) => commentItem(c, { jump: false })));
     qtCount.textContent = replies.length ? `${pad(replies.length)} ${replies.length === 1 ? 'reply' : 'replies'}` : 'new thread // be the first to reply';
+    if (qtDelThread) {
+      qtDelThread.hidden = !(owner && replies.length);
+      qtDelThread.disabled = false;
+      qtDelThread.textContent = '[ delete thread ]';
+    }
     prose.querySelectorAll('mark.anno.is-active').forEach((m) => m.classList.remove('is-active'));
     if (openAnchorId) prose.querySelectorAll(`mark.anno[data-anchor="${CSS.escape(openAnchorId)}"]`).forEach((m) => m.classList.add('is-active'));
   }
@@ -464,6 +470,32 @@ export function initComments(signal: AbortSignal) {
     else if (drawer && !drawer.hidden) renderThread();
   }
 
+  // Owner mode: remove a highlighted passage and every reply on it at once.
+  async function onDeleteThread() {
+    const anchorId = openAnchorId;
+    if (!anchorId || !owner || !qtDelThread) return;
+    const replies = comments.filter((c) => c.anchor?.id === anchorId);
+    const quote = replies[0]?.anchor?.exact ?? '';
+    const what = replies.length === 1 ? 'its 1 reply' : `all ${replies.length} replies`;
+    if (!window.confirm(`Delete this highlight and ${what}?\n\n> "${truncate(quote, 140)}"\n\nThis can't be undone.`)) return;
+    qtDelThread.disabled = true;
+    qtDelThread.textContent = '[ deleting… ]';
+    try {
+      await deleteThread(post, anchorId, owner);
+    } catch (err) {
+      if ((err as { status?: number }).status !== 404) {
+        window.alert(err instanceof Error ? err.message : 'Could not delete the thread.');
+        owner = ownerKey(); // a wrong or changed passphrase signs you out
+        renderFeed();
+        return renderThread();
+      }
+    }
+    comments = comments.filter((c) => c.anchor?.id !== anchorId);
+    renderHighlights();
+    renderFeed();
+    closeDrawer();
+  }
+
   /* --------------------------------------------------------------- wire */
 
   const savedName = (() => {
@@ -523,6 +555,7 @@ export function initComments(signal: AbortSignal) {
   // Owner mode: [ delete ] buttons in the feed and in quote threads.
   feed?.addEventListener('click', onDelete);
   qtList?.addEventListener('click', onDelete);
+  qtDelThread?.addEventListener('click', onDeleteThread);
 
   if (tip && annotationsOn) {
     tip.addEventListener('pointerdown', (e) => e.preventDefault()); // keep the selection alive

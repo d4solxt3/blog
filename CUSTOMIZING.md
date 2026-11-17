@@ -179,6 +179,7 @@ Spam protection is built in: a hidden trap field, a minimum time before posting,
 1. **Pick a passphrase** and add it on your host as the environment variable `COMMENTS_ADMIN_KEY`. On Railway, open the service → **Variables** → **New variable**. Use something long; anyone who knows it can delete comments.
 2. **Open `/moderate/`** on your site (for example `https://your-site/moderate/`). It isn't linked anywhere and search engines are told to skip it. Enter the passphrase.
 3. You'll see every comment, newest first, each with **[ delete ]**. While you're signed in, that browser also shows **[ delete ]** next to each comment under your posts, including quote threads.
+4. **To remove a highlighted passage entirely**, click the highlight in the post to open its quote thread and press **[ delete thread ]**. That deletes the highlight and every reply on it. On `/moderate/` the same option is **[ delete highlight ]**, under each quoted passage.
 
 Deleting can't be undone. **[ sign out ]** on `/moderate/` forgets the passphrase on that browser. Changing `COMMENTS_ADMIN_KEY` signs every browser out.
 

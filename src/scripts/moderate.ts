@@ -1,5 +1,5 @@
 /** /moderate/: sign in with the owner passphrase, list recent comments, delete them. */
-import { deleteComment, ownerFetch, ownerKey, setOwnerKey } from './owner';
+import { deleteComment, deleteThread, ownerFetch, ownerKey, setOwnerKey } from './owner';
 
 type Comment = {
   id: string;
@@ -7,7 +7,7 @@ type Comment = {
   name: string;
   body: string;
   createdAt: string;
-  anchor: { exact: string } | null;
+  anchor: { id: string; exact: string } | null;
 };
 
 const pad = (n: number) => String(n).padStart(2, '0');
@@ -57,6 +57,13 @@ export function initModerate(signal: AbortSignal) {
       const q = document.createElement('p');
       q.className = 'cm-quote';
       q.textContent = `> "${truncate(c.anchor.exact, 160)}"`;
+      const n = comments.filter((x) => x.post === c.post && x.anchor?.id === c.anchor!.id).length;
+      const t = document.createElement('button');
+      t.type = 'button';
+      t.className = 'cm-del mod-thread';
+      t.dataset.delThread = c.id;
+      t.textContent = n > 1 ? `[ delete highlight + ${n} replies ]` : '[ delete highlight ]';
+      q.append(t);
       li.append(q);
     }
     const body = document.createElement('p');
@@ -112,6 +119,33 @@ export function initModerate(signal: AbortSignal) {
     comments = [];
     list.replaceChildren();
     showSignin('> signed out on this browser');
+  });
+
+  // Delete a highlighted passage: every reply in that quote thread.
+  list.addEventListener('click', async (e) => {
+    const btn = (e.target as HTMLElement).closest<HTMLButtonElement>('[data-del-thread]');
+    const c = btn && comments.find((x) => x.id === btn.dataset.delThread);
+    const anchor = c?.anchor;
+    const key = ownerKey();
+    if (!btn || !c || !anchor) return;
+    if (!key) return showSignin('> sign in again');
+    const n = comments.filter((x) => x.post === c.post && x.anchor?.id === anchor.id).length;
+    const what = n === 1 ? 'its 1 reply' : `all ${n} replies`;
+    if (!window.confirm(`Delete this highlight and ${what}?\n\n> "${truncate(anchor.exact, 140)}"\n\nThis can't be undone.`)) return;
+    btn.disabled = true;
+    btn.textContent = '[ deleting… ]';
+    try {
+      await deleteThread(c.post, anchor.id, key);
+    } catch (err) {
+      const code = (err as { status?: number }).status;
+      if (code === 401) return showSignin('> wrong or changed passphrase — sign in again');
+      if (code !== 404) {
+        window.alert(err instanceof Error ? err.message : 'Could not delete the thread.');
+        return render();
+      }
+    }
+    comments = comments.filter((x) => !(x.post === c.post && x.anchor?.id === anchor.id));
+    render();
   });
 
   list.addEventListener('click', async (e) => {

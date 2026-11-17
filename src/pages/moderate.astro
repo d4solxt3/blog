@@ -99,4 +99,11 @@ const titles = Object.fromEntries((await getPosts()).map((p) => [p.id, p.data.ti
   .mod-win :global(.mod-post) {
     color: var(--ink-2);
   }
+
+  .mod-win :global(.mod-thread) {
+    display: block;
+    margin-top: 0.3rem;
+    margin-left: 0;
+    font-size: 0.6875rem;
+  }
 </style>

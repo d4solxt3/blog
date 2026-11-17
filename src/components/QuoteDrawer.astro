@@ -18,7 +18,11 @@
     </div>
     <div class="qt-body">
       <blockquote class="qt-quote" data-qt-quote></blockquote>
-      <p class="label qt-count" data-qt-count aria-live="polite"></p>
+      <div class="qt-meta">
+        <p class="label qt-count" data-qt-count aria-live="polite"></p>
+        <!-- Owner mode only (signed in on /moderate/). -->
+        <button type="button" class="cm-del qt-del-thread" data-qt-del-thread hidden>[ delete thread ]</button>
+      </div>
       <ol class="cm-feed qt-replies" data-qt-replies></ol>
       <form class="cm-form qt-form" data-qt-form>
         <label class="sr-only" for="qt-name">Name (optional)</label>
