@@ -9,10 +9,17 @@ import localAdmin from './plugins/admin-integration.mjs';
 
 // Everything you'd want to change lives in site.config.json.
 const site = JSON.parse(readFileSync(new URL('./site.config.json', import.meta.url), 'utf8'));
+const siteUrl = site.siteUrl ? new URL(site.siteUrl) : null;
 
 export default defineConfig({
   // Your public address (siteUrl in site.config.json). Optional until you deploy.
-  site: site.siteUrl || undefined,
+  site: siteUrl?.href,
+
+  // Behind a host's proxy (Railway, Render…), trust its forwarded headers for
+  // your own domain only, so the comment rate limit sees each visitor's real IP.
+  security: {
+    allowedDomains: siteUrl ? [{ protocol: siteUrl.protocol.replace(':', ''), hostname: siteUrl.hostname }] : [],
+  },
 
   // Pages are pre-built static HTML. Only /api/comments runs on a server,
   // which is why a Node adapter is configured (see CUSTOMIZING.md → Deploying).

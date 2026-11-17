@@ -1,9 +1,9 @@
 {
-  "siteName": "",
-  "siteSubtitle": "slow, long notes on machine learning, interfaces and the quiet parts of building things.",
+  "siteName": "residual",
+  "siteSubtitle": "my notes on machine learning, interpretability, philosophy, and what i want to build :D",
   "authorName": "heartwr3nched",
   "authorHandle": "heartwrenched",
-  "siteUrl": "",
+  "siteUrl": "https://web-production-814da80c.up.railway.app",
   "language": "en",
   "frontpageImage": "/images/a223f8578d6bcbaa22def59478b54d52.jpg",
   "frontpageAscii": "/images/frontpage-ascii.txt",
