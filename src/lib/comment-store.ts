@@ -23,9 +23,15 @@ export type CommentRecord = {
 
 export interface CommentStore {
   list(post: string): Promise<CommentRecord[]>;
+  /** Newest comments across every post (for the /moderate page). */
+  recent(limit: number): Promise<CommentRecord[]>;
   counts(): Promise<Record<string, number>>;
   add(comment: CommentRecord): Promise<CommentRecord>;
+  /** Delete one comment by id. Resolves false if it didn't exist. */
+  remove(id: string): Promise<boolean>;
 }
+
+const newestFirst = (a: CommentRecord, b: CommentRecord) => b.createdAt.localeCompare(a.createdAt);
 
 const env = (key: string) => process.env[key]?.trim() || '';
 
@@ -44,9 +50,26 @@ function jsonStore(): CommentStore {
     }
   }
 
+  async function writeAll(all: CommentRecord[]) {
+    await mkdir(dirname(file), { recursive: true });
+    const tmp = `${file}.tmp`;
+    await writeFile(tmp, JSON.stringify(all, null, 2), 'utf8');
+    await rename(tmp, file);
+  }
+
+  // Serialise writes so concurrent posts/deletes never clobber each other.
+  function serial<T>(task: () => Promise<T>): Promise<T> {
+    const run = queue.then(task);
+    queue = run.catch(() => {});
+    return run;
+  }
+
   return {
     async list(post) {
       return (await readAll()).filter((c) => c.post === post);
+    },
+    async recent(limit) {
+      return (await readAll()).sort(newestFirst).slice(0, limit);
     },
     async counts() {
       const out: Record<string, number> = {};
@@ -54,18 +77,21 @@ function jsonStore(): CommentStore {
       return out;
     },
     add(comment) {
-      // Serialise writes so concurrent posts never clobber each other.
-      const run = queue.then(async () => {
+      return serial(async () => {
         const all = await readAll();
         all.push(comment);
-        await mkdir(dirname(file), { recursive: true });
-        const tmp = `${file}.tmp`;
-        await writeFile(tmp, JSON.stringify(all, null, 2), 'utf8');
-        await rename(tmp, file);
+        await writeAll(all);
         return comment;
       });
-      queue = run.catch(() => {});
-      return run;
+    },
+    remove(id) {
+      return serial(async () => {
+        const all = await readAll();
+        const kept = all.filter((c) => c.id !== id);
+        if (kept.length === all.length) return false;
+        await writeAll(kept);
+        return true;
+      });
     },
   };
 }
@@ -132,7 +158,7 @@ function tursoStore(): CommentStore {
         ? { type: 'integer', value: String(Math.trunc(v)) }
         : { type: 'text', value: String(v) };
 
-  async function exec(sql: string, args: unknown[] = []): Promise<Row[]> {
+  async function exec(sql: string, args: unknown[] = []): Promise<Row[] & { affected: number }> {
     const res = await fetch(`${url}/v2/pipeline`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
@@ -141,8 +167,9 @@ function tursoStore(): CommentStore {
     if (!res.ok) throw new Error(`Turso HTTP ${res.status}`);
     const first = (await res.json()).results?.[0];
     if (first?.type !== 'ok') throw new Error(first?.error?.message ?? 'Turso query failed');
-    const { cols, rows } = first.response.result as { cols: { name: string }[]; rows: { value: string | null }[][] };
-    return rows.map((row) => Object.fromEntries(cols.map((c, i) => [c.name, row[i]?.value ?? null])));
+    const result = first.response.result as { cols: { name: string }[]; rows: { value: string | null }[][]; affected_row_count?: number };
+    const rows = result.rows.map((row) => Object.fromEntries(result.cols.map((c, i) => [c.name, row[i]?.value ?? null])));
+    return Object.assign(rows, { affected: Number(result.affected_row_count ?? 0) });
   }
   const init = () => (ready ??= exec(SCHEMA_SQL));
 
@@ -150,6 +177,10 @@ function tursoStore(): CommentStore {
     async list(post) {
       await init();
       return (await exec('SELECT * FROM comments WHERE post = ? ORDER BY created_at', [post])).map(fromRow);
+    },
+    async recent(limit) {
+      await init();
+      return (await exec('SELECT * FROM comments ORDER BY created_at DESC LIMIT ?', [limit])).map(fromRow);
     },
     async counts() {
       await init();
@@ -162,6 +193,10 @@ function tursoStore(): CommentStore {
       const keys = Object.keys(r);
       await exec(`INSERT INTO comments (${keys.join(', ')}) VALUES (${keys.map(() => '?').join(', ')})`, Object.values(r));
       return comment;
+    },
+    async remove(id) {
+      await init();
+      return (await exec('DELETE FROM comments WHERE id = ?', [id])).affected > 0;
     },
   };
 }
@@ -177,12 +212,18 @@ function supabaseStore(): CommentStore {
   async function req(path: string, init: RequestInit = {}) {
     const res = await fetch(`${base}/rest/v1/${path}`, { ...init, headers: { ...headers, ...(init.headers ?? {}) } });
     if (!res.ok) throw new Error(`Supabase HTTP ${res.status}`);
-    return res.json();
+    // Writes with `Prefer: return=minimal` come back with an empty body.
+    const text = await res.text();
+    return text ? JSON.parse(text) : null;
   }
 
   return {
     async list(post) {
       const rows: Row[] = await req(`comments?post=eq.${encodeURIComponent(post)}&order=created_at.asc`);
+      return rows.map(fromRow);
+    },
+    async recent(limit) {
+      const rows: Row[] = await req(`comments?order=created_at.desc&limit=${Math.trunc(limit)}`);
       return rows.map(fromRow);
     },
     async counts() {
@@ -194,6 +235,13 @@ function supabaseStore(): CommentStore {
     async add(comment) {
       await req('comments', { method: 'POST', headers: { Prefer: 'return=minimal' }, body: JSON.stringify(toRow(comment)) });
       return comment;
+    },
+    async remove(id) {
+      const rows: Row[] | null = await req(`comments?id=eq.${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+        headers: { Prefer: 'return=representation' },
+      });
+      return (rows?.length ?? 0) > 0;
     },
   };
 }

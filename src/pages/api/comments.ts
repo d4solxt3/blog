@@ -4,8 +4,13 @@
  * POST /api/comments               → { comment }           JSON body:
  *      { post, name?, body, anchor?: { id?, exact, prefix, suffix, blockIndex }, website (honeypot), elapsed }
  *
+ * Owner only (header `Authorization: Bearer <COMMENTS_ADMIN_KEY>`):
+ * GET    /api/comments?recent=1     → { comments: [...] }   (newest first, every post)
+ * DELETE /api/comments?id=<id>      → { ok: true }
+ *
  * Runs on the server (not pre-built), so it needs the Node adapter at deploy time.
  */
+import { createHash, timingSafeEqual } from 'node:crypto';
 import type { APIRoute } from 'astro';
 import { getCollection } from 'astro:content';
 import { getStore, type Anchor, type CommentRecord } from '../../lib/comment-store';
@@ -36,6 +41,30 @@ function rateLimited(ip: string) {
   return false;
 }
 
+/* Owner check for moderation. The passphrase is the COMMENTS_ADMIN_KEY env var
+ * on your host. Without it, moderation is off — except under `npm run dev`,
+ * where it's open so you can try it locally. 10 wrong guesses per IP per
+ * 10 minutes locks that IP out for the rest of the window. */
+const failures = new Map<string, number[]>();
+const digest = (s: string) => createHash('sha256').update(s).digest();
+
+function ownerError(request: Request, ip: string): Response | null {
+  const key = process.env.COMMENTS_ADMIN_KEY?.trim() || '';
+  if (!key && !import.meta.env.DEV) {
+    return json({ error: 'Moderation is off. Set COMMENTS_ADMIN_KEY on your host first.' }, 403);
+  }
+  const now = Date.now();
+  const fails = (failures.get(ip) ?? []).filter((t) => now - t < WINDOW_MS);
+  if (fails.length >= 10) return json({ error: 'Too many wrong passphrases. Try again in 10 minutes.' }, 429);
+  if (!key) return null;
+  const given = (request.headers.get('authorization') ?? '').replace(/^Bearer\s+/i, '').trim();
+  if (given && timingSafeEqual(digest(given), digest(key))) return null;
+  fails.push(now);
+  failures.set(ip, fails);
+  if (failures.size > 5000) failures.clear();
+  return json({ error: 'Wrong passphrase.' }, 401);
+}
+
 const clean = (v: unknown, max: number) =>
   String(v ?? '')
     .replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, '')
@@ -47,9 +76,14 @@ async function postRules() {
   return new Map(posts.map((p) => [p.id, { annotations: p.data.annotations !== false }]));
 }
 
-export const GET: APIRoute = async ({ url }) => {
+export const GET: APIRoute = async ({ url, request, clientAddress }) => {
+  if (url.searchParams.has('recent')) {
+    const denied = ownerError(request, clientAddress || 'unknown');
+    if (denied) return denied;
+  }
   try {
     const store = getStore();
+    if (url.searchParams.has('recent')) return json({ comments: await store.recent(300) });
     if (url.searchParams.has('counts')) return json(await store.counts());
     const post = url.searchParams.get('post') ?? '';
     if (!post) return json({ error: 'Missing ?post=' }, 400);
@@ -116,5 +150,19 @@ export const POST: APIRoute = async ({ request, clientAddress }) => {
   } catch (err) {
     console.error('[comments] write failed:', err);
     return json({ error: 'Could not save your comment. Try again later.' }, 503);
+  }
+};
+
+export const DELETE: APIRoute = async ({ url, request, clientAddress }) => {
+  const denied = ownerError(request, clientAddress || 'unknown');
+  if (denied) return denied;
+  const id = url.searchParams.get('id') ?? '';
+  if (!/^[a-z0-9-]{8,64}$/i.test(id)) return json({ error: 'Missing or invalid ?id=' }, 400);
+  try {
+    if (!(await getStore().remove(id))) return json({ error: 'That comment no longer exists.' }, 404);
+    return json({ ok: true });
+  } catch (err) {
+    console.error('[comments] delete failed:', err);
+    return json({ error: 'Could not delete the comment. Try again later.' }, 503);
   }
 };

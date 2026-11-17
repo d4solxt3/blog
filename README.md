@@ -31,6 +31,7 @@ npm run build                    # dist/client (static) + dist/server (comments 
 | Posts | `content/posts/*.md(x)`, schema in `src/content.config.ts` |
 | Markdown pipeline (shared by site + admin preview) | `plugins/markdown.mjs` (wiki-links, callouts, figures, KaTeX, code frames) |
 | Comments API | `src/pages/api/comments.ts` + `src/lib/comment-store.ts` (JSON / Turso / Supabase) |
+| Comment moderation | `/moderate/` (`src/pages/moderate.astro`, `src/scripts/moderate.ts`, `src/scripts/owner.ts`), protected by the `COMMENTS_ADMIN_KEY` env var |
 | Highlight & comment UI | `src/scripts/comments.ts`, markup in `src/components/Comments.astro` |
 | Hover previews, ToC, progress | `src/scripts/previews.ts`, `src/scripts/post-page.ts` |
 | Client-side navigation lifecycle | `src/scripts/lifecycle.ts`: every script re-initialises on `astro:page-load` and cleans up on the next one |

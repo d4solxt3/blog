@@ -1014,6 +1014,28 @@ main {
   color: var(--faint);
 }
 
+/* Owner mode (signed in on /moderate/): a delete control on every comment. */
+.cm-del {
+  margin-left: auto;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.cm-del:hover,
+.cm-del:focus-visible {
+  color: var(--ink);
+  text-decoration: underline;
+}
+
+.cm-del:disabled {
+  cursor: progress;
+  text-decoration: none;
+}
+
 .cm-quote {
   display: block;
   width: 100%;

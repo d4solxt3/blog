@@ -7,6 +7,7 @@
  * then the others, and pick the occurrence whose surrounding text matches
  * best — so edits elsewhere in the post don't break existing highlights.
  */
+import { deleteComment, ownerKey } from './owner';
 
 type Anchor = { id: string; exact: string; prefix: string; suffix: string; blockIndex: number };
 type Comment = { id: string; post: string; name: string; body: string; createdAt: string; anchor: Anchor | null };
@@ -52,6 +53,7 @@ export function initComments(signal: AbortSignal) {
   let pending: Anchor | null = null; // anchor for a brand-new quote thread
   let openAnchorId: string | null = null;
   let lastFocus: HTMLElement | null = null;
+  let owner = ownerKey(); // signed in on /moderate/ → show delete buttons
   const shownAt = new WeakMap<HTMLFormElement, number>();
 
   /* ------------------------------------------------------------ text index */
@@ -257,6 +259,15 @@ export function initComments(signal: AbortSignal) {
     time.dateTime = c.createdAt;
     time.textContent = formatTime(c.createdAt);
     head.append(name, time);
+    if (owner) {
+      const del = document.createElement('button');
+      del.type = 'button';
+      del.className = 'cm-del';
+      del.dataset.del = c.id;
+      del.textContent = '[ delete ]';
+      del.setAttribute('aria-label', `Delete comment by ${c.name || 'anon'}`);
+      head.append(del);
+    }
     li.append(head);
     if (c.anchor && opts.jump) {
       const n = numberOf(c.anchor.id);
@@ -430,6 +441,29 @@ export function initComments(signal: AbortSignal) {
     }
   }
 
+  async function onDelete(e: Event) {
+    const btn = (e.target as HTMLElement).closest<HTMLButtonElement>('[data-del]');
+    const c = btn && comments.find((x) => x.id === btn.dataset.del);
+    if (!btn || !c || !owner) return;
+    if (!window.confirm(`Delete this comment by ${c.name || 'anon'}?\n\n"${truncate(c.body, 140)}"\n\nThis can't be undone.`)) return;
+    btn.disabled = true;
+    btn.textContent = '[ deleting… ]';
+    try {
+      await deleteComment(c.id, owner);
+      comments = comments.filter((x) => x.id !== c.id);
+    } catch (err) {
+      const status = (err as { status?: number }).status;
+      if (status === 404) comments = comments.filter((x) => x.id !== c.id); // already gone
+      else window.alert(err instanceof Error ? err.message : 'Could not delete the comment.');
+      owner = ownerKey(); // a wrong or changed passphrase signs you out
+    }
+    const threadGone = openAnchorId !== null && !comments.some((x) => x.anchor?.id === openAnchorId);
+    renderHighlights();
+    renderFeed();
+    if (threadGone) closeDrawer();
+    else if (drawer && !drawer.hidden) renderThread();
+  }
+
   /* --------------------------------------------------------------- wire */
 
   const savedName = (() => {
@@ -485,6 +519,10 @@ export function initComments(signal: AbortSignal) {
     const q = (e.target as HTMLElement).closest<HTMLButtonElement>('[data-jump]');
     if (q?.dataset.jump) pulse(q.dataset.jump);
   });
+
+  // Owner mode: [ delete ] buttons in the feed and in quote threads.
+  feed?.addEventListener('click', onDelete);
+  qtList?.addEventListener('click', onDelete);
 
   if (tip && annotationsOn) {
     tip.addEventListener('pointerdown', (e) => e.preventDefault()); // keep the selection alive

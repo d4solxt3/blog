@@ -1,0 +1,102 @@
+---
+/**
+ * /moderate/ — your comment inbox. Not linked from the site and hidden from
+ * search engines. Sign in with the COMMENTS_ADMIN_KEY passphrase you set on
+ * your host; this browser then shows [ delete ] on every comment, here and
+ * under each post.
+ */
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { getPosts } from '../utils/posts';
+
+const titles = Object.fromEntries((await getPosts()).map((p) => [p.id, p.data.title]));
+---
+
+<BaseLayout title="Moderate" description="Comment moderation.">
+  <meta slot="head" name="robots" content="noindex, nofollow" />
+  <h1 class="sr-only">Moderate comments</h1>
+
+  <div class="container page" data-moderate data-titles={JSON.stringify(titles)}>
+    <div class="win mod-win">
+      <div class="win-bar">
+        <span class="win-title">moderate.exe</span>
+        <span class="win-ctl" aria-hidden="true"></span>
+      </div>
+
+      <form class="cm-form mod-signin" data-signin hidden>
+        <p class="label cm-sub">owner sign-in</p>
+        <p class="mod-note">
+          Enter the passphrase you set as <code>COMMENTS_ADMIN_KEY</code> on your host. It's remembered in this browser only.
+        </p>
+        <label class="sr-only" for="mod-key">Passphrase</label>
+        <input id="mod-key" name="key" type="password" autocomplete="current-password" placeholder="passphrase" required />
+        <div class="cm-actions">
+          <span class="cm-status label" data-status aria-live="polite"></span>
+          <button type="submit" class="cm-submit">[ sign in ]</button>
+        </div>
+      </form>
+
+      <div class="cm-section" data-inbox hidden>
+        <div class="mod-top">
+          <p class="label cm-count" data-count aria-live="polite">loading…</p>
+          <button type="button" class="cm-del mod-out" data-signout>[ sign out ]</button>
+        </div>
+        <p class="mod-note">
+          Newest first, across every post. You'll also see <strong>[ delete ]</strong> under each post while you're signed in.
+        </p>
+        <ol class="cm-feed" data-list></ol>
+        <p class="cm-empty" data-empty hidden>&gt; no comments yet.</p>
+      </div>
+    </div>
+  </div>
+</BaseLayout>
+
+<script>
+  import { onPage } from '../scripts/lifecycle';
+  import { initModerate } from '../scripts/moderate';
+
+  onPage((signal) => initModerate(signal));
+</script>
+
+<style>
+  .page {
+    padding-top: clamp(1.25rem, 3.5vw, 1.75rem);
+  }
+
+  .mod-note {
+    margin: 0 0 0.75rem;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    line-height: 1.6;
+    color: var(--ink-2);
+  }
+
+  .mod-signin {
+    border-top: 0;
+  }
+
+  .mod-top {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+
+  .mod-out {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+  }
+
+  .mod-win :global(.cm-head) {
+    flex-wrap: wrap;
+    row-gap: 0.2rem;
+  }
+
+  /* The quoted passage is plain text here, not a jump button. */
+  .mod-win :global(.cm-quote) {
+    cursor: default;
+  }
+
+  .mod-win :global(.mod-post) {
+    color: var(--ink-2);
+  }
+</style>

@@ -174,6 +174,16 @@ create table if not exists comments (
 
 Spam protection is built in: a hidden trap field, a minimum time before posting, length limits, and at most 5 comments per visitor every 10 minutes.
 
+### Deleting comments
+
+1. **Pick a passphrase** and add it on your host as the environment variable `COMMENTS_ADMIN_KEY`. On Railway, open the service → **Variables** → **New variable**. Use something long; anyone who knows it can delete comments.
+2. **Open `/moderate/`** on your site (for example `https://your-site/moderate/`). It isn't linked anywhere and search engines are told to skip it. Enter the passphrase.
+3. You'll see every comment, newest first, each with **[ delete ]**. While you're signed in, that browser also shows **[ delete ]** next to each comment under your posts, including quote threads.
+
+Deleting can't be undone. **[ sign out ]** on `/moderate/` forgets the passphrase on that browser. Changing `COMMENTS_ADMIN_KEY` signs every browser out.
+
+Without `COMMENTS_ADMIN_KEY`, moderation is switched off on the live site. On your computer (`npm run dev`) any passphrase works, so you can try it with your test comments.
+
 **Prefer GitHub Discussions?** Set `"provider": "giscus"` under `comments` and fill in the giscus values from [giscus.app](https://giscus.app). Highlight replies still use the built-in system.
 
 To turn highlight-comments off everywhere, set `"inlineAnnotations": false`. To turn them off for one post, add `annotations: false` to that post's settings.
