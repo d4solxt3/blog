@@ -19,6 +19,7 @@ Requires Node 22.23.4 or newer.
 npm install
 npm run dev                      # http://localhost:4321  (editor at /_admin)
 npm run new-post "Post title"    # new draft in content/posts/
+npm run ascii -- drawing.png     # front-page ASCII art from a PNG
 npm run build                    # dist/client (static) + dist/server (comments API)
 ```
 

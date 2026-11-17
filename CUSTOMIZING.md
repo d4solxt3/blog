@@ -26,10 +26,11 @@ To stop it, click the terminal and press `Ctrl + C`.
 
 ## 2. The easy way: the editor at `/_admin`
 
-While `npm run dev` is running, open **http://localhost:4321/_admin**.
+While `npm run dev` is running, open **http://localhost:4321/_admin** in your browser. There's no link to it on the site itself, and it doesn't exist on the published site: it's only for you, on your computer.
 
 - **[site settings]**: the very first box is **Site name**. Change it, press **save settings**, and the name updates everywhere: the wordmark, the window bar, browser tabs and the footer. Below it you can change the intro text, status and mood, the changelog, the todo list, your profile and progress bars, the default font, and comment options. Any open tab of your site reloads with the changes.
-- **Front-page image**: click *Choose File* under "Front-page image", pick a picture, then press **save settings**. It's copied into `public/images/` for you.
+- **Front-page drawing**: the wide **ascii_art.exe** box turns a PNG into the ASCII drawing on the front page (see section 5).
+- **Avatar**: click *Choose File* under "Avatar image (about page)", pick a picture, then press **save settings**. It's copied into `public/images/` for you.
 - **[posts]**: pick a post on the left to edit it. The right-hand panel shows a live preview as you type. Press **save** (or `Ctrl + S`). **+ new post** creates a fresh draft.
 
 The editor only exists on your own computer. It is never part of the published site.
@@ -47,7 +48,8 @@ Open `site.config.json` in any text editor. Change only the text between the quo
 | `authorName` | Your name (shown on the About page) |
 | `authorHandle` | Your handle, shown as `@handle` on the About page |
 | `siteUrl` | Your website's address once you have one, e.g. `"https://my-notebook.net"`. Leave it `""` until then |
-| `frontpageImage` | Path to the front-page drawing, e.g. `"/images/my-drawing.png"` |
+| `frontpageAscii` | The text file with the front-page ASCII drawing (see section 5). Normally `"/images/frontpage-ascii.txt"` |
+| `frontpageImage` | The picture used as your avatar on the About page, e.g. `"/images/me.png"` |
 | `invertFrontpageImageInDarkMode` | `true` for black-on-white drawings (they turn light in dark mode). Use `false` for photos and colour images |
 | `defaultFont` | `"sans"`, `"serif"` or `"mono"`: the reading font for posts. Readers can still switch with the **Aa** buttons |
 | `accentBorders` | `true` for crisp dark borders, `false` for softer grey ones |
@@ -122,14 +124,22 @@ Put images for posts in `public/images/` and refer to them as `/images/name.png`
 
 ---
 
-## 5. Swapping the front-page drawing
+## 5. The front-page ASCII drawing and your avatar
 
-Either use the image picker in `/_admin`, or:
+The front page shows an **ASCII version of a drawing**, under the intro text. Because it's plain text, it matches light and dark mode automatically. To use a different drawing:
 
-1. Copy your image into `public/images/`, for example `public/images/me.png`.
-2. In `site.config.json`, set `"frontpageImage": "/images/me.png"`.
+- **In `/_admin`:** in the **ascii_art.exe** box, pick a black-on-white **PNG**. It's converted and saved straight away, and the big preview shows the result; reload the front page to see it there. Drag the **detail** slider for more columns (sharper, smaller characters) or fewer (chunkier ones). The drawing re-converts as you drag.
+- **Or in the terminal:** put the PNG in `public/images/` and run
 
-Black-and-white line art works best, because it's drawn straight onto the page with no box around it. For a colour picture, also set `"invertFrontpageImageInDarkMode": false`.
+  ```bash
+  npm run ascii -- public/images/my-drawing.png
+  ```
+
+  Add `--width 80` at the end for more detail. With no file name, it re-converts `public/images/ascii-source.png`.
+
+Either way, the result is saved to `public/images/frontpage-ascii.txt`. You can also open that file and edit the characters by hand.
+
+The **About page avatar** is a normal picture, set by `frontpageImage` (or `profile.avatar`). Black-and-white line art works best there, because it's drawn straight onto the page with no box around it. For a colour picture, set `"invertFrontpageImageInDarkMode": false`.
 
 ---
 

@@ -44,6 +44,8 @@ export const SITE = {
   url,
   lang: str(r.language, 'en'),
   frontpageImage,
+  /** Text file with the front-page ASCII drawing (made by `npm run ascii`). */
+  frontpageAscii: str(r.frontpageAscii, '/images/frontpage-ascii.txt'),
   invertArt: r.invertFrontpageImageInDarkMode !== false,
   defaultFont: asFont(r.defaultFont),
   accentBorders: r.accentBorders !== false,

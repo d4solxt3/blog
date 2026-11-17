@@ -5,6 +5,7 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, writeFile
 import { join, resolve } from 'node:path';
 import { createMarkdownProcessor } from '@astrojs/markdown-remark';
 import { createPost, POSTS_DIR } from '../scripts/post-template.mjs';
+import { writeAsciiFromImage } from '../scripts/ascii-lib.mjs';
 import { shikiConfig, remarkPlugins, rehypePlugins, remarkRehype } from './markdown.mjs';
 
 const ROOT = process.cwd();
@@ -153,6 +154,19 @@ async function handle(req, res, url) {
     mkdirSync(IMAGES, { recursive: true });
     writeFileSync(join(IMAGES, safe), Buffer.from(base64, 'base64'));
     return send(res, 200, { path: `/images/${safe}` });
+  }
+
+  if (path === '/_admin/api/ascii' && method === 'POST') {
+    const { image, columns } = JSON.parse(await readBody(req));
+    const name = String(image ?? '').replace(/^\/images\//, '');
+    if (!/^[a-z0-9._-]+\.png$/i.test(name)) return send(res, 400, { error: 'Pick a PNG image from public/images.' });
+    const file = join(IMAGES, name);
+    if (!existsSync(file)) return send(res, 404, { error: `public/images/${name} not found` });
+    try {
+      return send(res, 200, writeAsciiFromImage(file, columns));
+    } catch (err) {
+      return send(res, 400, { error: err instanceof Error ? err.message : String(err) });
+    }
   }
 
   return send(res, 404, { error: 'Unknown admin route' });

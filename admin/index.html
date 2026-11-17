@@ -18,7 +18,8 @@
     <link rel="stylesheet" href="/node_modules/@fontsource-variable/ibm-plex-sans/wght.css" />
     <link rel="stylesheet" href="/src/styles/global.css" />
     <style>
-      :root { --frame-max: 1180px; }
+      /* The editor gets a wide frame (the site's hub pages use 780px). */
+      .shell { --frame-max: 1320px; }
       main { padding: 1.25rem clamp(12px, 2.4vw, 20px) 2rem; }
       .tabs { display: flex; gap: 0.3rem; }
       .tab { padding: 0.25rem 0.5rem; border: 1px solid transparent; background: none; font: 600 0.75rem var(--font-mono); color: var(--muted); cursor: pointer; }
@@ -28,9 +29,11 @@
       .intro { margin: 0 0 1rem; font: 0.75rem/1.6 var(--font-mono); color: var(--muted); }
 
       /* settings */
-      .settings { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 330px), 1fr)); gap: 1rem; align-items: start; }
-      .win-body.fields { display: grid; gap: 0.75rem; }
+      .settings { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 360px), 1fr)); grid-auto-flow: dense; gap: 1.1rem; align-items: start; }
+      .settings .win, .field, .field > *, .win-body { min-width: 0; }
+      .win-body.fields { display: grid; gap: 0.85rem; }
       .field { display: grid; gap: 0.3rem; }
+      .field input[type='file'] { max-width: 100%; font: 0.75rem var(--font-mono); color: var(--muted); }
       .field > span { font: 600 0.6875rem var(--font-mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
       .field small { font: 0.6875rem/1.5 var(--font-mono); color: var(--faint); }
       .field input[type='text'], .field input[type='number'], .field input[type='url'], .field select, .field textarea {
@@ -41,9 +44,19 @@
       .field :focus { outline: none; border-color: var(--ink); }
       .check { display: flex; gap: 0.5rem; align-items: flex-start; font: 0.75rem/1.5 var(--font-mono); cursor: pointer; }
       .check input { margin-top: 0.2rem; accent-color: var(--ink); }
-      .art-row { display: grid; grid-template-columns: 72px 1fr; gap: 0.6rem; align-items: center; }
-      .art-row img { width: 72px; height: 72px; object-fit: contain; border: 1px solid var(--rule); background: var(--surface); mix-blend-mode: multiply; }
-      :root[data-theme='dark'] .art-row img { filter: invert(1) brightness(0.886); mix-blend-mode: screen; }
+      .art-row { display: grid; grid-template-columns: 72px minmax(0, 1fr); gap: 0.6rem; align-items: center; }
+      .art-row img, .ascii-src img { width: 72px; height: 72px; object-fit: contain; border: 1px solid var(--rule); background: var(--surface); mix-blend-mode: multiply; }
+      :root[data-theme='dark'] .art-row img, :root[data-theme='dark'] .ascii-src img { filter: invert(1) brightness(0.886); mix-blend-mode: screen; }
+
+      /* ascii_art.exe: controls on the left, a big preview on the right */
+      .ascii-win { grid-column: 1 / -1; }
+      .ascii-body { display: grid; grid-template-columns: minmax(0, 320px) minmax(0, 1fr); gap: 1.25rem; align-items: start; }
+      .ascii-src { display: grid; grid-template-columns: 72px minmax(0, 1fr); gap: 0.6rem; align-items: center; }
+      .ascii-src small { overflow-wrap: anywhere; }
+      .field input[type='range'] { width: 100%; accent-color: var(--ink); }
+      .ascii-stage { display: grid; place-items: center; min-height: 20rem; padding: 0.9rem; border: 1px dotted var(--muted); overflow: auto; }
+      #ascii-preview { margin: 0; font: 8px/1 var(--font-mono); color: var(--ink); white-space: pre; font-variant-ligatures: none; }
+      @media (max-width: 760px) { .ascii-body { grid-template-columns: minmax(0, 1fr); } .ascii-stage { min-height: 14rem; } }
       .savebar { position: sticky; bottom: 0; display: flex; justify-content: space-between; align-items: center; gap: 1rem; margin-top: 1rem; padding: 0.6rem 0.75rem; border: 1px solid var(--line); background: var(--bar); font: 0.75rem var(--font-mono); }
       .btn { padding: 0.35rem 0.75rem; border: 1px solid var(--line); background: var(--ink); color: var(--surface); font: 700 0.75rem var(--font-mono); letter-spacing: 0.04em; text-transform: uppercase; cursor: pointer; }
       .btn.ghost { background: transparent; color: var(--ink); }
@@ -99,9 +112,34 @@
                 </div>
               </section>
 
+              <section class="win ascii-win"><div class="win-bar"><span class="win-title">ascii_art.exe — front-page drawing</span><span class="win-ctl"></span></div>
+                <div class="win-body ascii-body">
+                  <div class="fields win-body" style="padding: 0; display: grid; gap: 0.95rem">
+                    <div class="field"><span>Source drawing (PNG)</span>
+                      <div class="ascii-src">
+                        <img id="ascii-src-thumb" src="/images/ascii-source.png" alt="" />
+                        <div class="field">
+                          <input type="file" id="ascii-file" accept="image/png" />
+                          <small id="ascii-src-name">/images/ascii-source.png</small>
+                        </div>
+                      </div>
+                    </div>
+                    <label class="field"><span>Detail: <b id="ascii-cols-out">64</b> columns</span>
+                      <input type="range" id="ascii-cols" min="32" max="120" step="2" value="64" />
+                      <small>more columns = a sharper drawing with smaller characters</small>
+                    </label>
+                    <div><button class="btn" id="ascii-make" type="button">[ make ascii ]</button></div>
+                    <small style="font: 0.6875rem/1.5 var(--font-mono); color: var(--faint)">black-on-white line drawings work best. the result is saved straight to public/images/frontpage-ascii.txt and appears on the front page (no need to press save settings).</small>
+                  </div>
+                  <div class="ascii-stage" id="ascii-stage">
+                    <pre id="ascii-preview" aria-label="ASCII preview"></pre>
+                  </div>
+                </div>
+              </section>
+
               <section class="win"><div class="win-bar"><span class="win-title">look.cfg</span><span class="win-ctl"></span></div>
                 <div class="win-body fields">
-                  <div class="field"><span>Front-page image</span>
+                  <div class="field"><span>Avatar image (about page)</span>
                     <div class="art-row"><img id="art-thumb" alt="" /><div class="field">
                       <input type="text" data-key="frontpageImage" />
                       <input type="file" id="art-file" accept="image/png,image/jpeg,image/gif,image/webp,image/svg+xml" />
@@ -280,6 +318,60 @@
           $('#settings-status').textContent = `> uploaded ${path} — press save to use it`;
         } catch (err) { $('#settings-status').textContent = `> ${err.message}`; }
       });
+      // ---- ascii_art.exe: pick a PNG, adjust detail, preview + save ----
+      let asciiSource = '/images/ascii-source.png';
+      let asciiTimer = 0;
+      const showAscii = (art) => {
+        const pre = $('#ascii-preview');
+        pre.textContent = art;
+        // Size the characters so the whole drawing fills the preview box.
+        const lines = art.split('\n');
+        const cols = Math.max(1, ...lines.map((l) => l.length));
+        const stage = $('#ascii-stage');
+        const byWidth = (stage.clientWidth - 30) / (cols * 0.6);
+        const byHeight = (Math.max(stage.clientHeight, 320) - 30) / lines.length;
+        pre.style.fontSize = `${Math.max(4, Math.min(11, byWidth, byHeight * 1.6)).toFixed(2)}px`;
+      };
+      const makeAscii = async () => {
+        $('#settings-status').textContent = '> converting to ascii…';
+        try {
+          const { art, columns, rows } = await api('ascii', { method: 'POST', body: JSON.stringify({ image: asciiSource, columns: Number($('#ascii-cols').value) }) });
+          showAscii(art);
+          $('#settings-status').textContent = `> ascii art saved (${columns} × ${rows}) — reload the front page to see it`;
+        } catch (err) { $('#settings-status').textContent = `> ${err.message}`; }
+      };
+      $('#ascii-cols').addEventListener('input', (e) => {
+        $('#ascii-cols-out').textContent = e.target.value;
+        clearTimeout(asciiTimer);
+        asciiTimer = setTimeout(makeAscii, 350);
+      });
+      $('#ascii-file').addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        $('#settings-status').textContent = '> uploading drawing…';
+        const data = await new Promise((ok) => { const r = new FileReader(); r.onload = () => ok(r.result); r.readAsDataURL(file); });
+        try {
+          const { path } = await api('upload', { method: 'POST', body: JSON.stringify({ name: file.name, data }) });
+          asciiSource = path;
+          $('#ascii-src-thumb').src = `${path}?v=${Date.now()}`;
+          $('#ascii-src-name').textContent = path;
+          await makeAscii();
+        } catch (err) { $('#settings-status').textContent = `> ${err.message}`; }
+      });
+      $('#ascii-make').addEventListener('click', makeAscii);
+      fetch('/images/frontpage-ascii.txt', { cache: 'no-store' })
+        .then((r) => (r.ok ? r.text() : ''))
+        .then((t) => {
+          const art = t.replace(/\s+$/, '');
+          if (!art) return;
+          showAscii(art);
+          const cols = Math.max(...art.split('\n').map((l) => l.length));
+          $('#ascii-cols').value = cols;
+          $('#ascii-cols-out').textContent = $('#ascii-cols').value; // the slider snaps to its step
+        })
+        .catch(() => {});
+      window.addEventListener('resize', () => showAscii($('#ascii-preview').textContent));
+
       $('#save-settings').addEventListener('click', async () => {
         const next = structuredClone(config);
         document.querySelectorAll('#settings [data-key]').forEach((el) => setPath(next, el.dataset.key, fromField(el)));

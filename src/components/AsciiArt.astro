@@ -1,0 +1,49 @@
+---
+/**
+ * Front-page ASCII drawing. The text comes from the file named by
+ * "frontpageAscii" in site.config.json (make it with `npm run ascii` or the
+ * converter in /_admin). Being plain text, it follows the theme's ink colour.
+ */
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { SITE } from '../site.config';
+
+interface Props {
+  /** Rendered width of the whole drawing (any CSS length). */
+  width?: string;
+}
+
+const { width = '15rem' } = Astro.props;
+let art = '';
+try {
+  art = readFileSync(resolve(process.cwd(), 'public', SITE.frontpageAscii.replace(/^\//, '')), 'utf8').replace(/\s+$/, '');
+} catch {}
+const cols = Math.max(1, ...art.split('\n').map((l) => l.length));
+---
+
+{
+  art && (
+    <figure class="ascii" style={`--cols: ${cols}; --w: ${width}`} aria-label="ASCII drawing">
+      <pre aria-hidden="true">{art}</pre>
+    </figure>
+  )
+}
+
+<style>
+  .ascii {
+    margin: 0;
+    color: var(--ink);
+    user-select: none;
+  }
+
+  pre {
+    margin: 0;
+    font-family: var(--font-mono);
+    /* Scale so the whole drawing is --w wide whatever its column count. */
+    font-size: calc(var(--w) / var(--cols) / 0.6);
+    line-height: 1;
+    letter-spacing: 0;
+    white-space: pre;
+    font-variant-ligatures: none;
+  }
+</style>

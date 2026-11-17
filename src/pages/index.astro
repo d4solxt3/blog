@@ -1,6 +1,6 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
-import InkImage from '../components/InkImage.astro';
+import AsciiArt from '../components/AsciiArt.astro';
 import PostFeed from '../components/PostFeed.astro';
 import { SITE } from '../site.config';
 import { getPosts } from '../utils/posts';
@@ -41,19 +41,17 @@ const dotDate = (d: string) => d.replace(/-/g, '.');
 
     <section class="intro" aria-label="Introduction">
       <div class="intro-text">
-        <div class="hello-row">
-          <p class="hello">hello, welcome in<span class="cursor" aria-hidden="true"></span></p>
-          <!-- Narrow screens: a compact doodle beside the greeting. -->
-          <div class="sticker sticker--inline" aria-hidden="true">
-            <InkImage src={SITE.frontpageImage} alt="" loading="eager" />
-          </div>
-        </div>
+        <p class="hello">hello, welcome in<span class="cursor" aria-hidden="true"></span></p>
         <p class="bio">{SITE.intro}</p>
         <p class="meta-line">
           <a href="/about/">about me</a><span class="sep">·</span>
           <a href="/archive/">full index</a><span class="sep">·</span>
           <a href="/rss.xml">rss</a>
         </p>
+        <!-- ASCII drawing fills the space under the intro, beside status/changelog. -->
+        <div class="ascii-wrap">
+          <AsciiArt width="12.5rem" />
+        </div>
       </div>
 
       <div class="strip">
@@ -91,11 +89,6 @@ const dotDate = (d: string) => d.replace(/-/g, '.');
     <div class="feed-wrap">
       <PostFeed posts={posts} label="writing" />
     </div>
-  </div>
-
-  <!-- Wide screens: the doodle stands on the frame's bottom-left corner. -->
-  <div slot="frame-edge" class="sticker sticker--corner" aria-hidden="true">
-    <InkImage src={SITE.frontpageImage} alt="" />
   </div>
 </BaseLayout>
 
@@ -144,12 +137,17 @@ const dotDate = (d: string) => d.replace(/-/g, '.');
     }
   }
 
-  /* ---- greeting + character ---- */
-  .hello-row {
+  /* ---- greeting + ASCII drawing ---- */
+  .intro-text {
     display: flex;
-    align-items: flex-end;
-    justify-content: space-between;
-    gap: 0.75rem;
+    flex-direction: column;
+    align-self: stretch;
+  }
+
+  .ascii-wrap {
+    align-self: flex-end;
+    margin-top: auto;
+    padding-top: 1.25rem;
   }
 
   .hello {
@@ -165,34 +163,6 @@ const dotDate = (d: string) => d.replace(/-/g, '.');
     height: 0.95em;
     margin-left: 0.2em;
     vertical-align: -0.1em;
-  }
-
-  /* Narrow screens: a compact 72px doodle beside the greeting. */
-  .sticker--inline {
-    flex: none;
-    width: 72px;
-  }
-
-  /* Wide screens: grounded at the frame's bottom-left corner, standing on the
-     bottom border and overlapping only the outer edge line. (.frame-edge is a
-     zero-height strip right under the frame, outside its isolated group.) */
-  .sticker--corner {
-    display: none;
-  }
-
-  @media (min-width: 1024px) {
-    .sticker--inline {
-      display: none;
-    }
-
-    .sticker--corner {
-      display: block;
-      position: absolute;
-      z-index: 2;
-      bottom: -1px;
-      left: -115px;
-      width: 140px;
-    }
   }
 
   .bio {
