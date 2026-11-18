@@ -2,7 +2,7 @@
 /**
  * loop.exe — a tiny 2003-style music player for one self-hosted track.
  * Real <audio> underneath (no autoplay): play/pause, a scrub bar, volume,
- * elapsed / total time, and a little level meter that only moves while playing.
+ * elapsed / total time, and a dithered spectrum visualiser (scripts/loop-vis.ts).
  */
 import Panel from './Panel.astro';
 import type { Widget } from '../../site.config';
@@ -23,15 +23,12 @@ const uid = `aud-${w.id}`;
       <div class="panel-body lx" data-loopexe>
         <audio src={d.src} preload="metadata" loop={d.loop} data-audio />
         <div class="lx-screen well" aria-hidden="true">
-          <span class="lx-state" data-state>■ stop</span>
-          <span class="lx-track">
-            <span class="lx-track-in">{d.track}</span>
-          </span>
-          <span class="lx-meter" data-meter>
-            {Array.from({ length: 6 }, (_, i) => (
-              <i style={`--i:${i}`} />
-            ))}
-          </span>
+          <div class="lx-screen-top">
+            <span class="lx-state" data-state>■</span>
+            <span class="lx-track"><span class="lx-now" data-now>loaded</span> — <span class="lx-name">{d.track}</span></span>
+            <span class="lx-hz" data-hz>-- hz</span>
+          </div>
+          <canvas class="lx-vis" data-vis height="46"></canvas>
         </div>
         <div class="lx-row">
           <button type="button" class="bevel lx-play" data-play aria-label={`Play ${d.track}`} aria-pressed="false">
@@ -60,21 +57,53 @@ const uid = `aud-${w.id}`;
     font: 11px/1.2 var(--font-mono);
   }
 
+  /* The player's screen: a dark CRT well with the title line and the
+     visualiser (dithered spectrum over a horizon, its reflection below, and a
+     pixel oscilloscope trace), in the theme's inks. */
   .lx-screen {
+    --vz-bar: #fafaf8;
+    --vz-dim: rgb(250 250 248 / 0.35);
+    --vz-scope: #fafaf8;
     display: grid;
-    grid-template-columns: auto minmax(0, 1fr) auto;
-    align-items: center;
-    gap: 6px;
-    height: 22px;
-    padding: 0 6px;
-    background: var(--ink);
+    gap: 3px;
+    padding: 4px 6px 5px;
+    background:
+      repeating-linear-gradient(rgb(255 255 255 / 0.04) 0 1px, transparent 1px 3px),
+      var(--ink);
     color: var(--surface-main);
     border-color: var(--line);
   }
 
   :global(:root[data-theme='cyber']) .lx-screen {
-    background: #102038;
+    --vz-bar: #4a8fe7;
+    --vz-dim: rgb(220 230 242 / 0.4);
+    --vz-scope: #e2566a;
+    background:
+      repeating-linear-gradient(rgb(220 230 242 / 0.05) 0 1px, transparent 1px 3px),
+      #102038;
     color: #dce6f2;
+  }
+
+  .lx-screen-top {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 6px;
+    min-height: 14px;
+  }
+
+  .lx-hz {
+    font-size: 9px;
+    letter-spacing: 0.06em;
+    opacity: 0.7;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .lx-vis {
+    display: block;
+    width: 100%;
+    height: 46px;
+    image-rendering: pixelated;
   }
 
   .lx-state {
@@ -89,8 +118,45 @@ const uid = `aud-${w.id}`;
     white-space: nowrap;
   }
 
-  .lx-track-in {
-    display: inline-block;
+  .lx-track {
+    text-overflow: ellipsis;
+  }
+
+  .lx-now {
+    font-size: 9.5px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    opacity: 0.75;
+  }
+
+  .lx-name {
+    font-weight: 600;
+  }
+
+  .lx-hz {
+    font-size: 9px;
+    letter-spacing: 0.06em;
+    opacity: 0.7;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .lx-vis {
+    display: block;
+    width: 100%;
+    height: 46px;
+    image-rendering: pixelated;
+  }
+
+  .lx-state {
+    font-size: 9.5px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    opacity: 0.85;
+  }
+
+  .lx-track {
+    overflow: hidden;
+    white-space: nowrap;
   }
 
   /* Full motion + playing: the title scrolls like an old player's marquee. */
@@ -104,36 +170,6 @@ const uid = `aud-${w.id}`;
   @keyframes lx-marquee {
     to {
       transform: translateX(-100%);
-    }
-  }
-
-  .lx-meter {
-    display: inline-flex;
-    align-items: flex-end;
-    gap: 1px;
-    height: 10px;
-  }
-
-  .lx-meter i {
-    width: 2px;
-    height: 2px;
-    background: currentColor;
-  }
-
-  :global(:root[data-theme='cyber']) .lx-meter i {
-    background: #4a8fe7;
-  }
-
-  @media (prefers-reduced-motion: no-preference) {
-    .lx.is-playing .lx-meter i {
-      animation: lx-level 0.9s steps(5) infinite alternate;
-      animation-delay: calc(var(--i) * -0.17s);
-    }
-  }
-
-  @keyframes lx-level {
-    to {
-      height: 10px;
     }
   }
 
@@ -220,6 +256,7 @@ const uid = `aud-${w.id}`;
 
 <script>
   import { onPage } from '../../scripts/lifecycle';
+  import { createVisualiser } from '../../scripts/loop-vis';
 
   const fmt = (s: number) => (Number.isFinite(s) ? `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}` : '--:--');
 
@@ -233,13 +270,15 @@ const uid = `aud-${w.id}`;
       const time = box.querySelector<HTMLElement>('[data-time]')!;
       const state = box.querySelector<HTMLElement>('[data-state]')!;
       let scrubbing = false;
+      const now = box.querySelector<HTMLElement>('[data-now]')!;
+      const vis = createVisualiser(box.querySelector<HTMLCanvasElement>('[data-vis]')!, audio, box.querySelector<HTMLElement>('[data-hz]'), signal);
 
       try {
         const v = Number(localStorage.getItem('loopexe:vol'));
         if (localStorage.getItem('loopexe:vol') !== null && v >= 0 && v <= 100) vol.value = String(v);
       } catch {}
       const paintVol = () => {
-        audio.volume = Number(vol.value) / 100;
+        vis?.setVolume(Number(vol.value) / 100);
         vol.style.setProperty('--fill', `${vol.value}%`);
         vol.setAttribute('aria-valuetext', `${vol.value}%`);
       };
@@ -258,16 +297,17 @@ const uid = `aud-${w.id}`;
         play.setAttribute('aria-pressed', String(on));
         play.setAttribute('aria-label', `${on ? 'Pause' : 'Play'} ${play.getAttribute('aria-label')!.replace(/^(Play|Pause) /, '')}`);
         icon.textContent = on ? '❚❚' : '▶';
-        state.textContent = on ? '▶ play' : audio.currentTime > 0 ? '❚❚ pause' : '■ stop';
+        state.textContent = on ? '▶' : audio.currentTime > 0 ? '❚❚' : '■';
+        now.textContent = on ? 'now playing' : audio.currentTime > 0 ? 'paused' : 'loaded';
       };
 
       play.addEventListener('click', () => (audio.paused ? audio.play().catch(() => setPlaying(false)) : audio.pause()), { signal });
-      audio.addEventListener('play', () => setPlaying(true), { signal });
-      audio.addEventListener('pause', () => setPlaying(false), { signal });
-      audio.addEventListener('ended', () => setPlaying(false), { signal });
+      audio.addEventListener('play', () => (setPlaying(true), vis.start()), { signal });
+      audio.addEventListener('pause', () => (setPlaying(false), vis.stop()), { signal });
+      audio.addEventListener('ended', () => (setPlaying(false), vis.stop()), { signal });
       audio.addEventListener('timeupdate', paint, { signal });
       audio.addEventListener('loadedmetadata', paint, { signal });
-      audio.addEventListener('error', () => (state.textContent = '× error'), { signal });
+      audio.addEventListener('error', () => ((state.textContent = '×'), (now.textContent = "can't play")), { signal });
       seek.addEventListener('input', () => {
         scrubbing = true;
         if (Number.isFinite(audio.duration)) audio.currentTime = (Number(seek.value) / 1000) * audio.duration;
