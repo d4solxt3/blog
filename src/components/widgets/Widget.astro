@@ -1,0 +1,226 @@
+---
+/** Renders one front-page widget by type (see WIDGET_TYPES in site.config.ts). */
+import VisualCard from '../VisualCard.astro';
+import PostFeed from '../PostFeed.astro';
+import Panel from './Panel.astro';
+import Calendar from './Calendar.astro';
+import Stats from './Stats.astro';
+import LoopMedia from '../LoopMedia.astro';
+import { SITE, type Widget } from '../../site.config';
+import type { Post } from '../../utils/posts';
+import { widgetData, widgetTitle } from './data';
+
+interface Props {
+  w: Widget;
+  posts: Post[];
+}
+const { w, posts } = Astro.props;
+const d = widgetData(w) as any;
+const title = widgetTitle(w);
+const p = SITE.profile;
+const dotDate = (s: string) => String(s).replace(/-/g, '.');
+---
+
+{
+  w.type === 'about' && (
+    <Panel id={w.id} title={title} primary shade={false} type="about">
+      <div class="panel-body intro">
+        <p>{d.text}</p>
+        <p class="more">
+          <a href="/about/">more about me</a> <span class="sep" aria-hidden="true">·</span> <a href="/archive/">every post</a> <span class="sep" aria-hidden="true">·</span> <a href="/rss.xml">rss</a>
+        </p>
+      </div>
+    </Panel>
+  )
+}
+
+{w.type === 'feed' && <PostFeed posts={posts} label={title} />}
+
+{w.type === 'visual' && <VisualCard />}
+
+{
+  w.type === 'updates' && (
+    <Panel id={w.id} title={title} primary type="updates">
+      <ul class="panel-body log">
+        {d.items.map((u: any) => (
+          <li>
+            <span class="d">{dotDate(u.date)}</span> — {u.text}
+          </li>
+        ))}
+      </ul>
+    </Panel>
+  )
+}
+
+{
+  w.type === 'now' && (
+    <Panel id={w.id} title={title} primary type="now">
+      {SITE.status.updated && <span slot="tools">{dotDate(SITE.status.updated)}</span>}
+      <div class="panel-body mood">
+        {SITE.status.mood && <p class="mood-now">mood: {SITE.status.mood}</p>}
+        {SITE.status.thought && (
+          <p class="ticker" tabindex="0" aria-label={`Current thought: ${SITE.status.thought}`}>
+            <span class="ticker-track" aria-hidden="true">
+              <span>“{SITE.status.thought}”</span>
+              <span class="ticker-copy">“{SITE.status.thought}”</span>
+            </span>
+          </p>
+        )}
+        {d.currently.length > 0 && (
+          <dl class="kv">
+            {d.currently.map(([k, v]: string[]) => (
+              <>
+                <dt>{k}</dt>
+                <dd>{v}</dd>
+              </>
+            ))}
+          </dl>
+        )}
+      </div>
+    </Panel>
+  )
+}
+
+{
+  w.type === 'info' && (
+    <Panel id={w.id} title={title} shade={false} type="info">
+      <div class="panel-body">
+        <dl class="kv">
+          <dt>handle</dt>
+          <dd>@{SITE.authorHandle}</dd>
+          <dt>status</dt>
+          <dd>
+            <span class:list={['lamp', { 'lamp--off': p.status !== 'online' }]} aria-hidden="true" />
+            {p.status}
+          </dd>
+          {p.timezone && (
+            <>
+              <dt>tz</dt>
+              <dd>{p.timezone}</dd>
+            </>
+          )}
+        </dl>
+        {p.links.length > 0 && (
+          <>
+            <p class="panel-sub">links</p>
+            <ul class="px-list">
+              {p.links.map((l) => (
+                <li>
+                  <a href={l.url}>{l.label}</a>
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+      </div>
+    </Panel>
+  )
+}
+
+{
+  w.type === 'todo' && (
+    <Panel id={w.id} title={title} type="todo">
+      <span slot="tools">
+        {d.items.filter((t: any) => t.done).length}/{d.items.length}
+      </span>
+      <div class="panel-body">
+        <ul class="check-list check-list--mini">
+          {d.items.map((t: any) => (
+            <li>
+              <span class="box" aria-hidden="true">
+                {t.done ? '[x]' : '[ ]'}
+              </span>
+              <span class:list={{ done: t.done }}>
+                <span class="sr-only">{t.done ? 'Done: ' : 'To do: '}</span>
+                {t.text}
+              </span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </Panel>
+  )
+}
+
+{
+  w.type === 'note' && (
+    <Panel id={w.id} title={title} type="note">
+      <p class="panel-body note">{d.text}</p>
+    </Panel>
+  )
+}
+
+{
+  w.type === 'text' && (
+    <Panel id={w.id} title={title} type="text">
+      <div class="panel-body w-text">
+        {d.paras.map((t: string) => (
+          <p>{t}</p>
+        ))}
+      </div>
+    </Panel>
+  )
+}
+
+{
+  w.type === 'links' && (
+    <Panel id={w.id} title={title} type="links">
+      <div class="panel-body">
+        <ul class="px-list">
+          {d.items.map((l: any) => (
+            <li>
+              <a href={l.url}>{l.label}</a>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </Panel>
+  )
+}
+
+{
+  w.type === 'progress' && (
+    <Panel id={w.id} title={title} type="progress">
+      <ul class="panel-body w-progress">
+        {d.items.map((x: any) => (
+          <li>
+            <span class="w-progress-row">
+              <span class="w-progress-label">{x.label}</span>
+              <span class="w-progress-pct">{x.percent}%</span>
+            </span>
+            <span class="w-meter bevel-in" role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow={x.percent} aria-label={x.label}>
+              <span class="w-meter-fill" style={`--pct:${x.percent}%`} />
+            </span>
+          </li>
+        ))}
+      </ul>
+    </Panel>
+  )
+}
+
+{w.type === 'calendar' && <Calendar w={w} title={title} posts={posts} />}
+
+{w.type === 'stats' && <Stats w={w} title={title} posts={posts} />}
+
+{
+  w.type === 'media' && (
+    <Panel id={w.id} title={title} type="media">
+      {d.src ? (
+        <figure class="panel-body w-media">
+          <div class="w-media-mat">
+            {d.href ? (
+              <a href={d.href}>
+                <LoopMedia src={d.src} alt={d.alt} class={d.tint ? 'w-media-el w-media-el--tint' : 'w-media-el'} />
+              </a>
+            ) : (
+              <LoopMedia src={d.src} alt={d.alt} class={d.tint ? 'w-media-el w-media-el--tint' : 'w-media-el'} />
+            )}
+          </div>
+          {d.caption && <figcaption>{d.caption}</figcaption>}
+        </figure>
+      ) : (
+        <p class="panel-body w-problem">media widget: {d.problem}</p>
+      )}
+    </Panel>
+  )
+}

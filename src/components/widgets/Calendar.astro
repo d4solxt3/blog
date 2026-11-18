@@ -1,0 +1,144 @@
+---
+/**
+ * Calendar widget: a small month grid (UTC, like every date on the site).
+ * Days with a post are links; days with an update get a dot. ‹ › step back
+ * through months that have writing (the current month shows without JS).
+ */
+import Panel from './Panel.astro';
+import { SITE, type Widget } from '../../site.config';
+import { isoDate, postUrl, type Post } from '../../utils/posts';
+
+interface Props {
+  w: Widget;
+  title: string;
+  posts: Post[];
+}
+const { w, title, posts } = Astro.props;
+const monStart = w.props.weekStart !== 'sun';
+const now = new Date();
+const today = isoDate(now);
+
+const byDay = new Map<string, Post[]>();
+for (const post of posts) {
+  const k = isoDate(post.data.date);
+  byDay.set(k, [...(byDay.get(k) ?? []), post]);
+}
+const updateDays = new Set(SITE.updates.map((u) => String(u.date).slice(0, 10)));
+
+// The current month back to the first post's month, at most 12.
+const first = posts.length ? new Date(Math.min(...posts.map((p) => p.data.date.valueOf()))) : now;
+const months: { y: number; m: number }[] = [];
+for (let y = now.getUTCFullYear(), m = now.getUTCMonth(); months.length < 12; m--) {
+  if (m < 0) {
+    m = 11;
+    y--;
+  }
+  months.push({ y, m });
+  if (y < first.getUTCFullYear() || (y === first.getUTCFullYear() && m <= first.getUTCMonth())) break;
+}
+
+const names = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+const heads = monStart ? ['m', 't', 'w', 't', 'f', 's', 's'] : ['s', 'm', 't', 'w', 't', 'f', 's'];
+const longHeads = monStart ? ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'] : ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const pad = (n: number) => String(n).padStart(2, '0');
+
+function weeks(y: number, m: number) {
+  const lead = (new Date(Date.UTC(y, m, 1)).getUTCDay() + (monStart ? 6 : 0)) % 7;
+  const days = new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
+  const cells: (string | null)[] = [...Array(lead).fill(null), ...Array.from({ length: days }, (_, i) => `${y}-${pad(m + 1)}-${pad(i + 1)}`)];
+  while (cells.length % 7) cells.push(null);
+  return Array.from({ length: cells.length / 7 }, (_, i) => cells.slice(i * 7, i * 7 + 7));
+}
+const count = (y: number, m: number) => posts.filter((p) => p.data.date.getUTCFullYear() === y && p.data.date.getUTCMonth() === m).length;
+---
+
+<Panel id={w.id} title={title} type="calendar">
+  <div class="panel-body w-cal" data-cal>
+    {
+      months.map(({ y, m }, i) => (
+        <div class="w-cal-month" data-cal-month={i} hidden={i !== 0}>
+          <div class="w-cal-head">
+            <button type="button" class="w-cal-nav bevel" data-cal-step="1" aria-label="Previous month" disabled={i === months.length - 1} hidden>
+              ‹
+            </button>
+            <p class="w-cal-label" aria-live="polite">
+              {names[m]} {y}
+              <span class="w-cal-count">· {count(y, m)} {count(y, m) === 1 ? 'post' : 'posts'}</span>
+            </p>
+            <button type="button" class="w-cal-nav bevel" data-cal-step="-1" aria-label="Next month" disabled={i === 0} hidden>
+              ›
+            </button>
+          </div>
+          <table class="w-cal-grid">
+            <caption class="sr-only">
+              {names[m]} {y}
+            </caption>
+            <thead>
+              <tr>
+                {heads.map((h, j) => (
+                  <th scope="col" abbr={longHeads[j]}>
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {weeks(y, m).map((row) => (
+                <tr>
+                  {row.map((day) => {
+                    if (!day) return <td />;
+                    const list = byDay.get(day);
+                    const n = Number(day.slice(8));
+                    const cls = { 'has-post': !!list, 'has-update': updateDays.has(day) };
+                    return (
+                      <td class:list={cls} data-day={day} aria-current={day === today ? 'date' : undefined}>
+                        {list ? (
+                          <a href={postUrl(list[0])} title={list.map((p) => p.data.title).join(' · ')}>
+                            {n}
+                            <span class="sr-only">: {list.map((p) => p.data.title).join(', ')}</span>
+                          </a>
+                        ) : (
+                          <span>{n}</span>
+                        )}
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ))
+    }
+    <p class="w-cal-key" aria-hidden="true"><span class="k-post">■</span> post <span class="k-upd">•</span> update</p>
+  </div>
+</Panel>
+
+<script>
+  import { onPage } from '../../scripts/lifecycle';
+
+  onPage((signal) => {
+    document.querySelectorAll<HTMLElement>('[data-cal]').forEach((cal) => {
+      // Today in UTC: fixes the highlight if the page was served just before midnight.
+      const today = new Date().toISOString().slice(0, 10);
+      cal.querySelectorAll('[aria-current="date"]').forEach((c) => c.removeAttribute('aria-current'));
+      cal.querySelector(`[data-day="${today}"]`)?.setAttribute('aria-current', 'date');
+
+      const months = [...cal.querySelectorAll<HTMLElement>('[data-cal-month]')];
+      if (months.length < 2) return;
+      let at = 0;
+      const show = (i: number, focusStep?: string) => {
+        at = Math.max(0, Math.min(months.length - 1, i));
+        months.forEach((m, j) => (m.hidden = j !== at));
+        if (focusStep) {
+          const b = months[at].querySelector<HTMLButtonElement>(`[data-cal-step="${focusStep}"]`);
+          (b && !b.disabled ? b : months[at].querySelector<HTMLButtonElement>('[data-cal-step]:not([disabled])'))?.focus();
+        }
+      };
+      cal.querySelectorAll<HTMLButtonElement>('[data-cal-step]').forEach((b) => {
+        b.hidden = false;
+        b.addEventListener('click', () => show(at + Number(b.dataset.calStep), b.dataset.calStep), { signal });
+      });
+    });
+  });
+</script>

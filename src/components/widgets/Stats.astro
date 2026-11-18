@@ -1,0 +1,33 @@
+---
+/** Stats widget: a little system-properties readout of the notebook. */
+import Panel from './Panel.astro';
+import type { Widget } from '../../site.config';
+import { formatDate, readingTime, type Post } from '../../utils/posts';
+
+interface Props {
+  w: Widget;
+  title: string;
+  posts: Post[];
+}
+const { w, title, posts } = Astro.props;
+const words = posts.reduce((n, p) => n + (p.body ?? '').split(/\s+/).filter(Boolean).length, 0);
+const minutes = posts.reduce((n, p) => n + readingTime(p.body ?? ''), 0);
+const dates = posts.map((p) => p.data.date.valueOf());
+const latest = dates.length ? formatDate(new Date(Math.max(...dates))) : '—';
+const days = dates.length ? Math.max(1, Math.round((Date.now() - Math.min(...dates)) / 86_400_000)) : 0;
+const tags = new Set(posts.flatMap((p) => p.data.tags)).size;
+const fmt = (n: number) => n.toLocaleString('en-GB');
+---
+
+<Panel id={w.id} title={title} type="stats">
+  <div class="panel-body">
+    <dl class="kv w-stats">
+      <dt>posts</dt><dd>{fmt(posts.length)}</dd>
+      <dt>words</dt><dd>{fmt(words)}</dd>
+      <dt>reading</dt><dd>{fmt(minutes)} min</dd>
+      <dt>tags</dt><dd>{fmt(tags)}</dd>
+      <dt>latest</dt><dd>{latest}</dd>
+      <dt>uptime</dt><dd>{fmt(days)} {days === 1 ? 'day' : 'days'}</dd>
+    </dl>
+  </div>
+</Panel>

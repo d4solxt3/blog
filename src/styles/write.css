@@ -909,10 +909,326 @@
   pointer-events: none;
 }
 
+/* ==========================================================================
+   Split workspace: source | divider | live preview  (Overleaf-style)
+   The page scrolls the source; the preview is a sticky pane with its own
+   scroll. --sb-h (the studio bar's height) is measured by write.ts.
+   ========================================================================== */
+
+/* Wide studio shell on desktop. */
+@media (min-width: 1024px) {
+  .shell:has(.studio) {
+    --frame-max: min(calc(96vw - 2 * var(--shell-gap)), 1380px);
+  }
+
+  .studio[data-layout='split'] .studio-col {
+    max-width: none;
+  }
+}
+
+/* [ split | write | preview ] in the bar */
+.sb-modes {
+  display: inline-flex;
+  border: 1px solid var(--rule);
+}
+
+.sb-modes button {
+  padding: 0 6px;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.sb-modes button + button {
+  border-left: 1px solid var(--rule);
+}
+
+.sb-modes button[aria-pressed='true'] {
+  background: var(--ink);
+  color: var(--surface);
+}
+
+.sb-modes button:hover:not([aria-pressed='true']) {
+  color: var(--ink);
+}
+
+.w-split {
+  --split: 50%;
+  position: relative;
+}
+
+.w-pane {
+  min-width: 0;
+}
+
+/* Beveled pane header strips (~21px), like the portal's panel bars. */
+.w-pane-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 2px 10px;
+  min-height: 21px;
+  padding: 2px 8px;
+  border: 1px solid var(--line);
+  background: linear-gradient(var(--strip-top), var(--strip-bottom));
+  box-shadow: inset 0 1px 0 var(--bevel-highlight);
+  font: 11px/1.4 var(--font-mono);
+  color: var(--muted);
+}
+
+.w-pane-title {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.w-pane-dim {
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.w-pane-status[data-state='edited'],
+.w-pane-status[data-state='saving'] {
+  color: var(--ink-2);
+}
+
+.w-pane-status[data-state='error'] {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.w-pane-tools,
+.w-aa {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.w-pane-tools button {
+  min-height: 18px;
+  padding: 0 6px;
+  font: 11px var(--font-mono);
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.w-pane-tools button[aria-pressed='true'] {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+/* Source: header + formatting row stay under the studio bar while you scroll. */
+.w-pane-sticky {
+  position: sticky;
+  top: var(--sb-h, 0px);
+  z-index: 15;
+  background: var(--surface);
+}
+
+.w-ribbon-slot .sb-ribbon {
+  padding: 3px 4px;
+  border: 1px solid var(--line);
+  border-top: 0;
+  background: var(--surface);
+}
+
+.w-pane--source .canvas {
+  max-width: 66ch;
+  margin-inline: auto;
+}
+
+/* Preview pane */
+.w-preview-scroll {
+  position: relative;
+  padding: 1.2rem clamp(12px, 2vw, 28px) 4rem;
+  border: 1px solid var(--line);
+  border-top: 0;
+  background: var(--surface);
+  outline: none;
+  font-family: var(--font-read);
+  font-size: var(--read-size);
+}
+
+.w-preview-scroll:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--accent, var(--ink));
+}
+
+.w-preview-head,
 .w-preview {
-  margin-top: 1.4rem;
-  padding-top: 1rem;
-  border-top: 1px dotted var(--muted);
+  max-width: var(--measure, 65ch);
+  margin-inline: auto;
+}
+
+.w-preview-head .display-title {
+  margin: 0;
+}
+
+.w-preview-head .display-subtitle {
+  margin: 0.4rem 0 0;
+}
+
+.w-preview-head {
+  margin-bottom: 1.4rem;
+  padding-bottom: 0.8rem;
+  border-bottom: 1px dotted var(--muted);
+}
+
+.w-preview-head[data-error]::after {
+  content: attr(data-error);
+  display: block;
+  margin-top: 0.6rem;
+  font: 11px var(--font-mono);
+  color: var(--ink);
+}
+
+/* The preview's own [Aa] (doesn't change the post's font setting). */
+.w-preview-scroll[data-font='sans'] {
+  --font-read: var(--font-sans);
+  --read-size: 1rem;
+}
+
+.w-preview-scroll[data-font='serif'] {
+  --font-read: var(--font-serif);
+  --read-size: 1.0625rem;
+}
+
+.w-preview-scroll[data-font='mono'] {
+  --font-read: var(--font-raw);
+  --read-size: 0.90625rem;
+}
+
+/* Divider: 1px line, a wider invisible grab area, a grip on hover/focus. */
+.w-splitter {
+  display: none;
+}
+
+/* ---- layouts ---- */
+.studio[data-layout='write'] .w-pane--preview {
+  display: none;
+}
+
+.studio[data-layout='preview'] .w-pane--source {
+  display: none;
+}
+
+.studio[data-layout='preview'] .w-preview-scroll {
+  min-height: 60vh;
+}
+
+@media (min-width: 1024px) {
+  .studio[data-layout='split'] .w-split {
+    display: grid;
+    /* --split-n: the source's share of the space beside the 11px divider. */
+    grid-template-columns: minmax(0, calc((100% - 11px) * var(--split-n, 0.5))) 11px minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .studio[data-layout='split'] .w-pane--preview {
+    position: sticky;
+    top: var(--sb-h, 0px);
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - var(--sb-h, 0px));
+  }
+
+  .studio[data-layout='split'] .w-preview-scroll {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+    overscroll-behavior: contain;
+  }
+
+  .studio[data-layout='split'] .w-splitter {
+    position: sticky;
+    top: var(--sb-h, 0px);
+    display: block;
+    height: calc(100vh - var(--sb-h, 0px));
+    cursor: col-resize;
+    touch-action: none;
+    outline: none;
+  }
+
+  .studio[data-layout='split'] .w-splitter::before {
+    content: '';
+    position: absolute;
+    inset: 0 5px;
+    background: var(--line);
+  }
+
+  .w-splitter-grip {
+    position: absolute;
+    top: 50%;
+    left: 2px;
+    width: 7px;
+    height: 36px;
+    margin-top: -18px;
+    border: 1px solid var(--line);
+    background: linear-gradient(90deg, var(--surface-raised), var(--surface-raised-low));
+    opacity: 0;
+    transition: opacity var(--fast) var(--ease);
+  }
+
+  .w-splitter:hover .w-splitter-grip,
+  .w-splitter:focus-visible .w-splitter-grip,
+  .w-split.is-dragging .w-splitter-grip {
+    opacity: 1;
+  }
+
+  .w-splitter:focus-visible::before {
+    background: var(--accent, var(--ink));
+  }
+
+  .w-split.is-dragging {
+    cursor: col-resize;
+    user-select: none;
+  }
+
+  /* In split view the image thumbnails line up under the editor (the preview shows them in place). */
+  .studio[data-layout='split'] .w-gutter {
+    position: static;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    width: auto;
+    margin-top: -2rem;
+  }
+
+  .studio[data-layout='split'] .w-thumb {
+    position: static;
+    width: 120px;
+  }
+}
+
+/* Narrow screens: one pane at a time, switched with [ write | preview ]. */
+@media (max-width: 1023px) {
+  .sb-modes [data-mode='split'] {
+    display: none;
+  }
+
+  /* No room for two panes: "split" shows the source (write.ts switches the
+     buttons to write as well). */
+  .studio[data-layout='split'] .w-pane--preview,
+  .studio[data-layout='split'] .w-splitter {
+    display: none;
+  }
+}
+
+@media (pointer: coarse), (max-width: 700px) {
+  .sb-modes button {
+    min-height: 40px;
+    padding: 0 12px;
+  }
+
+  .w-pane-tools button {
+    min-height: 36px;
+    padding: 0 10px;
+  }
+
+  .w-pane-bar {
+    padding: 4px 8px;
+  }
 }
 
 /* ---- chart dialog: form | live preview, in a beveled window ---- */

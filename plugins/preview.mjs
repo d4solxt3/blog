@@ -3,10 +3,16 @@
 import { createMarkdownProcessor } from '@astrojs/markdown-remark';
 import { shikiConfig, remarkPlugins, rehypePlugins, remarkRehype } from './markdown.mjs';
 import { chartSpecFromProps, jsxValue } from './remark-charts.mjs';
+import { MappedText, offsetsToLines, rehypeSourceOffsets } from './source-lines.mjs';
 
 let processor;
 const getProcessor = async () =>
   (processor ??= await createMarkdownProcessor({ shikiConfig, remarkPlugins, rehypePlugins, remarkRehype }));
+// The studio's split preview: same pipeline plus one step that tags each block
+// with its source position (for scroll sync and double-click-to-jump).
+let studioProcessor;
+const getStudioProcessor = async () =>
+  (studioProcessor ??= await createMarkdownProcessor({ shikiConfig, remarkPlugins, rehypePlugins: [...rehypePlugins, rehypeSourceOffsets], remarkRehype }));
 
 /** Attributes of a JSX tag: name="…" | name={`…`} | name={JSON} | bare name. Braces are balanced. */
 function jsxAttrs(text) {
@@ -55,28 +61,36 @@ function chartToFence(attrText) {
   }
 }
 
-/** Rough MDX → Markdown so the preview shows <Callout>, <Details>, <Chart> and <Figure> too. */
-export function mdxToPreview(src) {
-  return String(src)
+/**
+ * Rough MDX → Markdown so the preview shows <Callout>, <Details>, <Chart> and
+ * <Figure> too. Returns a MappedText so positions can be traced back to the
+ * original source (the text itself is exactly what it always was).
+ */
+function mdxToPreviewMapped(src) {
+  return new MappedText(src)
     .replace(/<Chart\b((?:[^>`{]|`[^`]*`|\{(?:[^{}`]|`[^`]*`|\{[^{}]*\})*\})*?)\/>/g, (_, attrs) => chartToFence(attrs))
     .replace(/<Figure\b([^>]*)>/g, (_, attrs) => {
       const p = jsxAttrs(attrs);
       return `\n\n<!--figure:open ${JSON.stringify({ caption: p.caption, cols: p.cols, id: p.id })}-->\n\n`;
     })
-    .replace(/<\/Figure>/g, '\n\n<!--figure:close-->\n\n')
-    .replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, '')
-    .replace(/^\s*(import|export)\s.*$/gm, '')
+    .replace(/<\/Figure>/g, () => '\n\n<!--figure:close-->\n\n')
+    .replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/g, () => '')
+    .replace(/^\s*(import|export)\s.*$/gm, () => '')
     .replace(/<Details([^>]*)>/g, (_, attrs) => {
       const summary = attrs.match(/summary="([^"]*)"/)?.[1] ?? 'Details';
       return `<details><summary>${summary}</summary>\n`;
     })
-    .replace(/<\/Details>/g, '\n</details>')
+    .replace(/<\/Details>/g, () => '\n</details>')
     .replace(/<Callout([^>]*)>/g, (_, attrs) => {
       const label = attrs.match(/label="([^"]*)"/)?.[1] ?? 'Note';
       const variant = attrs.match(/variant="([^"]*)"/)?.[1] ?? 'note';
       return `<aside class="callout callout--${variant}"><p class="callout-label">[ ${label} ]</p><div class="callout-body">\n`;
     })
-    .replace(/<\/Callout>/g, '\n</div></aside>');
+    .replace(/<\/Callout>/g, () => '\n</div></aside>');
+}
+
+export function mdxToPreview(src) {
+  return mdxToPreviewMapped(src).text;
 }
 
 // MDX inside an expression can reach the article component at render time.
@@ -86,6 +100,18 @@ export async function renderArticleChart(props) {
   const spec = JSON.stringify(chartSpecFromProps(props));
   const { code } = await md.render(['~~~chart', spec, '~~~'].join('\n'));
   return code;
+}
+
+/**
+ * The studio's split preview: identical HTML to renderPreview, plus
+ * data-line="n" on each top-level block (n = 1-based line in `src`).
+ * @param {string} src
+ */
+export async function renderStudioPreview(src) {
+  const md = await getStudioProcessor();
+  const mapped = mdxToPreviewMapped(src);
+  const { code } = await md.render(mapped.text);
+  return offsetsToLines(code, mapped, String(src));
 }
 
 /** @param {string} src Markdown/MDX source. @returns {Promise<string>} */

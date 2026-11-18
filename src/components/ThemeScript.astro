@@ -42,6 +42,15 @@ const visualDefault = SITE.defaultVisualView;
       root.setAttribute('data-motion', motion === 'full' || motion === 'quiet' ? motion : motionDefault);
       root.setAttribute('data-theme', theme);
       if (font === 'sans' || font === 'serif' || font === 'mono') root.setAttribute('data-font', font);
+      // A window width the visitor dragged to (frame-resize.ts), per frame type.
+      ['hub', 'article'].forEach(function (k) {
+        var w = null;
+        try {
+          w = Number(localStorage.getItem('frame-w:' + k));
+        } catch (e) {}
+        if (w >= 640 && w <= 2400) root.style.setProperty('--frame-user-' + k, w + 'px');
+        else root.style.removeProperty('--frame-user-' + k);
+      });
       var meta = document.querySelector('meta[name="theme-color"]');
       if (meta) meta.setAttribute('content', theme === 'cyber' ? '#e8f0f8' : '#f3f3f1');
     }

@@ -136,6 +136,7 @@ export default function remarkCharts() {
             spec = parseYaml(node.value) ?? {};
           } catch (err) {
             parent.children[index] = errorFigure('chart', `YAML: ${err.message.split('\n')[0]}`);
+            parent.children[index].position = node.position;
             return SKIP;
           }
           parent.children[index] = chartNode(spec, metaId(node.meta), uid('chart'), file);
@@ -164,6 +165,7 @@ export default function remarkCharts() {
             parent.children[index] = errorFigure('figure', err.message);
           }
         }
+        parent.children[index].position = node.position;
         return SKIP;
       }
 
@@ -174,6 +176,7 @@ export default function remarkCharts() {
         } catch (err) {
           parent.children[index] = errorFigure('chart', err.message);
         }
+        parent.children[index].position = node.position;
         return SKIP;
       }
 
@@ -181,6 +184,7 @@ export default function remarkCharts() {
       if (node.type === 'mdxJsxFlowElement' && node.name === 'Figure') {
         const p = jsxProps(node);
         parent.children[index] = groupFigure(node.children, p);
+        parent.children[index].position = node.position;
         return; // keep walking into the children (charts inside a figure)
       }
     });
@@ -198,7 +202,9 @@ export default function remarkCharts() {
         try {
           props = JSON.parse(m[1]);
         } catch {}
-        node.children.splice(i, close - i + 1, groupFigure(node.children.slice(i + 1, close), props));
+        const group = groupFigure(node.children.slice(i + 1, close), props);
+        group.position = open.position;
+        node.children.splice(i, close - i + 1, group);
       }
     });
   };

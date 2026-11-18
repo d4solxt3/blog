@@ -13,6 +13,7 @@
  */
 
 import { waitForLocalRelease } from './local-release';
+import { initPreviews } from './previews';
 
 type Fields = {
   title: string;
@@ -343,6 +344,11 @@ export function initWriter(signal: AbortSignal) {
   function setStatus(text: string, state: 'saved' | 'saving' | 'edited' | 'error' = 'saved') {
     statusEl.textContent = text;
     statusEl.dataset.state = state;
+    const pane = root.querySelector<HTMLElement>('[data-pane-status]');
+    if (pane) {
+      pane.textContent = state === 'saved' ? 'saved' : text;
+      pane.dataset.state = state;
+    }
   }
 
   function say(html: string | null) {
@@ -853,7 +859,7 @@ export function initWriter(signal: AbortSignal) {
           `<button type="button" role="menuitem" tabindex="-1" class="${c.ribbon === 'main' ? 'rb-phone-only' : ''}" data-cmd="${c.id}"><span>${esc(c.label)}</span>${c.shortcut ? `<kbd>${esc(keyLabel(c.shortcut))}</kbd>` : c.hint ? `<kbd>${esc(c.hint)}</kbd>` : ''}</button>`,
       )
       .join('')}</div></span>`;
-  bar.append(ribbon);
+  q('[data-ribbon-slot]').append(ribbon);
   const moreBtn = ribbon.querySelector<HTMLButtonElement>('.rb-more')!;
   const moreMenu = ribbon.querySelector<HTMLElement>('.rb-menu')!;
   const visible = (els: Iterable<HTMLElement>) => [...els].filter((b) => b.offsetParent !== null);
@@ -1002,7 +1008,7 @@ export function initWriter(signal: AbortSignal) {
     hideBubble();
     closeMore(false);
     // Inserting needs the text on screen (and focusable, so undo works).
-    if (!preview.hidden) togglePreview(false);
+    if (layout === 'preview') setLayout(editLayout());
     if (via === 'slash') clearSlash();
     chartBack = { s: ta.selectionStart, e: ta.selectionEnd, d: ta.selectionDirection as Dir, y: window.scrollY, opener };
     chartForm.reset();
@@ -1399,7 +1405,7 @@ export function initWriter(signal: AbortSignal) {
   const away = new Set<string>();
   // Bar buttons take focus on press, so note whether the text had it first.
   let typingBeforePress = false;
-  on(root.querySelector('.studio-bar')!, 'pointerdown', () => (typingBeforePress = document.activeElement === ta));
+  for (const el of root.querySelectorAll('.studio-bar, .w-pane-bar, [data-ribbon-slot]')) on(el, 'pointerdown', () => (typingBeforePress = document.activeElement === ta));
   const remember = (why: string) => {
     if (!away.size) {
       spot = { y: window.scrollY, s: ta.selectionStart, e: ta.selectionEnd, d: ta.selectionDirection as Dir, typing: document.activeElement === ta || typingBeforePress };
@@ -1419,33 +1425,323 @@ export function initWriter(signal: AbortSignal) {
   };
   /** Keep the line you're on in the same place on screen while things above it change. */
   const keepPlace = (change: () => void) => {
-    const before = wrap.hidden ? null : ta.getBoundingClientRect().top;
+    const before = layout === 'preview' ? null : ta.getBoundingClientRect().top;
     change();
     if (before !== null) window.scrollBy({ top: ta.getBoundingClientRect().top - before, behavior: 'instant' });
   };
 
-  async function togglePreview(force?: boolean) {
-    const show = force ?? preview.hidden;
-    q('[data-act="preview"]').setAttribute('aria-pressed', String(show));
-    if (!show) {
-      preview.hidden = true;
-      wrap.hidden = false;
-      returnToText('preview');
-      return;
+  // ---- split workspace: [ split | write | preview ] ------------------------------------------
+  // The page scrolls the source (so every caret/scroll rule above still holds);
+  // the preview is a sticky pane with its own scroll beside it.
+  type Layout = 'split' | 'write' | 'preview';
+  const LAYOUT_KEY = 'write:layout';
+  const SPLIT_KEY = 'write:split';
+  const SYNC_KEY = 'write:sync';
+  const splitEl = q('[data-split]');
+  const splitter = q('[data-splitter]');
+  const previewScroll = q('[data-preview-scroll]');
+  const previewHead = q('[data-preview-head]');
+  const countEl = q('[data-count]');
+  const paneStatus = q('[data-pane-status]');
+  const syncBtn = q<HTMLButtonElement>('[data-sync]');
+  const modeBtns = [...root.querySelectorAll<HTMLButtonElement>('[data-mode]')];
+  const wideQuery = window.matchMedia('(min-width: 1024px)');
+  const canSplit = () => wideQuery.matches;
+  const store = {
+    get: (k: string) => {
+      try {
+        return localStorage.getItem(k);
+      } catch {
+        return null;
+      }
+    },
+    set: (k: string, v: string) => {
+      try {
+        localStorage.setItem(k, v);
+      } catch {}
+    },
+  };
+  /** What you picked (split survives a trip through a narrow window). */
+  let wanted: Layout = (['split', 'write', 'preview'].includes(store.get(LAYOUT_KEY) ?? '') ? store.get(LAYOUT_KEY) : 'split') as Layout;
+  let layout: Layout = 'write';
+  root.dataset.layout = layout;
+  let lastEditing: Layout = 'split';
+  let sync = store.get(SYNC_KEY) !== 'off';
+
+  const effective = (l: Layout): Layout => (l === 'split' && !canSplit() ? 'write' : l);
+
+  function setLayout(next: Layout, remember_ = true) {
+    const to = effective(next);
+    // Only the editing layout is remembered: preview is a look, not a preference,
+    // and on a narrow screen "write" is the only choice, so neither overwrites
+    // a split preference for when the window is wide again.
+    if (remember_ && next !== 'preview' && (next !== 'write' || canSplit())) {
+      wanted = next;
+      store.set(LAYOUT_KEY, next);
     }
-    remember('preview');
-    closeMenu();
-    hideBubble();
-    preview.hidden = false;
-    wrap.hidden = true;
-    preview.innerHTML = '<p class="studio-note">rendering…</p>';
-    try {
-      const { html } = await api('/api/write/preview', 'POST', { slug, body: ta.value });
-      preview.innerHTML = html || '<p class="studio-note">nothing to preview yet.</p>';
-    } catch (err) {
-      preview.innerHTML = `<p class="studio-note">couldn't render the preview: ${esc(err instanceof Error ? err.message : 'error')}</p>`;
+    const from = layout;
+    if (to === from) return paintModes();
+    if (to === 'preview') {
+      remember('preview');
+      closeMenu();
+      hideBubble();
+    }
+    if (to !== 'preview') lastEditing = to;
+    layout = to;
+    root.dataset.layout = to;
+    paintModes();
+    if (from === 'preview') returnToText('preview');
+    if (to !== 'write') renderLive();
+    queueGutter();
+  }
+
+  function paintModes() {
+    const split = canSplit();
+    for (const b of modeBtns) {
+      b.hidden = b.dataset.mode === 'split' && !split;
+      b.setAttribute('aria-pressed', String(b.dataset.mode === layout));
     }
   }
+
+  // Back to editing (from preview): the layout you were writing in.
+  const editLayout = (): Layout => effective(lastEditing === 'preview' ? 'split' : lastEditing);
+  const togglePreview = () => setLayout(layout === 'preview' ? editLayout() : 'preview');
+
+  on(wideQuery, 'change', () => setLayout(wanted, false));
+  // (Belt and braces: some environments resize without firing the media-query event.)
+  on(window, 'resize', () => effective(wanted) !== layout && layout !== 'preview' && setLayout(wanted, false));
+
+  // ---- live rendering (~120ms after you stop typing; stale replies are dropped) ----------------
+  let liveTimer = 0;
+  let liveSeq = 0;
+  let liveCtl: AbortController | null = null;
+  let previewCtl: AbortController | null = null;
+  function queueLive() {
+    if (layout === 'write') return;
+    clearTimeout(liveTimer);
+    liveTimer = window.setTimeout(renderLive, 120);
+  }
+  async function renderLive() {
+    clearTimeout(liveTimer);
+    const seq = ++liveSeq;
+    liveCtl?.abort();
+    liveCtl = new AbortController();
+    try {
+      const res = await fetch('/api/write/preview', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', accept: 'application/json' },
+        body: JSON.stringify({ slug, body: ta.value }),
+        signal: liveCtl.signal,
+      });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(d.error ?? `error ${res.status}`);
+      if (seq !== liveSeq || signal.aborted) return;
+      const keep = previewScroll.scrollTop;
+      preview.innerHTML = d.html || '<p class="studio-note">nothing to preview yet.</p>';
+      previewScroll.scrollTop = keep;
+      afterRender();
+    } catch (err) {
+      if ((err as Error).name === 'AbortError' || seq !== liveSeq) return;
+      previewHead.dataset.error = `couldn't render the preview: ${err instanceof Error ? err.message : 'error'}`;
+    }
+  }
+  function afterRender() {
+    delete previewHead.dataset.error;
+    // Footnote and [[link]] hover cards, chart values on tap — same as the article.
+    previewCtl?.abort();
+    previewCtl = new AbortController();
+    initPreviews(preview, previewCtl.signal);
+    blocks = null;
+    if (sync && layout === 'split') queueSync();
+  }
+  // The article's title block, kept in step with the fields (no server trip needed).
+  function paintHead() {
+    const t = field('title').value.trim();
+    const s = subtitle.value.trim();
+    previewHead.innerHTML = `${t ? `<h1 class="display-title">${esc(t)}</h1>` : '<p class="studio-note">untitled</p>'}${s ? `<p class="display-subtitle">${esc(s)}</p>` : ''}`;
+  }
+  on(field('title'), 'input', paintHead);
+  on(subtitle, 'input', paintHead);
+  on(preview, 'pointerup', (e: PointerEvent) => {
+    const pt = (e.target as Element).closest?.('.chart-svg .pt');
+    preview.querySelectorAll('.chart-svg .pt.is-shown').forEach((p) => p !== pt && p.classList.remove('is-shown'));
+    pt?.classList.toggle('is-shown');
+  });
+
+  // ---- preview font [Aa] and [ sync ] ------------------------------------------------------------
+  const fontBtns = [...root.querySelectorAll<HTMLButtonElement>('[data-preview-font]')];
+  function setPreviewFont(f: string) {
+    previewScroll.dataset.font = f;
+    fontBtns.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.previewFont === f)));
+  }
+  fontBtns.forEach((b) => on(b, 'click', () => setPreviewFont(b.dataset.previewFont!)));
+  // Starts on the post's own font (or the site default); the post's font field moves it too.
+  const postFont = () => field<HTMLSelectElement>('font').value || data.siteFont || 'sans';
+  on(field<HTMLSelectElement>('font'), 'change', () => setPreviewFont(postFont()));
+
+  function paintSync() {
+    syncBtn.setAttribute('aria-pressed', String(sync));
+    syncBtn.querySelector('[data-sync-label]')!.textContent = sync ? 'on' : 'off';
+  }
+  on(syncBtn, 'click', () => {
+    sync = !sync;
+    store.set(SYNC_KEY, sync ? 'on' : 'off');
+    paintSync();
+    if (sync) queueSync();
+  });
+
+  // ---- splitter: drag, arrows, double-click resets to 50 / 50 -----------------------------------
+  const clampSplit = (v: number) => Math.min(75, Math.max(25, v));
+  function setSplit(pct: number, save = true) {
+    const v = clampSplit(Math.round(pct * 10) / 10);
+    splitEl.style.setProperty('--split-n', String(v / 100));
+    splitter.setAttribute('aria-valuenow', String(Math.round(v)));
+    splitter.setAttribute('aria-valuetext', `source ${Math.round(v)}%, preview ${Math.round(100 - v)}%`);
+    if (save) store.set(SPLIT_KEY, String(v));
+    blocks = null;
+  }
+  on(splitter, 'pointerdown', (e: PointerEvent) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    splitter.setPointerCapture(e.pointerId);
+    splitEl.classList.add('is-dragging');
+    const box = splitEl.getBoundingClientRect();
+    const move = (ev: PointerEvent) => setSplit(((ev.clientX - box.left) / box.width) * 100, false);
+    const up = (ev: PointerEvent) => {
+      splitter.removeEventListener('pointermove', move);
+      splitter.removeEventListener('pointerup', up);
+      splitter.removeEventListener('pointercancel', up);
+      splitEl.classList.remove('is-dragging');
+      setSplit(((ev.clientX - box.left) / box.width) * 100);
+      queueGutter();
+    };
+    splitter.addEventListener('pointermove', move);
+    splitter.addEventListener('pointerup', up);
+    splitter.addEventListener('pointercancel', up);
+  });
+  on(splitter, 'dblclick', () => setSplit(50));
+  on(splitter, 'keydown', (e: KeyboardEvent) => {
+    const now = Number(splitter.getAttribute('aria-valuenow')) || 50;
+    const step = e.shiftKey ? 10 : 2;
+    if (e.key === 'ArrowLeft') setSplit(now - step);
+    else if (e.key === 'ArrowRight') setSplit(now + step);
+    else if (e.key === 'Home') setSplit(25);
+    else if (e.key === 'End') setSplit(75);
+    else if (e.key === 'Enter') setSplit(50);
+    else return;
+    e.preventDefault();
+  });
+
+  // ---- scroll sync: source → preview (the preview follows the line beside your view) ----------
+  // Block map: for each rendered block (data-line), where its source line sits on the page.
+  let blocks: { y: number; el: HTMLElement }[] | null = null;
+  function measureBlocks() {
+    const els = [...preview.querySelectorAll<HTMLElement>(':scope > [data-line]')];
+    const starts = [0];
+    const v = ta.value;
+    for (let i = 0; i < v.length; i++) if (v[i] === '\n') starts.push(i + 1);
+    // One pass of the hidden mirror with a marker at each block's first line.
+    mirror.style.top = `${ta.offsetTop}px`;
+    mirror.style.left = `${ta.offsetLeft}px`;
+    mirror.style.width = `${ta.clientWidth}px`;
+    mirror.textContent = '';
+    const marks: HTMLElement[] = [];
+    let at = 0;
+    for (const el of els) {
+      const off = Math.min(v.length, starts[Math.max(0, Number(el.dataset.line) - 1)] ?? v.length);
+      if (off < at) {
+        marks.push(marks.at(-1) ?? mirror);
+        continue;
+      }
+      mirror.append(v.slice(at, off));
+      const m = document.createElement('span');
+      m.textContent = '​';
+      mirror.append(m);
+      marks.push(m);
+      at = off;
+    }
+    mirror.append(v.slice(at));
+    const base = wrap.getBoundingClientRect().top + window.scrollY;
+    blocks = els.map((el, i) => ({ el, y: base + ta.offsetTop + (marks[i] === mirror ? 0 : marks[i].offsetTop) }));
+  }
+  let syncQueued = false;
+  let syncFromCaret = false;
+  function queueSync(fromCaret = false) {
+    if (!sync || layout !== 'split') return;
+    syncFromCaret ||= fromCaret;
+    if (syncQueued) return;
+    syncQueued = true;
+    // A timer (not rAF): rAF never fires in a background tab.
+    window.setTimeout(() => {
+      syncQueued = false;
+      const caretMode = syncFromCaret;
+      syncFromCaret = false;
+      syncPreview(caretMode);
+    }, 16);
+  }
+  function syncPreview(fromCaret: boolean) {
+    if (!blocks) measureBlocks();
+    const list = blocks!;
+    if (!list.length) return;
+    const barH = splitEl.getBoundingClientRect().top + window.scrollY > 0 ? stickyTop() : 0;
+    // Anchor: the caret's line while typing, otherwise the top of what you can see.
+    const viewTop = window.scrollY + barH;
+    const caretY = fromCaret ? wrap.getBoundingClientRect().top + window.scrollY + caret(ta.selectionStart).y : NaN;
+    const anchor = Number.isFinite(caretY) && caretY > viewTop && caretY < window.scrollY + window.innerHeight ? caretY : viewTop + 24;
+    let i = 0;
+    while (i + 1 < list.length && list[i + 1].y <= anchor) i += 1;
+    const a = list[i];
+    const b = list[i + 1];
+    const frac = b && b.y > a.y ? Math.min(1, Math.max(0, (anchor - a.y) / (b.y - a.y))) : 0;
+    const pa = a.el.offsetTop;
+    const pb = b ? b.el.offsetTop : a.el.offsetTop + a.el.offsetHeight;
+    const target = anchor < list[0].y ? 0 : pa + frac * (pb - pa) - (anchor - window.scrollY - barH);
+    previewScroll.scrollTop = Math.max(0, target);
+  }
+  const stickyTop = () => parseFloat(getComputedStyle(root).getPropertyValue('--sb-h')) || 0;
+  on(window, 'scroll', () => queueSync(false));
+  on(window, 'resize', () => {
+    blocks = null;
+    queueSync(false);
+  });
+
+  // ---- preview → source: double-click a block to jump to its line ------------------------------
+  on(preview, 'dblclick', (e: MouseEvent) => {
+    const block = (e.target as Element).closest<HTMLElement>('[data-line]');
+    if (!block || !preview.contains(block)) return;
+    window.getSelection()?.removeAllRanges();
+    if (layout === 'preview') setLayout(editLayout());
+    const line = Number(block.dataset.line);
+    let off = 0;
+    for (let n = 1; n < line; n++) {
+      const i = ta.value.indexOf('\n', off);
+      if (i < 0) break;
+      off = i + 1;
+    }
+    ta.focus({ preventScroll: true });
+    ta.setSelectionRange(off, off);
+    const y = wrap.getBoundingClientRect().top + window.scrollY + caret(off).y;
+    window.scrollTo({ top: Math.max(0, y - stickyTop() - window.innerHeight / 4), behavior: 'instant' });
+  });
+
+  // ---- counts + bar height -------------------------------------------------------------------
+  function paintCount() {
+    const words = (ta.value.match(/\S+/g) ?? []).length;
+    countEl.textContent = `${words.toLocaleString()} ${words === 1 ? 'word' : 'words'} · ${ta.value.length.toLocaleString()} chars`;
+  }
+  // Sticky pane headers sit just under the studio bar, whatever its height.
+  const barEl = root.querySelector<HTMLElement>('.studio-bar')!;
+  const paintBarH = () => root.style.setProperty('--sb-h', `${Math.ceil(barEl.getBoundingClientRect().height)}px`);
+  if ('ResizeObserver' in window) {
+    const ro = new ResizeObserver(paintBarH);
+    ro.observe(barEl);
+    signal.addEventListener('abort', () => ro.disconnect());
+  }
+  paintBarH();
+  signal.addEventListener('abort', () => {
+    liveCtl?.abort();
+    previewCtl?.abort();
+  });
 
   /** Focus mode hides the bars above: one measured adjustment keeps your line still. */
   function toggleFocus(force?: boolean) {
@@ -1605,6 +1901,10 @@ export function initWriter(signal: AbortSignal) {
     detect();
     queueGutter();
     hideBubble();
+    paintCount();
+    blocks = null;
+    queueLive();
+    queueSync(true);
   });
   on(ta, 'click', detect);
   on(ta, 'mouseup', () => window.setTimeout(showBubble, 0));
@@ -1654,7 +1954,7 @@ export function initWriter(signal: AbortSignal) {
     }
   });
 
-  on(q('[data-act="preview"]'), 'click', () => togglePreview());
+  modeBtns.forEach((b) => on(b, 'click', () => setLayout(b.dataset.mode as Layout)));
   on(q('[data-act="focus"]'), 'click', () => toggleFocus());
   on(metaBtn, 'click', () => (meta.hidden ? openDetails() : closeDetails()));
   // Escape (from the [ details ] button or anywhere in the panel) closes it
@@ -1686,7 +1986,7 @@ export function initWriter(signal: AbortSignal) {
     return `${b.length}:${h}`;
   };
   const savePlace = () => {
-    if (!wrap.hidden && !away.size) {
+    if (layout !== 'preview' && !away.size) {
       spot = { y: window.scrollY, s: ta.selectionStart, e: ta.selectionEnd, d: ta.selectionDirection as Dir, typing: document.activeElement === ta };
     }
     try {
@@ -1737,6 +2037,14 @@ export function initWriter(signal: AbortSignal) {
   renderState();
   sizeSubtitle();
   refreshTray(); // fills the [ media n ] count
+  // Split workspace: saved splitter position, preview font, sync toggle, then the layout.
+  setSplit(Number(store.get(SPLIT_KEY)) || 50, false);
+  setPreviewFont(postFont());
+  paintSync();
+  paintCount();
+  paintHead();
+  setLayout(wanted, false);
+  paintModes();
 
   if (older) {
     const banner = q('[data-older]');

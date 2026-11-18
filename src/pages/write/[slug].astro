@@ -69,9 +69,9 @@ const json = JSON.stringify(data).replace(/</g, '\\u003c');
             <button type="button" data-act="meta" aria-expanded="false" aria-controls="meta">
               <span class="br" aria-hidden="true">[ </span>details<span class="br" aria-hidden="true"> ]</span>
             </button>
-            <button type="button" data-act="preview" aria-pressed="false" title="Ctrl/Cmd + P">
-              <span class="br" aria-hidden="true">[ </span>preview<span class="br" aria-hidden="true"> ]</span>
-            </button>
+            <span class="sb-modes" role="group" aria-label="Layout (Ctrl/Cmd + P toggles the preview)">
+              <button type="button" data-mode="split" aria-pressed="false" title="Source and live preview side by side">split</button><button type="button" data-mode="write" aria-pressed="false" title="Source only">write</button><button type="button" data-mode="preview" aria-pressed="false" title="Preview only (Ctrl/Cmd + P)">preview</button>
+            </span>
             <button type="button" data-act="focus" aria-pressed="false" title="Ctrl/Cmd + \">
               <span class="br" aria-hidden="true">[ </span>focus<span class="br" aria-hidden="true"> ]</span>
             </button>
@@ -97,7 +97,8 @@ const json = JSON.stringify(data).replace(/</g, '\\u003c');
             <dt data-mod>ctrl+shift+8 / 7</dt><dd>bulleted / numbered list</dd>
             <dt>formatting row</dt><dd>tab into it, ← → to move, esc back to the text</dd>
             <dt data-mod>ctrl+shift+f</dt><dd>footnote</dd>
-            <dt data-mod>ctrl+p</dt><dd>preview</dd>
+            <dt data-mod>ctrl+p</dt><dd>preview on / off (split, write and preview in the bar)</dd>
+            <dt>split view</dt><dd>drag the divider (← → keys too; double-click for 50 / 50); double-click the preview to jump to that line</dd>
             <dt data-mod>ctrl+\</dt><dd>focus mode</dd>
             <dt data-mod>ctrl+s</dt><dd>save now</dd>
             <dt>paste / drop</dt><dd>add an image or gif</dd>
@@ -179,10 +180,22 @@ const json = JSON.stringify(data).replace(/</g, '\\u003c');
           </label>
         </div>
 
-        <div class="canvas">
-          <input class="w-title" data-f="title" type="text" placeholder="Title" aria-label="Title" autocomplete="off" />
-          <textarea class="w-subtitle" data-f="subtitle" rows="1" placeholder="Subtitle (optional)" aria-label="Subtitle" autocomplete="off"></textarea>
-          <div class="w-editor" data-wrap>
+        </div>
+
+        <!-- Split workspace: source (left) | draggable divider | live preview (right). -->
+        <div class="w-split" data-split>
+          <section class="w-pane w-pane--source" aria-label="Source">
+            <div class="w-pane-sticky">
+              <div class="w-pane-bar">
+                <span class="w-pane-title">source <span class="w-pane-dim">//</span> markdown</span>
+                <span class="w-pane-meta"><span data-count></span> <span class="w-pane-dim" aria-hidden="true">·</span> <span class="w-pane-status" data-pane-status>saved</span></span>
+              </div>
+              <div class="w-ribbon-slot" data-ribbon-slot></div>
+            </div>
+          <div class="canvas">
+            <input class="w-title" data-f="title" type="text" placeholder="Title" aria-label="Title" autocomplete="off" />
+            <textarea class="w-subtitle" data-f="subtitle" rows="1" placeholder="Subtitle (optional)" aria-label="Subtitle" autocomplete="off"></textarea>
+            <div class="w-editor" data-wrap>
             <textarea
               class="w-body"
               data-body
@@ -194,8 +207,27 @@ const json = JSON.stringify(data).replace(/</g, '\\u003c');
               drop images or gifs to upload
             </div>
           </div>
-          <div class="w-preview prose" data-preview hidden></div>
         </div>
+          </section>
+          <div class="w-splitter" data-splitter role="separator" aria-orientation="vertical" aria-label="Resize source and preview" aria-controls="w-preview-pane" tabindex="0" aria-valuemin="25" aria-valuemax="75" aria-valuenow="50" title="Drag to resize · double-click for 50 / 50">
+            <span class="w-splitter-grip" aria-hidden="true"></span>
+          </div>
+          <section class="w-pane w-pane--preview" id="w-preview-pane" aria-label="Live preview">
+            <div class="w-pane-bar">
+              <span class="w-pane-title">preview <span class="w-pane-dim">//</span> live</span>
+              <span class="w-pane-tools">
+                <span class="w-aa" role="group" aria-label="Preview font">
+                  <span class="w-pane-dim" aria-hidden="true">Aa:</span>
+                  <button type="button" class="bevel" data-preview-font="sans" aria-pressed="false">Sans</button><button type="button" class="bevel" data-preview-font="serif" aria-pressed="false">Serif</button><button type="button" class="bevel" data-preview-font="mono" aria-pressed="false">Mono</button>
+                </span>
+                <button type="button" class="bevel w-sync" data-sync aria-pressed="true" title="The preview follows the part of the source you're looking at">sync: <span data-sync-label>on</span></button>
+              </span>
+            </div>
+            <div class="w-preview-scroll" data-preview-scroll tabindex="0" aria-label="Rendered post (double-click a block to jump to its source)">
+              <header class="w-preview-head" data-preview-head></header>
+              <div class="w-preview prose" data-preview></div>
+            </div>
+          </section>
         </div>
         <input type="file" data-file accept="image/png,image/jpeg,image/gif,image/webp,image/svg+xml" multiple hidden />
 
@@ -220,7 +252,7 @@ const json = JSON.stringify(data).replace(/</g, '\\u003c');
                 </label>
                 <label>
                   id <span class="w-chart-opt">(optional)</span>
-                  <input name="id" type="text" autocomplete="off" spellcheck="false" placeholder="e.g. latency" pattern="[a-z0-9-]*" />
+                  <input name="id" type="text" autocomplete="off" spellcheck="false" placeholder="e.g. latency" pattern="[a-z0-9\-]*" />
                 </label>
               </div>
               <label>

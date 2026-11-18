@@ -1,0 +1,45 @@
+---
+/**
+ * One front-page box: title bar (+ optional tools and a [ _ ] window shade)
+ * and a body. Shared by every widget so they all look and behave alike.
+ */
+interface Props {
+  id: string;
+  title: string;
+  primary?: boolean;
+  /** Roll-up button; remembered per box for the visit (sessionStorage "shade:<id>"). */
+  shade?: boolean;
+  type?: string;
+}
+const { id, title, primary = false, shade = true, type } = Astro.props;
+const hid = `${id}-h`;
+---
+
+<section class:list={['panel', { 'panel--primary': primary }]} aria-labelledby={hid} data-shade={shade ? id : undefined} data-widget={type}>
+  <div class="panel-bar">
+    <h2 class="panel-title" id={hid}>{title}</h2>
+    {
+      (shade || Astro.slots.has('tools')) && (
+        <span class="panel-tools">
+          <slot name="tools" />
+          {shade && (
+            <button type="button" class="shade-btn bevel" data-shade-toggle aria-expanded="true" aria-controls={`${id}-body`} aria-label={`Roll up ${title}`} title="Roll up">
+              _
+            </button>
+          )}
+        </span>
+      )
+    }
+  </div>
+  {
+    shade ? (
+      <div class="shade" id={`${id}-body`}>
+        <div class="shade-inner">
+          <slot />
+        </div>
+      </div>
+    ) : (
+      <slot />
+    )
+  }
+</section>

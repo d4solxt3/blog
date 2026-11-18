@@ -118,12 +118,19 @@ const showBanner = frame === 'hub' && banner && SITE.banner.show;
         <main id="main" tabindex="-1">
           <slot />
         </main>
+        <!-- Browser-style status bar: the address of the link under the pointer, and a back-to-top. -->
+        <div class="winstatus" data-winstatus>
+          <span class="winstatus-text" aria-hidden="true"><span class="winstatus-icon">◫</span><span data-winstatus-text>done</span></span>
+          <a class="winstatus-top bevel" href="#top" data-winstatus-top aria-label="Back to top"><span aria-hidden="true">▲</span> <span data-winstatus-pct aria-hidden="true">0%</span></a>
+        </div>
       </div>
       <!-- Corner ticks have their own transition names, so they glide outward with the frame. -->
       <i class="frame-tick frame-tick--tl" aria-hidden="true" transition:name="tick-tl"></i>
       <i class="frame-tick frame-tick--tr" aria-hidden="true" transition:name="tick-tr"></i>
       <i class="frame-tick frame-tick--bl" aria-hidden="true" transition:name="tick-bl"></i>
       <i class="frame-tick frame-tick--br" aria-hidden="true" transition:name="tick-br"></i>
+      <button type="button" class="frame-grip frame-grip--l" data-frame-grip="-1" tabindex="-1" aria-hidden="true"></button>
+      <button type="button" class="frame-grip frame-grip--r" data-frame-grip="1" role="separator" aria-orientation="vertical" aria-label="Window width: drag, or use the arrow keys. Double-click or press Home to reset" title="Drag to resize · double-click to reset"></button>
       </div>
       <!-- Decorations that sit on the frame's edge live outside it: the frame is an
            isolated view-transition group, so blends inside it can't reach the desk. -->
@@ -136,6 +143,8 @@ const showBanner = frame === 'hub' && banner && SITE.banner.show;
 <script>
   import '../scripts/owner-ui';
   import '../scripts/ambient';
+  import '../scripts/frame-resize';
+  import '../scripts/winstatus';
 </script>
 
 <style>

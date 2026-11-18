@@ -1,26 +1,32 @@
 ---
 export const prerender = false;
 /**
- * Front page: a compact portal. Main column first (a short hello, then the
- * writing table, then updates + now); a 245px sidebar beside it (portrait,
- * info & links, todo, note). Everything comes from site.config.json.
+ * Front page: a compact portal of boxes ("widgets"). The order, sidebar/main
+ * placement and contents come from site.config.json → "widgets" (edit it in
+ * /_admin → widgets); with no "widgets" key you get the classic layout.
  */
 import BaseLayout from '../layouts/BaseLayout.astro';
-import VisualCard from '../components/VisualCard.astro';
-import PostFeed from '../components/PostFeed.astro';
-import { SITE } from '../site.config';
+import Widget from '../components/widgets/Widget.astro';
+import { widgetHasContent } from '../components/widgets/data';
+import { SITE, type Widget as W } from '../site.config';
 import { getPosts } from '../utils/posts';
+import '../styles/widgets.css';
 
 const posts = await getPosts();
-const p = SITE.profile;
-const dotDate = (d: string) => d.replace(/-/g, '.');
-// Portrait: the ASCII drawing if there is one, otherwise the front-page image.
-const currently = [
-  ['reading', p.currently.reading],
-  ['building', p.currently.building],
-  ['into', p.currently.into],
-].filter(([, v]) => v);
-const hasNow = SITE.status.mood || SITE.status.thought || currently.length > 0;
+const shown = SITE.widgets.filter((w) => w.enabled && widgetHasContent(w));
+
+/** One area's widgets, with neighbouring "half" boxes grouped into pairs. */
+function rows(area: 'main' | 'side') {
+  const out: W[][] = [];
+  for (const w of shown.filter((x) => x.area === area)) {
+    const last = out[out.length - 1];
+    if (w.width === 'half' && last && last.length === 1 && last[0].width === 'half') last.push(w);
+    else out.push([w]);
+  }
+  return out;
+}
+const main = rows('main');
+const side = rows('side');
 ---
 
 <BaseLayout>
@@ -28,173 +34,25 @@ const hasNow = SITE.status.mood || SITE.status.thought || currently.length > 0;
 
   <div class="portal home">
     <div class="portal-main">
-      <section class="panel panel--primary" aria-labelledby="about-h">
-        <div class="panel-bar"><h2 class="panel-title" id="about-h">about</h2></div>
-        <div class="panel-body intro">
-          <p>{SITE.intro}</p>
-          <p class="more">
-            <a href="/about/">more about me</a> <span class="sep" aria-hidden="true">·</span> <a href="/archive/">every post</a> <span class="sep" aria-hidden="true">·</span> <a href="/rss.xml">rss</a>
-          </p>
-        </div>
-      </section>
-
-      <PostFeed posts={posts} label="writing" />
-
       {
-        (SITE.updates.length > 0 || hasNow) && (
-          <div class="portal-split">
-            {SITE.updates.length > 0 && (
-              <section class="panel panel--primary" aria-labelledby="updates-h" data-shade="updates">
-                <div class="panel-bar">
-                  <h2 class="panel-title" id="updates-h">updates</h2>
-                  <span class="panel-tools">
-                    <button type="button" class="shade-btn bevel" data-shade-toggle aria-expanded="true" aria-controls="updates-body" aria-label="Roll up updates" title="Roll up">
-                      _
-                    </button>
-                  </span>
-                </div>
-                <div class="shade" id="updates-body">
-                  <div class="shade-inner">
-                  <ul class="panel-body log">
-                    {SITE.updates.map((u) => (
-                      <li>
-                        <span class="d">{dotDate(u.date)}</span> — {u.text}
-                      </li>
-                    ))}
-                  </ul>
-                  </div>
-                </div>
-              </section>
-            )}
-            {hasNow && (
-              <section class="panel panel--primary" aria-labelledby="now-h" data-shade="now">
-                <div class="panel-bar">
-                  <h2 class="panel-title" id="now-h">now</h2>
-                  <span class="panel-tools">
-                    {SITE.status.updated && <span>{dotDate(SITE.status.updated)}</span>}
-                    <button type="button" class="shade-btn bevel" data-shade-toggle aria-expanded="true" aria-controls="now-body" aria-label="Roll up now" title="Roll up">
-                      _
-                    </button>
-                  </span>
-                </div>
-                <div class="shade" id="now-body">
-                <div class="shade-inner">
-                <div class="panel-body mood">
-                  {SITE.status.mood && <p class="mood-now">mood: {SITE.status.mood}</p>}
-                  {SITE.status.thought && (
-                    <p class="ticker" tabindex="0" aria-label={`Current thought: ${SITE.status.thought}`}>
-                      <span class="ticker-track" aria-hidden="true">
-                        <span>“{SITE.status.thought}”</span>
-                        <span class="ticker-copy">“{SITE.status.thought}”</span>
-                      </span>
-                    </p>
-                  )}
-                  {currently.length > 0 && (
-                    <dl class="kv">
-                      {currently.map(([k, v]) => (
-                        <>
-                          <dt>{k}</dt>
-                          <dd>{v}</dd>
-                        </>
-                      ))}
-                    </dl>
-                  )}
-                </div>
-                </div>
-                </div>
-              </section>
-            )}
-          </div>
+        main.map((row) =>
+          row[0].width === 'half' ? (
+            <div class="portal-split">
+              {row.map((w) => (
+                <Widget w={w} posts={posts} />
+              ))}
+            </div>
+          ) : (
+            <Widget w={row[0]} posts={posts} />
+          ),
         )
       }
     </div>
 
     <aside class="portal-side" aria-label="About the author">
-      <VisualCard />
-
-      <section class="panel" aria-labelledby="info-h">
-        <div class="panel-bar"><h2 class="panel-title" id="info-h">info</h2></div>
-        <div class="panel-body">
-          <dl class="kv">
-            <dt>handle</dt>
-            <dd>@{SITE.authorHandle}</dd>
-            <dt>status</dt>
-            <dd><span class:list={['lamp', { 'lamp--off': p.status !== 'online' }]} aria-hidden="true"></span>{p.status}</dd>
-            {p.timezone && (<><dt>tz</dt><dd>{p.timezone}</dd></>)}
-          </dl>
-          {
-            p.links.length > 0 && (
-              <>
-                <p class="panel-sub">links</p>
-                <ul class="px-list">
-                  {p.links.map((l) => (
-                    <li>
-                      <a href={l.url}>{l.label}</a>
-                    </li>
-                  ))}
-                </ul>
-              </>
-            )
-          }
-        </div>
-      </section>
-
-      {
-        SITE.todo.length > 0 && (
-          <section class="panel" aria-labelledby="todo-h" data-shade="todo">
-            <div class="panel-bar">
-              <h2 class="panel-title" id="todo-h">todo</h2>
-              <span class="panel-tools">
-                <span>
-                  {SITE.todo.filter((t) => t.done).length}/{SITE.todo.length}
-                </span>
-                <button type="button" class="shade-btn bevel" data-shade-toggle aria-expanded="true" aria-controls="todo-body" aria-label="Roll up todo" title="Roll up">
-                  _
-                </button>
-              </span>
-            </div>
-            <div class="shade" id="todo-body">
-              <div class="shade-inner">
-              <div class="panel-body">
-                <ul class="check-list check-list--mini">
-                  {SITE.todo.map((t) => (
-                    <li>
-                      <span class="box" aria-hidden="true">
-                        {t.done ? '[x]' : '[ ]'}
-                      </span>
-                      <span class:list={{ done: t.done }}><span class="sr-only">{t.done ? 'Done: ' : 'To do: '}</span>{t.text}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-              </div>
-            </div>
-          </section>
-        )
-      }
-
-      {
-        SITE.notice && (
-          <section class="panel" aria-labelledby="note-h" data-shade="note">
-            <div class="panel-bar">
-              <h2 class="panel-title" id="note-h">note</h2>
-              <span class="panel-tools">
-                <button type="button" class="shade-btn bevel" data-shade-toggle aria-expanded="true" aria-controls="note-body" aria-label="Roll up note" title="Roll up">
-                  _
-                </button>
-              </span>
-            </div>
-            <div class="shade" id="note-body">
-              <div class="shade-inner">
-                <p class="panel-body note">{SITE.notice}</p>
-              </div>
-            </div>
-          </section>
-        )
-      }
+      {side.map((row) => row.map((w) => <Widget w={w} posts={posts} />))}
     </aside>
   </div>
-
 </BaseLayout>
 
 <script>
@@ -234,117 +92,17 @@ const hasNow = SITE.status.mood || SITE.status.thought || currently.length > 0;
         },
         { signal },
       );
+      // Like a real window: double-click the title bar to roll it up or down.
+      panel.querySelector<HTMLElement>('.panel-bar')?.addEventListener(
+        'dblclick',
+        (e) => {
+          if ((e.target as Element).closest('a, button, input, select, textarea')) return;
+          window.getSelection()?.removeAllRanges();
+          btn?.click();
+        },
+        { signal },
+      );
     });
   });
 </script>
 
-<style>
-  /* Desktop: sidebar on the left. Phones: the hello and writing come first. */
-  @media (min-width: 700px) {
-    .home .portal-side {
-      grid-column: 1;
-      grid-row: 1;
-    }
-
-    .home .portal-main {
-      grid-column: 2;
-      grid-row: 1;
-    }
-  }
-
-  .intro p {
-    margin: 0;
-    color: var(--ink-2);
-  }
-
-  .intro .more {
-    margin-top: 6px;
-    font-family: var(--font-mono);
-    font-size: 11px;
-    color: var(--faint);
-  }
-
-  .log {
-    max-height: 9.5rem;
-    margin: 0;
-    padding-left: 10px;
-    overflow-y: auto;
-    list-style: none;
-    font-family: var(--font-mono);
-    font-size: 11px;
-    line-height: 1.45;
-    scrollbar-width: thin;
-  }
-
-  .log li {
-    padding: 1px 0 1px 1.5em;
-    text-indent: -1.5em;
-  }
-
-  .log .d {
-    color: var(--muted);
-  }
-
-  .mood p,
-  .note {
-    margin: 0;
-    font-family: var(--font-mono);
-    font-size: 11.5px;
-    line-height: 1.5;
-  }
-
-  .mood-now {
-    font-weight: 600;
-  }
-
-  .note {
-    color: var(--ink-2);
-  }
-
-  .mood .kv {
-    margin-top: 6px;
-    padding-top: 5px;
-    border-top: 1px dotted var(--rule);
-    font-size: 11px;
-  }
-
-  /* The current thought: wraps normally; in "full" motion it scrolls as a ticker. */
-  .ticker {
-    margin-top: 3px !important;
-    overflow: hidden;
-    color: var(--ink-2);
-  }
-
-  .ticker:focus-visible {
-    outline-offset: 1px;
-  }
-
-  .ticker-copy {
-    display: none;
-  }
-
-  @media (prefers-reduced-motion: no-preference) {
-    :global(:root[data-motion='full']) .ticker-track {
-      display: inline-flex;
-      gap: 3rem;
-      white-space: nowrap;
-      animation: ticker 22s linear infinite;
-    }
-
-    :global(:root[data-motion='full']) .ticker-copy {
-      display: inline;
-    }
-
-    :global(:root[data-motion='full']) .ticker:hover .ticker-track,
-    :global(:root[data-motion='full']) .ticker:focus-visible .ticker-track {
-      animation-play-state: paused;
-    }
-  }
-
-  @keyframes ticker {
-    to {
-      transform: translateX(calc(-50% - 1.5rem));
-    }
-  }
-
-</style>
