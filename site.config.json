@@ -38,10 +38,10 @@
   "newBadgeDays": 21,
   "inlineAnnotations": true,
   "footerText": "© {year} {siteName}",
-  "intro": "hi, I'm a mathematics undergraduate interested in understanding how models think (interpretability) and I enjoy making electronic music (fl studio is my DAW of choice :D). This is a website where I just post my messy thoughts for fun, and also any personal research I do.",
+  "intro": "hi, I'm a mathematics undergraduate interested in understanding how ai models think (interpretability) and I enjoy making electronic music (fl studio is my DAW of choice :D). This is a website where I just post my messy thoughts for fun, and also any personal research I do.",
   "status": {
-    "mood": "hopeful but sober",
-    "thought": "the world is starting to wake up",
+    "mood": "hopeful",
+    "thought": "i thought life would get weirder faster",
     "updated": "2026-11-17 01:40"
   },
   "updates": [
@@ -112,7 +112,7 @@
     "interests": [
       "interpretability",
       "alignment",
-      "electronic music",
+      "music",
       "thinking"
     ],
     "progress": [
