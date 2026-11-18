@@ -183,13 +183,6 @@
       "props": {}
     },
     {
-      "id": "buttons",
-      "type": "badges",
-      "area": "side",
-      "enabled": true,
-      "props": {}
-    },
-    {
       "id": "info",
       "type": "info",
       "area": "side",
@@ -206,6 +199,13 @@
     {
       "id": "note",
       "type": "note",
+      "area": "side",
+      "enabled": true,
+      "props": {}
+    },
+    {
+      "id": "buttons",
+      "type": "badges",
       "area": "side",
       "enabled": true,
       "props": {}
