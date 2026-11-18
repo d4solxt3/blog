@@ -12,6 +12,8 @@
  *  - Ctrl/Cmd+P preview, Ctrl/Cmd+\ focus mode, Ctrl/Cmd+S save now.
  */
 
+import { waitForLocalRelease } from './local-release';
+
 type Fields = {
   title: string;
   subtitle: string;
@@ -46,10 +48,10 @@ const IMG_RE = /!\[([^\]\n]*)\]\(([^)\s]+)(?:\s+"[^"]*")?\)/g;
 const SEL_START = '\u0001';
 const SEL_END = '\u0002';
 
-async function api(path: string, method: string, body?: unknown) {
+async function api(path: string, method: string, body?: unknown, headers: Record<string, string> = {}) {
   const res = await fetch(path, {
     method,
-    headers: { accept: 'application/json', ...(body ? { 'content-type': 'application/json' } : {}) },
+    headers: { ...headers, accept: 'application/json', ...(body ? { 'content-type': 'application/json' } : {}) },
     body: body ? JSON.stringify(body) : undefined,
   });
   const data = await res.json().catch(() => ({}));
@@ -275,7 +277,7 @@ export function initWriter(signal: AbortSignal) {
       ? 'Saves the post with draft: true (hidden on the live site)'
       : data.mode === 'github'
         ? 'Commits to GitHub; live after Railway rebuilds'
-        : `Writes content/posts/${slug}.${ext}`;
+        : 'Deploys the post to heartcache.xyz';
   }
 
   function setStatus(text: string, state: 'saved' | 'saving' | 'edited' | 'error' = 'saved') {
@@ -945,24 +947,37 @@ export function initWriter(signal: AbortSignal) {
         : `Save "${f.title}" to content/posts as a draft?`
       : live
         ? `Publish "${f.title}"? It goes live after Railway rebuilds the site (about 1–2 minutes).`
-        : `Save "${f.title}" to content/posts/${slug}.${ext}?`;
+        : `Publish "${f.title}" to heartcache.xyz?`;
     if (!window.confirm(question)) return;
     clearTimeout(timer);
     publishBtn.disabled = true;
     setStatus('publishing…', 'saving');
     try {
-      const { result } = await api('/api/write/post', 'POST', { slug, ext, extra, fields: f, body: ta.value });
+      const body = ta.value;
+      const sent = snapshot();
+      const headers: Record<string, string> = {};
+      if (data.mode === 'local' && !f.draft) headers['X-Editor-Action'] = 'publish';
+      const { result } = await api('/api/write/post', 'POST', { slug, ext, extra, fields: f, body }, headers);
       basis = result.sha;
       ext = String(result.path).endsWith('.mdx') ? 'mdx' : 'md';
-      lastSaved = snapshot();
+      publishedDoc = { fields: f, body };
+      lastSaved = sent;
       serverSavedAt = 0;
-      publishedDoc = { fields: f, body: ta.value };
-      dropLocal();
-      setStatus(savedLabel());
+      if (snapshot() === sent) {
+        dropLocal();
+        setStatus(savedLabel());
+      } else {
+        edited();
+      }
       renderState();
-      const view = f.draft ? '' : ` · <a href="/posts/${slug}/">view post</a>`;
       if (result.mode === 'local') {
-        say(`saved to ${esc(result.path)}${view}. it's on this computer only: commit and push (or ask Claude to ship it) to put it on the live site.`);
+        if (f.draft) {
+          say('Draft saved on this computer.');
+        } else {
+          say('Waiting for heartcache.xyz to serve this revision…');
+          await waitForLocalRelease(result.commit, signal);
+          say('Published on heartcache.xyz · <a href="https://heartcache.xyz/posts/' + slug + '/">view live post</a>');
+        }
       } else if (f.draft) {
         say(`committed ${esc(result.commit)} as a draft. it stays hidden on the live site.`);
       } else {

@@ -85,16 +85,26 @@ export const PUT: APIRoute = async ({ request }) => {
   }
 };
 
-export const POST: APIRoute = async ({ request }) => {
+export const POST: APIRoute = async ({ request, url, clientAddress }) => {
   if (!isOwner(request)) return ownerOnly();
   const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
   const doc = body && readDoc(body);
   if (!doc) return json({ error: 'Bad post.' }, 400);
   if (!doc.fields.title.trim()) return json({ error: 'Give the post a title first.', field: 'title' }, 400);
   if (!doc.fields.description.trim()) return json({ error: 'Add a description (one or two sentences for the front page).', field: 'description' }, 400);
+  const deployLocal = import.meta.env.DEV && !doc.fields.draft && request.headers.get('x-editor-action') === 'publish';
+  if (deployLocal && (request.headers.get('origin') !== url.origin ||
+      !['localhost', '127.0.0.1', '[::1]'].includes(url.hostname) ||
+      !['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(clientAddress))) {
+    return json({ error: 'Publish from the local writing studio.' }, 403);
+  }
   try {
     return await editPost(doc.slug, async () => {
       const result = await publish(doc);
+      if (import.meta.env.DEV && deployLocal) {
+        const { publishFile } = await import('../../../../plugins/editor-publish.mjs');
+        result.commit = await publishFile(result.path);
+      }
       deleteDraft(doc.slug);
       return json({ result });
     });

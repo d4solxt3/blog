@@ -11,7 +11,7 @@ if (!isOwner(Astro.request)) return Astro.redirect('/?auth=1&next=/write/');
 const posts = listPosts();
 const dot = (d: string) => d.replace(/-/g, '.');
 const modeLabel =
-  MODE === 'local' ? 'saves to content/posts on this computer' : MODE === 'github' ? `commits to ${PUBLISHING.repo} (${PUBLISHING.branch})` : 'off: add GITHUB_TOKEN to publish';
+  MODE === 'local' ? 'publishes to heartcache.xyz' : MODE === 'github' ? `commits to ${PUBLISHING.repo} (${PUBLISHING.branch})` : 'off: add GITHUB_TOKEN to publish';
 ---
 
 <BaseLayout title="Write" description="Writing studio." banner={false}>

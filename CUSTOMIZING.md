@@ -28,12 +28,12 @@ To stop it, click the terminal and press `Ctrl + C`.
 
 While `npm run dev` is running, open **http://localhost:4321/_admin** in your browser. There's no link to it on the site itself, and it doesn't exist on the published site: it's only for you, on your computer.
 
-- **[site settings]**: the very first box is **Site name**. Change it, press **save settings**, and the name updates everywhere: the wordmark, the window bar, browser tabs and the footer. Below it you can change the banner strip, the intro text, status and mood, the changelog, the todo list, your profile and progress bars, the default font, and comment options. Any open tab of your site reloads with the changes.
+- **[site settings]**: the very first box is **Site name**. Change it, press **Save to heartcache.xyz**, and the name updates everywhere: the wordmark, the window bar, browser tabs and the footer. Below it you can change the banner strip, the intro text, status and mood, the changelog, the todo list, your profile and progress bars, the default font, and comment options. Any open tab of your site reloads with the changes.
 - **Front-page drawing**: the wide **ascii_art.exe** box turns a PNG into the ASCII drawing on the front page (see section 5).
-- **Avatar**: click *Choose File* under "Avatar image (about page)", pick a picture, then press **save settings**. It's copied into `public/images/` for you.
+- **Avatar**: click *Choose File* under "Avatar image (about page)", pick a picture, then press **Save to heartcache.xyz**. It's copied into `public/images/` for you.
 - **[posts]**: pick a post on the left to edit it. The right-hand panel shows a live preview as you type. Press **save** (or `Ctrl + S`). **+ new post** creates a fresh draft.
 
-Use **Save & publish** to send the current settings or selected post and its referenced images to GitHub. The editor asks Railway to deploy that exact commit, using this computer’s existing GitHub and Railway sign-ins. Keep the editor open to see when the release is live. A post marked `draft: true` stays hidden on the public site. **Save locally** keeps a change on this computer for preview.
+In either tab, **Save to heartcache.xyz** (Ctrl+S or Cmd+S) sends the current settings or selected post and its referenced images to GitHub and deploys the change on Railway. The status beside the button confirms when the public site serves the saved revision. Posts marked `draft: true` stay hidden. In the local writing studio at `/write`, choose **Publish** to release a published post. Its draft autosaves stay private.
 
 ---
 
@@ -131,7 +131,7 @@ Put images for posts in `public/images/` and refer to them as `/images/name.png`
 
 The front page shows an **ASCII version of a drawing** in the framed portrait box at the top of the left column. It's drawn on exactly the character grid the converter uses and follows light and dark mode; click it to see it full size. To use a different drawing:
 
-- **In `/_admin`:** in the **ascii_art.exe** box, pick a black-on-white **PNG**. It's converted and saved straight away, and the big preview shows the result; reload the front page to see it there. Drag the **detail** slider for more columns (sharper, smaller characters) or fewer (chunkier ones). The drawing re-converts as you drag.
+- **In `/_admin`:** in the **ascii_art.exe** box, pick a black-on-white **PNG**. It's converted and saved straight away, and the big preview shows the result; press **Save to heartcache.xyz** to publish it. Drag the **detail** slider for more columns (sharper, smaller characters) or fewer (chunkier ones). The drawing re-converts as you drag.
 - **Or in the terminal:** put the PNG in `public/images/` and run
 
   ```bash

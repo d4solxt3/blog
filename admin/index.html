@@ -106,13 +106,13 @@
             <button class="tab" role="tab" aria-selected="true" data-tab="settings">[site settings]</button>
             <button class="tab" role="tab" aria-selected="false" data-tab="posts">[posts]</button>
           </div>
-          <a href="/" target="_blank" rel="noopener">view site ↗</a>
+          <a href="https://heartcache.xyz/" target="_blank" rel="noopener">view live site ↗</a>
         </header>
 
         <main>
           <!-- ============================ SITE SETTINGS ============================ -->
           <section id="tab-settings" role="tabpanel">
-            <p class="intro">&gt; everything here is saved to <b>site.config.json</b>. save locally to preview, or choose <b>save &amp; publish</b> to update heartcache.xyz.</p>
+            <p class="intro">Save to update <b>heartcache.xyz</b>. You can keep editing while Railway deploys.</p>
             <form id="settings" class="settings" autocomplete="off">
               <section class="win"><div class="win-bar"><span class="win-title">identity.cfg</span></div>
                 <div class="win-body fields">
@@ -142,7 +142,7 @@
                       <small>more columns = a sharper drawing with smaller characters</small>
                     </label>
                     <div><button class="btn" id="ascii-make" type="button">[ make ascii ]</button></div>
-                    <small style="font: 0.6875rem/1.5 var(--font-mono); color: var(--faint)">black-on-white line drawings work best. the result is saved straight to public/images/frontpage-ascii.txt and appears on the front page (no need to press save settings).</small>
+                    <small style="font: 0.6875rem/1.5 var(--font-mono); color: var(--faint)">black-on-white line drawings work best. the result is saved straight to public/images/frontpage-ascii.txt and appears on the front page after you save to heartcache.xyz.</small>
                   </div>
                   <div class="ascii-stage" id="ascii-stage">
                     <pre id="ascii-preview" aria-label="ASCII preview"></pre>
@@ -193,10 +193,9 @@
                       <pre id="side-ascii-preview" aria-label="ASCII preview"></pre>
                     </div>
                     <div class="side-ascii-tools">
-                      <button class="btn" id="side-ascii-save" type="button">[ save ascii ]</button>
                       <button class="btn" id="side-ascii-cube" type="button">[ load the cube ]</button>
                     </div>
-                    <small>this is the drawing in public/images/frontpage-ascii.txt: ascii_art.exe above writes it too. type or paste any monospace art and press [ save ascii ]; it's fitted to the card</small>
+                    <small>this is the drawing in public/images/frontpage-ascii.txt: ascii_art.exe above writes it too. type or paste any monospace art and save to heartcache.xyz; it's fitted to the card</small>
                   </div>
                   <label class="field"><span>Sidebar card starts on</span>
                     <select data-key="defaultVisualView"><option value="image">image (the picture above)</option><option value="wireframe">wire (rotating wireframe cube)</option><option value="ascii">ascii (cube glyph)</option></select>
@@ -276,7 +275,7 @@
                 </div>
               </section>
             </form>
-            <div class="savebar"><span role="status" id="settings-status">&gt; loading…</span><button class="btn" id="save-settings" type="button">[ save locally ]</button><button class="btn" id="publish-settings" type="button" disabled>[ save &amp; publish ]</button></div>
+            <p class="intro" role="status" id="settings-status">&gt; loading…</p>
           </section>
 
           <!-- ================================ POSTS ================================ -->
@@ -289,7 +288,7 @@
               </section>
               <section class="win editor-win"><div class="win-bar"><span class="win-title" id="editor-title">editor.exe</span></div>
                 <div class="editor-tools"><span id="editor-status">&gt; pick a post on the left</span>
-                  <span style="display: flex; gap: 0.5rem"><a id="open-post" href="/" target="_blank" rel="noopener" hidden>open ↗</a><button class="btn" id="save-post" type="button" disabled>[ save ]</button><button class="btn" id="publish-post" type="button" disabled>[ save &amp; publish ]</button></span>
+                  <span style="display: flex; gap: 0.5rem"><a id="open-post" href="/" target="_blank" rel="noopener" hidden>open ↗</a></span>
                 </div>
                 <textarea id="editor" spellcheck="true" disabled placeholder="markdown goes here…"></textarea>
               </section>
@@ -298,13 +297,17 @@
               </section>
             </div>
           </section>
-          <p class="intro" id="release-status" role="status" aria-live="polite"></p>
+          <div class="savebar">
+            <span id="release-status" role="status" aria-live="polite"></span>
+            <button class="btn" id="save-live" type="button" disabled>Save to heartcache.xyz</button>
+          </div>
         </main>
       </div>
-      <footer class="outside"><p class="colophon">local editor // files are written straight to your project folder</p></footer>
+      <footer class="outside"><p class="colophon">local editor · heartcache.xyz</p></footer>
     </div>
 
     <script type="module">
+      import { startLocalRelease, waitForLocalRelease } from '/src/scripts/local-release.ts';
       const $ = (s) => document.querySelector(s);
       const api = async (path, opts = {}) => {
         const res = await fetch(`/_admin/api/${path}`, { headers: { 'Content-Type': 'application/json' }, ...opts });
@@ -315,45 +318,53 @@
       const now = () => new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
       const releaseStatus = $('#release-status');
-      let watching = 0;
-      async function watchRelease(revision) {
-        const ticket = ++watching;
-        releaseStatus.textContent = 'Sent to GitHub. Waiting for Railway…';
-        for (let attempt = 0; attempt < 90 && ticket === watching; attempt++) {
-          const live = await api('release?revision=' + encodeURIComponent(revision)).catch(() => ({}));
-          if (ticket !== watching) return;
-          if (live.failed) {
-            sessionStorage.removeItem('editor-release');
-            releaseStatus.textContent = 'Saved to GitHub. Railway deployment ' + live.status.toLowerCase() + '. Check the build logs, then retry Save & publish.';
-            return;
-          }
-          if (live.live) {
-            sessionStorage.removeItem('editor-release');
-            releaseStatus.textContent = 'Published to heartcache.xyz.';
-            return;
-          }
-          await new Promise(resolve => setTimeout(resolve, 4000));
-        }
-        if (ticket === watching) releaseStatus.textContent = 'GitHub has the change. Railway has not confirmed this release. Check the deployment in Railway.';
+      const saveButton = $('#save-live');
+      let settingsReady = false;
+      let saving = false;
+      let watcher;
+
+      function updateSaveButton() {
+        const settingsTab = !$('#tab-settings').hidden;
+        saveButton.disabled = saving || (settingsTab ? !settingsReady : !current);
       }
-      async function publishSaved(file) {
-        const buttons = [$('#publish-post'), $('#publish-settings')];
-        buttons.forEach(b => b.disabled = true);
-        ++watching;
-        releaseStatus.textContent = 'Publishing saved changes…';
+
+      async function showRelease(revision) {
+        watcher?.abort();
+        const controller = watcher = new AbortController();
+        releaseStatus.textContent = 'Sent to GitHub. Waiting for heartcache.xyz…';
         try {
-          const { revision } = await api('publish', { method:'POST', headers:{'Content-Type':'application/json', 'X-Editor-Action':'publish'}, body:JSON.stringify({file}) });
-          sessionStorage.setItem('editor-release', revision);
-          void watchRelease(revision);
+          await waitForLocalRelease(revision, controller.signal);
+          sessionStorage.removeItem('editor-release');
+          releaseStatus.textContent = 'Published to heartcache.xyz.';
         } catch (err) {
-          releaseStatus.textContent = 'Saved locally. Publish failed: ' + err.message;
-        } finally {
-          $('#publish-settings').disabled = false;
-          $('#publish-post').disabled = !current;
+          if (!controller.signal.aborted) releaseStatus.textContent = err.message;
         }
       }
+
+      async function saveToSite() {
+        if (saveButton.disabled) return;
+        saving = true;
+        updateSaveButton();
+        watcher?.abort();
+        sessionStorage.removeItem('editor-release');
+        releaseStatus.textContent = 'Saving changes…';
+        try {
+          const file = $('#tab-settings').hidden ? await savePost() : await saveSettings();
+          releaseStatus.textContent = 'Saved on this computer. Sending to GitHub and Railway…';
+          const revision = await startLocalRelease(file);
+          sessionStorage.setItem('editor-release', revision);
+          void showRelease(revision);
+        } catch (err) {
+          releaseStatus.textContent = 'Could not publish. ' + err.message;
+        } finally {
+          saving = false;
+          updateSaveButton();
+        }
+      }
+      saveButton.addEventListener('click', saveToSite);
+      $('#settings').addEventListener('submit', (event) => { event.preventDefault(); void saveToSite(); });
       const pendingRelease = sessionStorage.getItem('editor-release');
-      if (pendingRelease) void watchRelease(pendingRelease);
+      if (pendingRelease) void showRelease(pendingRelease);
 
       /* ---------------- tabs ---------------- */
       document.querySelectorAll('[data-tab]').forEach((b) =>
@@ -361,6 +372,7 @@
           document.querySelectorAll('[data-tab]').forEach((x) => x.setAttribute('aria-selected', String(x === b)));
           $('#tab-settings').hidden = b.dataset.tab !== 'settings';
           $('#tab-posts').hidden = b.dataset.tab !== 'posts';
+          updateSaveButton();
           if (b.dataset.tab === 'posts') loadPosts();
         }),
       );
@@ -418,7 +430,8 @@
 
       async function loadSettings() {
         config = await api('config');
-        $('#publish-settings').disabled = false;
+        settingsReady = true;
+        updateSaveButton();
         document.querySelectorAll('#settings [data-key]').forEach((el) => toField(el, getPath(config, el.dataset.key)));
         thumb();
         $('#settings-status').textContent = '> loaded site.config.json';
@@ -465,18 +478,15 @@
       dropInto($('#wire-drop'), uploadWire);
       const sideAscii = $('#side-ascii');
       const previewSideAscii = () => ($('#side-ascii-preview').textContent = sideAscii.value.replace(/\s+$/, '') || '(empty: the built-in cube is used)');
-      sideAscii.addEventListener('input', previewSideAscii);
+      let asciiEdited = false;
+      sideAscii.addEventListener('input', () => { asciiEdited = true; previewSideAscii(); });
       const CUBE = "           +           \n        .-' '-.        \n     .-'       '-.     \n  +-'      o      '-+  \n  |'-.           .-'|  \n  |   '-.     .-'   |  \n  |      '-+-'      |  \n  | ::     |     :: |  \n  | ::     |     :: |  \n  |        |        |  \n  +-.      |      .-+  \n     '-.   |   .-'     \n        '-.|.-'        \n           +";
-      $('#side-ascii-cube').addEventListener('click', () => { sideAscii.value = CUBE; previewSideAscii(); $('#settings-status').textContent = '> cube loaded: press [ save ascii ] to use it'; });
-      $('#side-ascii-save').addEventListener('click', async () => {
-        try {
-          const { columns, rows } = await api('ascii-text', { method: 'PUT', body: JSON.stringify({ text: sideAscii.value }) });
-          showAscii(sideAscii.value.replace(/\s+$/, ''));
-          $('#settings-status').textContent = `> ascii saved (${columns} × ${rows}): reload the front page to see it`;
-        } catch (err) { $('#settings-status').textContent = `> ${err.message}`; }
+      $('#side-ascii-cube').addEventListener('click', () => {
+        sideAscii.value = CUBE;
+        sideAscii.dispatchEvent(new Event('input'));
       });
       // Start from whatever is in the file now.
-      fetch('/images/frontpage-ascii.txt', { cache: 'no-store' }).then((r) => (r.ok ? r.text() : '')).then((t) => { sideAscii.value = t.replace(/\s+$/, ''); previewSideAscii(); }).catch(() => {});
+      fetch('/images/frontpage-ascii.txt', { cache: 'no-store' }).then((r) => (r.ok ? r.text() : '')).then((t) => { if (!asciiEdited) { sideAscii.value = t.replace(/\s+$/, ''); previewSideAscii(); } }).catch(() => {});
       $('#side-file').addEventListener('change', (e) => uploadSide(e.target.files[0]));
       dropInto($('#side-drop'), uploadSide);
       async function uploadBanner(file) {
@@ -516,7 +526,7 @@
           showAscii(art);
           const box = document.querySelector('#side-ascii');
           if (box) { box.value = art; box.dispatchEvent(new Event('input')); }
-          $('#settings-status').textContent = `> ascii art saved (${columns} × ${rows}): reload the front page to see it`;
+          $('#settings-status').textContent = `> ascii art saved (${columns} × ${rows}): save to heartcache.xyz to publish`;
         } catch (err) { $('#settings-status').textContent = `> ${err.message}`; }
       };
       $('#ascii-cols').addEventListener('input', (e) => {
@@ -551,22 +561,21 @@
         .catch(() => {});
       window.addEventListener('resize', () => showAscii($('#ascii-preview').textContent));
 
-      async function saveSettings(publish = false) {
+      async function saveSettings() {
         const next = structuredClone(config);
         document.querySelectorAll('#settings [data-key]').forEach((el) => setPath(next, el.dataset.key, fromField(el)));
-        $('#save-settings').disabled = true;
-        try {
-          const saved = await api('config', { method: 'PUT', body: JSON.stringify(next) });
-          next.siteUrl = saved.siteUrl ?? next.siteUrl;
-          $('#settings [data-key="siteUrl"]').value = next.siteUrl;
-          config = next;
-          $('#settings-status').textContent = `> saved locally ✓ ${now()}`;
-          if (publish) await publishSaved('site.config.json');
-        } catch (err) { $('#settings-status').textContent = `> could not save: ${err.message}`; }
-        $('#save-settings').disabled = false;
+        if (asciiEdited) {
+          const art = sideAscii.value;
+          await api('ascii-text', { method: 'PUT', body: JSON.stringify({ text: art }) });
+          asciiEdited = sideAscii.value !== art;
+        }
+        const saved = await api('config', { method: 'PUT', body: JSON.stringify(next) });
+        next.siteUrl = saved.siteUrl ?? next.siteUrl;
+        $('#settings [data-key="siteUrl"]').value = next.siteUrl;
+        config = next;
+        $('#settings-status').textContent = 'Settings saved at ' + now();
+        return 'site.config.json';
       }
-      $('#save-settings').addEventListener('click', () => saveSettings());
-      $('#publish-settings').addEventListener('click', () => saveSettings(true));
 
       /* ---------------- posts ---------------- */
       let current = null;
@@ -602,8 +611,7 @@
         current = file;
         editor.value = content;
         editor.disabled = false;
-        $('#save-post').disabled = false;
-        $('#publish-post').disabled = false;
+        updateSaveButton();
         $('#editor-title').textContent = file;
         const open = $('#open-post');
         open.hidden = false;
@@ -614,17 +622,13 @@
         loadPosts();
       }
 
-      async function savePost(publish = false) {
-        if (!current) return;
-        $('#save-post').disabled = true;
+      async function savePost() {
         const file = current;
-        try {
-          await api(`post?file=${encodeURIComponent(current)}`, { method: 'PUT', body: JSON.stringify({ content: editor.value }) });
-          setDirty(false);
-          loadPosts();
-          if (publish) await publishSaved('content/posts/' + file);
-        } catch (err) { $('#editor-status').textContent = `> could not save: ${err.message}`; }
-        $('#save-post').disabled = false;
+        const content = editor.value;
+        await api('post?file=' + encodeURIComponent(file), { method: 'PUT', body: JSON.stringify({ content }) });
+        if (file === current && editor.value === content) setDirty(false);
+        void loadPosts();
+        return 'content/posts/' + file;
       }
 
       // Theme preview: same stored choice as the site's paper / cyber switch.
@@ -658,10 +662,11 @@
         clearTimeout(previewTimer);
         previewTimer = setTimeout(renderPreview, 350);
       });
-      $('#save-post').addEventListener('click', () => savePost());
-      $('#publish-post').addEventListener('click', () => savePost(true));
-      document.addEventListener('keydown', (e) => {
-        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's' && !$('#tab-posts').hidden) { e.preventDefault(); savePost(); }
+      document.addEventListener('keydown', (event) => {
+        if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') {
+          event.preventDefault();
+          if (!event.repeat) void saveToSite();
+        }
       });
       $('#new-post').addEventListener('click', async () => {
         const title = prompt('Title of the new post:');
