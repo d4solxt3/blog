@@ -38,16 +38,16 @@
   "newBadgeDays": 21,
   "inlineAnnotations": true,
   "footerText": "© {year} {siteName}",
-  "intro": "hi, I write slow, long notes here — mostly machine learning & interpretability, sometimes type and interfaces. nothing polished. highlight any sentence to argue with it.",
+  "intro": "hi, I'm a mathematics undergraduate interested in understanding how models think (interpretability) and I enjoy making electronic music (fl studio is my DAW of choice :D). This is a website where I just post my messy thoughts for fun, and also any personal research I do.",
   "status": {
-    "mood": "tired but curious",
-    "thought": "is superposition just compression with extra steps?",
+    "mood": "hopeful but sober",
+    "thought": "this AI thing is starting to get crazy",
     "updated": "2026-11-17 01:40"
   },
   "updates": [
     {
       "date": "2026-11-17",
-      "text": "added highlight comments"
+      "text": "added comments and stuff"
     },
     {
       "date": "2026-11-17",
@@ -62,18 +62,18 @@
       "text": "site is up :)"
     }
   ],
-  "notice": "best viewed at any width. drafts are messy on purpose. if a page looks broken, refresh it.",
+  "notice": "best viewed at any width. these are my messy thoughts, don't take too serious.",
   "todo": [
     {
-      "text": "finish the superposition post",
+      "text": "finding qwen's jspace",
+      "done": true
+    },
+    {
+      "text": "reread neural nets are already clean",
       "done": false
     },
     {
-      "text": "reread toy models of superposition",
-      "done": false
-    },
-    {
-      "text": "add a guestbook?",
+      "text": "make a podcast",
       "done": false
     },
     {
@@ -86,7 +86,7 @@
     "status": "online",
     "joined": "2026.10",
     "currently": {
-      "into": "sparse autoencoders",
+      "into": "natural langauge autoencoders",
       "reading": "the elements of typographic style",
       "building": "this site, slowly"
     },
@@ -111,18 +111,18 @@
     "timezone": "UTC+0 (london)",
     "interests": [
       "interpretability",
-      "typography",
-      "old websites",
-      "long walks"
+      "alignment",
+      "electronic music",
+      "thinking"
     ],
     "progress": [
       {
-        "label": "superposition post",
+        "label": "NLAs",
         "percent": 60
       },
       {
         "label": "reading list (2026)",
-        "percent": 35
+        "percent": 99
       },
       {
         "label": "site redesign",
