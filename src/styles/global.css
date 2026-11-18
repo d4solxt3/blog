@@ -613,6 +613,31 @@ a {
   }
 }
 
+/* Articles: reading progress runs along the status bar's top edge, the full
+   width of the window (replaces the viewport hairline on wide screens). */
+.winstatus-progress {
+  position: absolute;
+  top: -1px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  pointer-events: none;
+}
+
+.winstatus-progress > span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  transform: scaleX(0);
+  transform-origin: left center;
+}
+
+@media (min-width: 700px) {
+  .progress:has(+ .shell .winstatus-progress) {
+    display: none;
+  }
+}
+
 .shell:has(.studio) .winstatus {
   display: none;
 }
@@ -2247,4 +2272,13 @@ main:has(> .portal) {
 .frame-edge {
   position: relative;
   height: 0;
+}
+
+/* No banner (article pages): the folder tabs sit flush under the window's title bar. */
+.viewport > .titlebar + .topbar {
+  padding-top: 0;
+}
+
+.viewport > .titlebar + .topbar .tabs {
+  margin-top: -1px;
 }

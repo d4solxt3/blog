@@ -1,0 +1,253 @@
+---
+/**
+ * The 88×31 button rack: little early-web badges, drawn as crisp pixel SVGs
+ * in the current theme's inks (or your own 88×31 GIF/PNG). Edit them in
+ * site.config.json → "badges" or /_admin → badges.txt.
+ */
+import Panel from './widgets/Panel.astro';
+import { SITE, type Badge } from '../site.config';
+
+interface Props {
+  id?: string;
+  title?: string;
+  badges?: Badge[];
+}
+const { id = 'buttons', title = 'buttons', badges = SITE.badges } = Astro.props;
+
+// Fit a line of text into `max` px: shrink the spacing only when it would overflow.
+const fit = (text: string, size: number, max: number) => (text.length * size * 0.62 > max ? max : undefined);
+// 7×6 pixel heart.
+const HEART = ['.##.##.', '#######', '#######', '.#####.', '..###..', '...#...'];
+const heart = HEART.flatMap((row, y) => [...row].map((c, x) => (c === '#' ? [x, y] : null)).filter(Boolean)) as number[][];
+---
+
+{
+  badges.length > 0 && (
+    <Panel id={id} title={title} type="badges">
+      <ul class="panel-body b88-rack">
+        {badges.map((b) => {
+          const name = [b.label, b.sub].filter(Boolean).join(' — ') || 'button';
+          const icon = b.look === 'heart' || b.look === 'rss' || b.look === 'code';
+          const tx = icon ? 58 : 44;
+          const room = icon ? 52 : 80;
+          const art = b.image ? (
+            <img class="b88-img" src={b.image} width="88" height="31" alt="" loading="lazy" decoding="async" />
+          ) : (
+            <svg class:list={['b88-svg', `b88--${b.look}`]} viewBox="0 0 88 31" width="88" height="31" aria-hidden="true" shape-rendering="crispEdges">
+              <rect class="b-bg" x="0" y="0" width="88" height="31" />
+              {b.look === 'hud' && (
+                <>
+                  {Array.from({ length: 15 }, (_, i) => (
+                    <rect class="b-scan" x="1" y={2 + i * 2} width="86" height="1" />
+                  ))}
+                  <path class="b-tick" d="M3 3h5M3 3v4M85 3h-5M85 3v4M3 28h5M3 28v-4M85 28h-5M85 28v-4" />
+                </>
+              )}
+              {b.look === 'heart' && (
+                <>
+                  <rect class="b-block" x="1" y="1" width="29" height="29" />
+                  {heart.map(([x, y]) => (
+                    <rect class="b-hot" x={8 + x * 2} y={10 + y * 2} width="2" height="2" />
+                  ))}
+                </>
+              )}
+              {b.look === 'rss' && (
+                <>
+                  <rect class="b-acc" x="1" y="1" width="29" height="29" />
+                  <rect class="b-on" x="8" y="20" width="4" height="4" />
+                  <path class="b-arc" d="M8 14a9 9 0 0 1 9 9M8 8a15 15 0 0 1 15 15" />
+                </>
+              )}
+              {b.look === 'code' && (
+                <>
+                  <rect class="b-well" x="1" y="1" width="29" height="29" />
+                  <path class="b-code" d="M11 10l-5 5.5 5 5.5M20 10l5 5.5-5 5.5M17 8l-3 15" />
+                </>
+              )}
+              <text class="b-label" x={tx} y={b.sub ? 14 : 18.5} text-anchor="middle" font-size="7.5" textLength={fit(b.label, 7.5, room)} lengthAdjust="spacingAndGlyphs">
+                {b.label}
+              </text>
+              {b.sub && (
+                <text class="b-sub" x={tx} y="23.5" text-anchor="middle" font-size="5.5" textLength={fit(b.sub, 5.5, room)} lengthAdjust="spacingAndGlyphs">
+                  {b.sub}
+                </text>
+              )}
+              <path class="b-hi" d="M1 29.5V1.5H86.5" fill="none" />
+              <path class="b-lo" d="M1.5 29.5H86.5V1" fill="none" />
+              <rect class="b-edge" x="0.5" y="0.5" width="87" height="30" fill="none" />
+            </svg>
+          );
+          return (
+            <li>
+              {b.href ? (
+                <a class="b88" href={b.href} aria-label={name} title={name}>
+                  {art}
+                </a>
+              ) : (
+                <span class="b88" role="img" aria-label={name} title={name}>
+                  {art}
+                </span>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    </Panel>
+  )
+}
+
+<style>
+  .b88-rack {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 0;
+    padding: 8px;
+    list-style: none;
+  }
+
+  .b88 {
+    --b-ink: var(--ink);
+    --b-bg: var(--surface-main);
+    --b-acc: var(--accent);
+    --b-hot: var(--ink);
+    --b-well: var(--surface-recessed);
+    display: block;
+    width: 88px;
+    height: 31px;
+    line-height: 0;
+    transition: transform 120ms var(--snap, ease-out), box-shadow 120ms var(--snap, ease-out);
+  }
+
+  :global(:root[data-theme='cyber']) .b88 {
+    --b-ink: #102038;
+    --b-bg: #f8fbff;
+    --b-acc: #2b6cb0;
+    --b-hot: #c93b4b;
+    --b-well: #dce6f2;
+  }
+
+  a.b88:hover,
+  a.b88:focus-visible {
+    transform: translate(-1px, -1px);
+    box-shadow: 2px 2px 0 var(--bevel-shadow);
+  }
+
+  a.b88:active {
+    transform: translate(1px, 1px);
+    box-shadow: none;
+  }
+
+  .b88-img {
+    display: block;
+    width: 88px;
+    height: 31px;
+    image-rendering: pixelated;
+  }
+
+  .b88-svg {
+    display: block;
+    font-family: var(--font-mono);
+    font-weight: 700;
+  }
+
+  .b-bg {
+    fill: var(--b-bg);
+  }
+
+  .b-edge {
+    stroke: var(--b-ink);
+  }
+
+  .b-hi {
+    stroke: var(--bevel-highlight);
+  }
+
+  .b-lo {
+    stroke: var(--bevel-shadow);
+  }
+
+  .b-label {
+    fill: var(--b-ink);
+    letter-spacing: 0.04em;
+  }
+
+  .b-sub {
+    fill: var(--b-ink);
+    font-weight: 400;
+    opacity: 0.75;
+    letter-spacing: 0.06em;
+  }
+
+  /* heart: an ink block with a pixel heart. */
+  .b-block {
+    fill: var(--b-ink);
+  }
+
+  .b-hot {
+    fill: var(--b-hot);
+  }
+
+  .b88--heart .b-hot {
+    fill: var(--b-bg);
+  }
+
+  :global(:root[data-theme='cyber']) .b88--heart .b-hot {
+    fill: var(--b-hot);
+  }
+
+  /* rss: an accent block with the feed glyph. */
+  .b-acc {
+    fill: var(--b-acc);
+  }
+
+  .b-on {
+    fill: var(--b-bg);
+  }
+
+  .b-arc {
+    fill: none;
+    stroke: var(--b-bg);
+    stroke-width: 3;
+  }
+
+  /* hud: inverted, scanlined, corner ticks. */
+  .b88--hud .b-bg {
+    fill: var(--b-ink);
+  }
+
+  .b-scan {
+    fill: var(--b-bg);
+    opacity: 0.08;
+  }
+
+  .b-tick {
+    fill: none;
+    stroke: var(--b-acc);
+  }
+
+  :global(:root[data-theme='paper']) .b88--hud .b-tick {
+    stroke: var(--b-bg);
+  }
+
+  .b88--hud .b-label,
+  .b88--hud .b-sub {
+    fill: var(--b-bg);
+  }
+
+  .b88--hud .b-edge {
+    stroke: var(--b-ink);
+  }
+
+  /* code: a recessed well with </> */
+  .b-well {
+    fill: var(--b-well);
+  }
+
+  .b-code {
+    fill: none;
+    stroke: var(--b-acc);
+    stroke-width: 2;
+    shape-rendering: geometricPrecision;
+  }
+</style>

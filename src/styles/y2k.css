@@ -1,0 +1,278 @@
+/* ==========================================================================
+   Y2K / cyber layer: the futuristic side of the 2003 portal.
+   One file, layered over global.css, so it can be tuned (or removed) alone.
+     - faint CRT scanlines over the window (static)
+     - a perspective "horizon floor" grid on the desk behind the window
+     - window-chrome details: grip ridges, a notched title strip, a system tray
+     - chromatic (blue / red) offsets on titles in the cyber theme
+     - ASCII touches: section dividers, bracketed link hovers, a boot screen
+   Paper stays monochrome and archival; cyber gets the colour.
+   ========================================================================== */
+
+:root {
+  --y2k-scan: rgb(24 24 26 / 0.022);
+  --y2k-grid: rgb(24 24 26 / 0.07);
+  --y2k-r: transparent;
+  --y2k-b: transparent;
+}
+
+:root[data-theme='cyber'] {
+  --y2k-scan: rgb(16 32 56 / 0.025);
+  --y2k-grid: rgb(43 108 176 / 0.16);
+  --y2k-r: rgb(201 59 75 / 0.45);
+  --y2k-b: rgb(43 108 176 / 0.55);
+}
+
+/* ---- CRT scanlines over the whole window ------------------------------- */
+.viewport::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  background: repeating-linear-gradient(var(--y2k-scan) 0 1px, transparent 1px 3px);
+  pointer-events: none;
+}
+
+/* The writing studio keeps a clean editing surface. */
+.shell:has(.studio) .viewport::after {
+  display: none;
+}
+
+/* ---- Horizon floor: a perspective grid fading up from the bottom of the desk */
+body::after {
+  content: '';
+  position: fixed;
+  inset: auto -20vw 0;
+  z-index: -1;
+  height: 38vh;
+  background:
+    linear-gradient(90deg, var(--y2k-grid) 1px, transparent 1px) 50% 0 / 48px 100%,
+    linear-gradient(var(--y2k-grid) 1px, transparent 1px) 0 0 / 100% 22px;
+  transform: perspective(260px) rotateX(58deg);
+  transform-origin: 50% 100%;
+  mask-image: linear-gradient(transparent, #000 75%);
+  pointer-events: none;
+}
+
+@media (max-width: 700px) {
+  body::after {
+    display: none;
+  }
+}
+
+/* ---- Window chrome ------------------------------------------------------ */
+/* Grip ridges before every box title, like an old toolbar's drag handle. */
+.panel-bar > .panel-title::before {
+  content: '';
+  display: inline-block;
+  width: 3px;
+  height: 9px;
+  margin-right: 6px;
+  vertical-align: -1px;
+  background: repeating-linear-gradient(var(--muted) 0 1px, transparent 1px 3px);
+  opacity: 0.8;
+}
+
+/* Primary title strips end in a 45° notch (the futuristic corner). */
+.panel--primary > .panel-bar {
+  position: relative;
+}
+
+.panel--primary > .panel-bar::after {
+  content: '';
+  position: absolute;
+  top: -1px;
+  right: -1px;
+  width: 9px;
+  height: 9px;
+  background: linear-gradient(225deg, var(--canvas) 0 calc(50% - 0.5px), var(--line) calc(50% - 0.5px) calc(50% + 0.5px), transparent calc(50% + 0.5px));
+  pointer-events: none;
+}
+
+/* Cyber: box titles carry a faint chromatic split. */
+/* Box titles and the wordmark: solid dark ink, nothing fuzzy, for legibility. */
+.panel-title,
+.titlebar .title a {
+  color: var(--ink);
+  text-shadow: none;
+}
+
+/* System tray in the title bar: signal bars + link state. */
+.tray {
+  display: none;
+}
+
+@media (min-width: 640px) {
+  .tray {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 0 6px;
+    height: 17px;
+    border: 1px solid var(--border-hairline);
+    background: var(--surface-recessed);
+    box-shadow: inset 1px 1px 0 var(--bevel-shadow);
+    font: 600 9px/1 var(--font-mono);
+    letter-spacing: 0.1em;
+    color: var(--muted);
+  }
+}
+
+.tray-bars {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 1px;
+  height: 8px;
+}
+
+.tray-bars i {
+  width: 2px;
+  background: var(--accent);
+}
+
+.tray-bars i:nth-child(1) {
+  height: 3px;
+}
+
+.tray-bars i:nth-child(2) {
+  height: 5px;
+}
+
+.tray-bars i:nth-child(3) {
+  height: 8px;
+}
+
+.tray-bars i:nth-child(4) {
+  height: 8px;
+  opacity: 0.3;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  :root[data-motion='full'] .tray-bars i:nth-child(4) {
+    animation: y2k-blink 1.6s steps(1) infinite;
+  }
+}
+
+@keyframes y2k-blink {
+  50% {
+    opacity: 1;
+  }
+}
+
+/* ---- Glitch: the post title and wordmark jitter once on hover (cyber) --- */
+@media (prefers-reduced-motion: no-preference) {
+  :root[data-theme='cyber'] .titlebar .title a:hover,
+  :root[data-theme='cyber'] .display-title:hover {
+    animation: y2k-glitch 260ms steps(2) 1;
+  }
+}
+
+@keyframes y2k-glitch {
+  0% {
+    text-shadow: -2px 0 var(--y2k-r), 2px 0 var(--y2k-b);
+    transform: translateX(0.5px);
+  }
+  50% {
+    text-shadow: 2px 0 var(--y2k-r), -2px 0 var(--y2k-b);
+    transform: translateX(-0.5px);
+  }
+  100% {
+    text-shadow: none;
+    transform: none;
+  }
+}
+
+/* ---- ASCII touches -------------------------------------------------------- */
+/* Sidebar link lists: an ASCII cursor on hover. */
+.px-list a {
+  position: relative;
+}
+
+.px-list a:hover::after,
+.px-list a:focus-visible::after {
+  content: ' ◂';
+  color: var(--accent);
+}
+
+/* Selection: inverse video. */
+::selection {
+  background: var(--ink);
+  color: var(--surface);
+}
+
+:root[data-theme='cyber'] ::selection {
+  background: #2b6cb0;
+  color: #f8fbff;
+}
+
+/* ---- Boot screen (once per visit, home only; see BootScreen.astro) ------- */
+.boot {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: grid;
+  place-items: center;
+  background: var(--canvas);
+  font: 12px/1.55 var(--font-mono);
+  color: var(--ink);
+  cursor: pointer;
+}
+
+:root[data-theme='cyber'] .boot {
+  background: #f8fbff;
+  color: #102038;
+}
+
+.boot-win {
+  width: min(560px, calc(100vw - 32px));
+  border: 1px solid var(--line);
+  background: var(--surface-main);
+  box-shadow: 4px 4px 0 var(--bevel-shadow);
+}
+
+.boot-bar {
+  display: flex;
+  justify-content: space-between;
+  padding: 3px 8px;
+  border-bottom: 1px solid var(--line);
+  background: linear-gradient(var(--strip-top), var(--strip-bottom));
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.boot-log {
+  margin: 0;
+  min-height: 11.5em;
+  padding: 10px 12px;
+  white-space: pre-wrap;
+}
+
+.boot-log .ok {
+  color: var(--accent);
+}
+
+.boot-meter {
+  height: 8px;
+  margin: 0 12px 12px;
+  border: 1px solid var(--border-hairline);
+  background: var(--surface-recessed);
+}
+
+.boot-meter span {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: repeating-linear-gradient(90deg, var(--accent) 0 6px, transparent 6px 8px);
+  transition: width 120ms linear;
+}
+
+.boot-skip {
+  padding: 0 12px 10px;
+  font-size: 10px;
+  color: var(--muted);
+}
+
+.boot.is-leaving {
+  opacity: 0;
+  transition: opacity 220ms linear;
+}

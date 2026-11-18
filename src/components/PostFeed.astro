@@ -54,7 +54,7 @@ const repliesEnabled = SITE.comments.provider === 'native';
 <section class="panel panel--primary feed" id={id} aria-labelledby={`${id}-label`} data-feed-list data-replies={repliesEnabled ? 'on' : 'off'} data-total={posts.length}>
   <div class="panel-bar feed-bar">
     <h2 class="panel-title" id={`${id}-label`}>{label} <span class="count">(<span data-count>{pad(posts.length)}</span>)</span></h2>
-    <div class="feed-tools">
+    {posts.length > 0 && (<div class="feed-tools">
       <div class="views" role="group" aria-label="Filter posts">
         <button type="button" class="bevel" data-view="all" aria-pressed="true">all</button>
         {
@@ -80,7 +80,7 @@ const repliesEnabled = SITE.comments.provider === 'native';
       </div>
       <label for={`${id}-search`} class="sr-only">Filter posts by text</label>
       <input id={`${id}-search`} class="filter" type="search" placeholder="filter" autocomplete="off" spellcheck="false" data-search />
-    </div>
+    </div>)}
   </div>
 
   {
@@ -156,9 +156,15 @@ const repliesEnabled = SITE.comments.provider === 'native';
     }
   </ol>
 
-  <p class="empty" data-empty hidden>
-    nothing matches. <button type="button" data-reset>clear filters</button>
-  </p>
+  {
+    posts.length === 0 ? (
+      <p class="empty empty--none">no entries published yet — drafts in progress.</p>
+    ) : (
+      <p class="empty" data-empty hidden>
+        nothing matches. <button type="button" data-reset>clear filters</button>
+      </p>
+    )
+  }
 </section>
 
 <style>
@@ -673,8 +679,9 @@ const repliesEnabled = SITE.comments.provider === 'native';
           }
         }
         const filtered = view !== 'all' || !!tag || terms.length > 0;
-        if (countEl) countEl.textContent = pad(shown);
-        if (emptyEl) emptyEl.hidden = shown > 0;
+        // Filtered: "03/12"; otherwise the plain total, so a filter never reads as "no posts".
+        if (countEl) countEl.textContent = filtered ? `${pad(shown)}/${pad(total)}` : pad(total);
+        if (emptyEl) emptyEl.hidden = shown > 0 || total === 0;
         if (status && statusText) {
           status.hidden = !filtered || shown === 0;
           const parts = [view === 'series' ? 'series only' : '', tag ? `#${pills.find((p) => p.dataset.tag === tag)?.textContent?.trim().replace(/\s+\d+$/, '').replace(/^#/, '') ?? tag}` : '', terms.length ? `“${terms.join(' ')}”` : ''].filter(Boolean);
@@ -757,6 +764,13 @@ const repliesEnabled = SITE.comments.provider === 'native';
       );
 
       apply(false);
+      // A filter carried in from an old link that matches nothing: start from everything instead.
+      if (total > 0 && rows.every((r) => r.hidden) && (view !== 'all' || tag || input?.value)) {
+        view = 'all';
+        tag = '';
+        if (input) input.value = '';
+        apply(true, false);
+      }
 
       // Back from a post (browser back or "← writing"): same filters, same scroll position.
       try {

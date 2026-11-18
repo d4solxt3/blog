@@ -11,6 +11,8 @@ import '@fontsource/ibm-plex-mono/latin-600.css';
 import '@fontsource/silkscreen/latin-400.css';
 import '../styles/global.css';
 import '../styles/prose.css';
+import '../styles/y2k.css';
+import BootScreen from '../components/BootScreen.astro';
 
 import plexSans from '@fontsource-variable/ibm-plex-sans/files/ibm-plex-sans-latin-wght-normal.woff2?url';
 import plexMono from '@fontsource/ibm-plex-mono/files/ibm-plex-mono-latin-400-normal.woff2?url';
@@ -89,6 +91,7 @@ const showBanner = frame === 'hub' && banner && SITE.banner.show;
         <feColorMatrix type="matrix" values="0.172 0.579 0.058 0 0.114  0.144 0.484 0.049 0 0.310  0.106 0.358 0.036 0 0.549  0 0 0 1 0" />
       </filter>
     </svg>
+    {Astro.url.pathname === '/' && <BootScreen />}
     <slot name="before-frame" />
     <div class="shell" id="top" data-frame={frame}>
       <HudBackdrop />
@@ -106,6 +109,7 @@ const showBanner = frame === 'hub' && banner && SITE.banner.show;
         <div class="titlebar">
           <span class="title"><a href="/" aria-label={`${SITE.name}, home`}>{SITE.name}</a><span class="bar-cursor" aria-hidden="true">▮</span><time class="bar-clock" data-clock aria-hidden="true"></time></span>
           <span class="bar-right">
+            <span class="tray" aria-hidden="true"><span class="tray-bars"><i></i><i></i><i></i><i></i></span>NET</span>
             <button type="button" class="motion-switch bevel" data-motion-toggle aria-pressed="false" title="Background motion: quiet or full">
               <span class="sr-only">Full motion</span>
               <span class="opt opt-quiet" aria-hidden="true">quiet</span><span class="sep" aria-hidden="true">/</span><span class="opt opt-full" aria-hidden="true">full</span>
@@ -120,6 +124,7 @@ const showBanner = frame === 'hub' && banner && SITE.banner.show;
         </main>
         <!-- Browser-style status bar: the address of the link under the pointer, and a back-to-top. -->
         <div class="winstatus" data-winstatus>
+          {frame === 'article' && <span class="winstatus-progress" aria-hidden="true"><span data-progress /></span>}
           <span class="winstatus-text" aria-hidden="true"><span class="winstatus-icon">◫</span><span data-winstatus-text>done</span></span>
           <a class="winstatus-top bevel" href="#top" data-winstatus-top aria-label="Back to top"><span aria-hidden="true">▲</span> <span data-winstatus-pct aria-hidden="true">0%</span></a>
         </div>

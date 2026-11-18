@@ -14,8 +14,9 @@ export function initPostPage(signal: AbortSignal) {
   // glides to the centre. It stays if the reader reaches for it (hover, focus).
   // [ hide × ] and [ contents + ] switch it by hand for this page.
   const article = body.closest<HTMLElement>('.post');
-  // --col: the usual 65ch measure; --col-wide: ~80ch, used when the contents
-  // column is off so the text spreads into the freed space.
+  // --col: the 65ch reading measure in the current reading font; the text
+  // column and the contents rail are laid out (and centred) around it.
+  // --col-wide: ~80ch, the measure once the contents is closed (the text widens).
   const measure = () => {
     const probe = document.createElement('span');
     probe.style.cssText = 'position:absolute;visibility:hidden;white-space:pre;';
@@ -31,19 +32,6 @@ export function initPostPage(signal: AbortSignal) {
   const fontWatch = new MutationObserver(measure);
   fontWatch.observe(document.documentElement, { attributes: true, attributeFilter: ['data-font'] });
   signal.addEventListener('abort', () => fontWatch.disconnect());
-
-  // DEV ONLY, while choosing the look — how the text answers the column going:
-  //   widen: centres and widens to ~80ch (lines re-wrap once, then glide)
-  //   glide: keeps its 65ch lines and glides to the centre (wider margins)
-  // Picked with the little switcher at the bottom-left of post pages in dev.
-  const DEV = import.meta.env.DEV;
-  let fx = 'widen';
-  if (DEV) {
-    try {
-      fx = sessionStorage.getItem('tocfx') || 'widen';
-    } catch {}
-    document.documentElement.dataset.tocfx = fx;
-  }
 
   const side = document.querySelector<HTMLElement>('.post-side');
   const sidebar = side?.querySelector<HTMLElement>('.toc-sidebar') ?? null;
@@ -121,9 +109,15 @@ export function initPostPage(signal: AbortSignal) {
     } else swap();
   }
 
+  // A reader who has switched it by hand gets their choice on every post
+  // (ThemeScript applies it before paint); otherwise it tucks itself away.
+  let pref: string | null = null;
+  try {
+    pref = localStorage.getItem('toc-pref');
+  } catch {}
   let autoClose = 0;
   const keepOpen = () => window.clearTimeout(autoClose);
-  if (hasToc && document.documentElement.dataset.toc === 'shown' && window.matchMedia('(min-width: 1060px)').matches) {
+  if (hasToc && !pref && document.documentElement.dataset.toc === 'shown' && window.matchMedia('(min-width: 1060px)').matches) {
     autoClose = window.setTimeout(() => setToc('hidden', undefined, true), 1000);
     side!.addEventListener('pointerenter', keepOpen, { signal });
     side!.addEventListener('focusin', keepOpen, { signal });
@@ -136,6 +130,9 @@ export function initPostPage(signal: AbortSignal) {
       () => {
         keepOpen();
         const next = btn.dataset.tocToggle === 'hidden' ? 'hidden' : 'shown';
+        try {
+          localStorage.setItem('toc-pref', next);
+        } catch {}
         // Keep keyboard focus on the control that undoes it.
         setToc(next, () =>
           document.querySelector<HTMLButtonElement>(`[data-toc-toggle="${next === 'hidden' ? 'shown' : 'hidden'}"]`)?.focus({ preventScroll: true }),
@@ -144,40 +141,6 @@ export function initPostPage(signal: AbortSignal) {
       { signal },
     ),
   );
-
-  // DEV ONLY comparison switcher (bottom-left). Picking a style reloads the post
-  // so the arrival → tuck-away plays again. Remove once a style is chosen.
-  if (DEV && hasToc) {
-    const box = document.createElement('div');
-    box.style.cssText =
-      'position:fixed;left:12px;bottom:12px;z-index:60;display:flex;align-items:center;gap:6px;padding:6px 8px;' +
-      'font:11px/1 var(--font-mono);color:var(--ink);background:var(--surface-raised);border:1px solid var(--line);box-shadow:0 2px 8px rgb(0 0 0/.15);';
-    const label = document.createElement('span');
-    label.textContent = 'contents motion (dev):';
-    box.append(label);
-    for (const [value, text] of [
-      ['widen', 'widen'],
-      ['glide', 'glide'],
-      [fx, 'replay ↻'],
-    ]) {
-      const b = document.createElement('button');
-      b.type = 'button';
-      b.className = 'bevel';
-      b.style.cssText = 'font:inherit;padding:4px 7px;cursor:pointer;';
-      b.textContent = text;
-      if (text !== 'replay ↻') b.setAttribute('aria-pressed', String(value === fx));
-      b.addEventListener('click', () => {
-        try {
-          sessionStorage.setItem('tocfx', value);
-        } catch {}
-        window.scrollTo(0, 0);
-        location.reload();
-      });
-      box.append(b);
-    }
-    document.body.append(box);
-    signal.addEventListener('abort', () => box.remove());
-  }
 
   // Came here from a writing list? "← writing" / "← home" is a plain link to that
   // list's exact URL (filters included), so it always gets there however many
@@ -195,7 +158,7 @@ export function initPostPage(signal: AbortSignal) {
       }
     }
   } catch {}
-  const bar = document.querySelector<HTMLElement>('[data-progress]');
+  const bars = Array.from(document.querySelectorAll<HTMLElement>('[data-progress]'));
   const headings = Array.from(document.querySelectorAll<HTMLElement>('.prose h2[id]:not(.sr-only), .prose h3[id]'));
   const links = Array.from(document.querySelectorAll<HTMLAnchorElement>('[data-toc-link]'));
   const drawer = document.querySelector<HTMLDetailsElement>('[data-toc-drawer]');
@@ -219,11 +182,11 @@ export function initPostPage(signal: AbortSignal) {
 
   function update() {
     queued = false;
-    if (bar && body) {
+    if (bars.length && body) {
       const rect = body.getBoundingClientRect();
       const travel = rect.height - window.innerHeight;
       const progress = travel > 0 ? -rect.top / travel : rect.top < 0 ? 1 : 0;
-      bar.style.transform = `scaleX(${Math.min(1, Math.max(0, progress))})`;
+      for (const bar of bars) bar.style.transform = `scaleX(${Math.min(1, Math.max(0, progress))})`;
     }
     let current: string | null = null;
     for (const h of headings) {

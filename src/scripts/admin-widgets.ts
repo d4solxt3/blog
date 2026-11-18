@@ -242,6 +242,14 @@ function renderProps() {
     parts.push(`<label class="check"><input type="checkbox" data-prop="tint" data-default="true" /> tint it to the theme (GIFs always keep their colours)</label>`);
     parts.push(field('link (optional)', `<input type="text" data-prop="href" placeholder="/posts/… or https://…" spellcheck="false" />`));
   }
+  if (item.type === 'audio') {
+    parts.push(`<div class="field"><span>track file</span>
+      <div class="drop-zone" id="wg-drop" tabindex="0">drop an .mp3, .ogg or .wav here, or <label class="drop-pick">choose a file<input type="file" id="wg-file" accept="audio/mpeg,audio/ogg,audio/wav,.mp3,.ogg,.wav" hidden /></label></div>
+      <input type="text" data-prop="src" placeholder="/audio/my-loop.mp3" spellcheck="false" />
+      <small id="wg-src-hint">your own file, kept in public/audio (never streamed from another site). it never autoplays</small></div>`);
+    parts.push(field('track title', `<input type="text" data-prop="track" placeholder="(the file name)" />`));
+    parts.push(`<label class="check"><input type="checkbox" data-prop="loop" data-default="true" /> loop the track</label>`);
+  }
   if (!meta.props.length) parts.push('<p class="wg-note">this box takes its settings from site settings → look.cfg.</p>');
   box.innerHTML = parts.join('');
 
@@ -272,14 +280,16 @@ function renderProps() {
         if (el.value === '') delete item.props[k];
         else item.props[k] = Math.max(0, Number(el.value) || 0);
       } else item.props[k] = el.value;
-      if (k === 'src') hintSrc(el.value);
+      if (k === 'src') hintSrc(el.value, item.type === 'audio');
       render();
     });
   });
-  if (item.type === 'media') {
-    hintSrc(String(item.props.src ?? ''));
+  if (item.type === 'media' || item.type === 'audio') {
+    const isAudio = item.type === 'audio';
+    hintSrc(String(item.props.src ?? ''), isAudio);
     const upload = async (file?: File | null) => {
-      if (!file || !/^(image|video)\//.test(file.type) || /svg/.test(file.type)) return status('pick a png, jpg, gif, webp, avif, mp4 or webm file');
+      if (isAudio ? !file || !/\.(mp3|ogg|wav)$/i.test(file.name) : !file || !/^(image|video)\//.test(file.type) || /svg/.test(file.type))
+        return status(isAudio ? 'pick an .mp3, .ogg or .wav file' : 'pick a png, jpg, gif, webp, avif, mp4 or webm file');
       status('uploading…');
       const data = await new Promise<string>((ok) => {
         const r = new FileReader();
@@ -291,7 +301,7 @@ function renderProps() {
         const src = $<HTMLInputElement>('[data-prop="src"]', box);
         src.value = path;
         src.dispatchEvent(new Event('input'));
-        status(`uploaded ${path} (into public/images on this computer)`);
+        status(`uploaded ${path} (into public/${isAudio ? 'audio' : 'images'} on this computer)`);
       } catch (err) {
         status(err instanceof Error ? err.message : String(err));
       }
@@ -304,11 +314,14 @@ function renderProps() {
   }
 }
 
-function hintSrc(src: string) {
+const AUDIO_SRC = /^\/(audio|images)\/[a-z0-9._\/-]+\.(mp3|ogg|wav)$/i;
+function hintSrc(src: string, audio = false) {
   const hint = document.querySelector('#wg-src-hint');
   if (!hint) return;
-  const ok = !src || (MEDIA_SRC.test(src) && !src.includes('..'));
-  hint.textContent = ok ? 'files live in public/images (no svg, nothing from other sites)' : '⚠ must be a png, jpg, gif, webp, avif, mp4 or webm inside /images/';
+  const ok = !src || ((audio ? AUDIO_SRC : MEDIA_SRC).test(src) && !src.includes('..'));
+  hint.textContent = audio
+    ? ok ? 'your own file, kept in public/audio (never streamed from another site). it never autoplays' : '⚠ must be an .mp3, .ogg or .wav inside /audio/ or /images/'
+    : ok ? 'files live in public/images (no svg, nothing from other sites)' : '⚠ must be a png, jpg, gif, webp, avif, mp4 or webm inside /images/';
   hint.classList.toggle('wg-warn', !ok);
 }
 

@@ -18,6 +18,22 @@ const describe = (a: HTMLAnchorElement) => {
   }
 };
 
+// While a page loads: "opening /posts/… |/-\" like an old browser.
+let spin = 0;
+document.addEventListener('astro:before-preparation', (e) => {
+  const text = document.querySelector<HTMLElement>('[data-winstatus-text]');
+  const to = (e as Event & { to?: URL }).to;
+  if (!text || !to) return;
+  const frames = ['|', '/', '-', '\\'];
+  let i = 0;
+  window.clearInterval(spin);
+  const paint = () => (text.textContent = `opening ${to.pathname} ${frames[i++ % frames.length]}`);
+  paint();
+  spin = window.setInterval(paint, 90);
+  text.closest('[data-winstatus]')?.classList.add('is-link');
+});
+document.addEventListener('astro:after-swap', () => window.clearInterval(spin));
+
 onPage((signal) => {
   const bar = document.querySelector<HTMLElement>('[data-winstatus]');
   if (!bar) return;

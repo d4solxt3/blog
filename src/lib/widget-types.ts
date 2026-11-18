@@ -17,6 +17,8 @@ export const WIDGET_TYPES = {
   text: { label: 'text', note: 'a free text box', props: ['title', 'text'] },
   media: { label: 'media', note: 'an image, GIF or short video from /images/', props: ['title', 'src', 'alt', 'decorative', 'caption', 'tint', 'href'] },
   stats: { label: 'stats', note: 'post / word / reading-time counters', props: ['title'] },
+  badges: { label: 'buttons', note: '88×31 button rack (edit the buttons in site settings → badges.txt)', props: ['title'] },
+  audio: { label: 'loop.exe', note: 'a small music player for your own .mp3 / .ogg / .wav in /images/ or /audio/', props: ['title', 'src', 'track', 'loop'] },
 } as const;
 export type WidgetType = keyof typeof WIDGET_TYPES;
 export type WidgetArea = 'main' | 'side';
@@ -34,6 +36,7 @@ export function legacyWidgets(): Widget[] {
     w('info', 'info', 'side'),
     w('todo', 'todo', 'side'),
     w('note', 'note', 'side'),
+    w('buttons', 'badges', 'side'),
   ];
 }
 

@@ -337,3 +337,16 @@
 .home .w-stats dd {
   font-variant-numeric: tabular-nums;
 }
+
+/* Home page legibility: body copy in full ink, secondary text a notch darker
+   than elsewhere (still lighter than the ink, so the hierarchy stays). */
+.home {
+  --ink-2: var(--ink);
+  --muted: #3d3d42; /* 10.6:1 on surface */
+  --faint: #55555b;
+}
+
+:root[data-theme='cyber'] .home {
+  --muted: #2c4568; /* 9.6:1 on porcelain */
+  --faint: #3e5b80;
+}

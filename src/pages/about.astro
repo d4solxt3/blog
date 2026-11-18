@@ -2,6 +2,7 @@
 export const prerender = false;
 /** Personal profile. Everything comes from site.config.json (authorName, authorHandle, profile). */
 import BaseLayout from '../layouts/BaseLayout.astro';
+import Badges from '../components/Badges.astro';
 import InkImage from '../components/InkImage.astro';
 import { SITE } from '../site.config';
 import { getPostsByDate, postUrl, formatDate } from '../utils/posts';
@@ -82,6 +83,7 @@ const currently = [
           </section>
         )
       }
+      <Badges id="about-buttons" />
     </aside>
 
     <div class="portal-main">

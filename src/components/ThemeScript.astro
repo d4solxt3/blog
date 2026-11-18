@@ -31,7 +31,11 @@ const visualDefault = SITE.defaultVisualView;
       // Front-page sidebar visual card (image / wireframe / ascii).
       root.setAttribute('data-visual', visual === 'image' || visual === 'wireframe' || visual === 'ascii' ? visual : visualDefault);
       // Article contents: open on arrival (then post-page.ts tucks it away), or closed.
-      root.setAttribute('data-toc', tocDefault);
+      var tocPref = null;
+      try {
+        tocPref = localStorage.getItem('toc-pref');
+      } catch (e) {}
+      root.setAttribute('data-toc', tocPref === 'shown' || tocPref === 'hidden' ? tocPref : tocDefault);
       if (theme === 'light' || theme === 'dark') {
         theme = theme === 'dark' ? 'cyber' : 'paper';
         try {

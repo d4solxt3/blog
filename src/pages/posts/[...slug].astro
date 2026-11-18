@@ -277,17 +277,28 @@ const slideIn = {
     font: 0.6875rem/1 var(--font-mono);
   }
 
-  /* Wide article frame: reading column + a right column that holds the sticky
-     contents (220px) or the quote_thread.exe panel — all inside the border. */
+  /* Wide article frame: the 65ch reading column and a 230px contents rail,
+     32px apart, centred together in the frame (no dead void between them).
+     The header lines up with the same group. A quote thread widens the rail. */
   @media (min-width: 1060px) {
     .post-grid {
-      grid-template-columns: minmax(0, 1fr) minmax(16rem, 20rem);
-      column-gap: clamp(2rem, 4vw, 3.25rem);
+      --rail: 230px;
+      grid-template-columns: minmax(0, var(--col, 65ch)) var(--rail);
+      column-gap: 32px;
+      justify-content: center;
     }
 
-    /* Contents hidden: one centred column that widens to ~80ch (--col-wide is
-       measured from the reading font by post-page.ts), so the text uses the
-       freed space. A quote thread still opens in the side column. */
+    .post-grid:has(.qt-drawer:not([hidden])) {
+      --rail: clamp(16rem, 24vw, 20rem);
+    }
+
+    .post-head {
+      box-sizing: content-box;
+      max-width: calc(var(--col, 65ch) + 32px + 230px);
+      margin-inline: auto;
+    }
+
+    /* Contents hidden: the text widens to ~80ch, centred; [ contents + ] brings it back. */
     :global(:root[data-toc='hidden']) .toc-show {
       display: inline-flex;
       align-items: center;
@@ -298,32 +309,19 @@ const slideIn = {
     }
 
     :global(:root[data-toc='hidden']) .post-grid:not(:has(.qt-drawer:not([hidden]))) {
-      grid-template-columns: minmax(0, 1fr);
-    }
-
-    :global(:root[data-toc='hidden']) .post-grid:not(:has(.qt-drawer:not([hidden]))) .post-side {
-      display: none;
-    }
-
-    :global(:root[data-toc='hidden']) .post-grid:not(:has(.qt-drawer:not([hidden]))) .post-main,
-    :global(:root[data-toc='hidden']) .post-head {
-      box-sizing: content-box;
-      max-width: var(--col-wide, 80ch);
-      margin-inline: auto;
+      grid-template-columns: minmax(0, var(--col-wide, 80ch));
     }
 
     :global(:root[data-toc='hidden']) .post-grid:not(:has(.qt-drawer:not([hidden]))) .post-main :global(.prose) {
       max-width: var(--col-wide, 80ch);
     }
 
-    /* DEV comparison ("glide"): keep the 65ch lines and only centre them. */
-    :global(:root[data-toc='hidden'][data-tocfx='glide']) .post-grid:not(:has(.qt-drawer:not([hidden]))) .post-main,
-    :global(:root[data-toc='hidden'][data-tocfx='glide']) .post-head {
-      max-width: var(--col, 65ch);
+    :global(:root[data-toc='hidden']) .post-grid:not(:has(.qt-drawer:not([hidden]))) .post-side {
+      display: none;
     }
 
-    :global(:root[data-toc='hidden'][data-tocfx='glide']) .post-grid:not(:has(.qt-drawer:not([hidden]))) .post-main :global(.prose) {
-      max-width: var(--col, 65ch);
+    :global(:root[data-toc='hidden']) .post-head {
+      max-width: var(--col-wide, 80ch);
     }
 
     /* "contents +" eases in as the column leaves. */
@@ -331,11 +329,6 @@ const slideIn = {
       :global(:root[data-toc='hidden']) .toc-show {
         animation: toc-show-in 260ms var(--ease, ease-out) both;
       }
-    }
-
-    .post-side {
-      padding-left: 1.25rem;
-      border-left: 1px dotted var(--muted);
     }
 
     /* While a quote thread is open it takes the contents' place. */

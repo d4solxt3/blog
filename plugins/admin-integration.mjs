@@ -18,8 +18,9 @@ const POST_NAME = /^[a-z0-9][a-z0-9-]*\.(md|mdx)$/;
 const IMAGE_NAME = /\.(png|jpe?g|gif|webp|svg|avif)$/i;
 // Uploads from look.cfg can also be short looping videos (banner / sidebar slots).
 const MEDIA_NAME = /\.(png|jpe?g|gif|webp|svg|avif|mp4|webm)$/i;
+const AUDIO_NAME = /\.(mp3|ogg|wav)$/i;
 const LOCAL = new Set(['127.0.0.1', '::1', '::ffff:127.0.0.1']);
-const MAX_BODY = 8 * 1024 * 1024;
+const MAX_BODY = 32 * 1024 * 1024; // local only; room for a short music loop
 
 function send(res, status, data, type = 'application/json; charset=utf-8') {
   res.statusCode = status;
@@ -162,11 +163,14 @@ async function handle(req, res, url) {
       .toLowerCase()
       .replace(/[^a-z0-9._-]+/g, '-')
       .replace(/^[.-]+/, '');
-    if (!MEDIA_NAME.test(safe)) return send(res, 400, { error: 'Images or short videos only: png, jpg, gif, webp, svg, avif, mp4, webm' });
+    const audio = AUDIO_NAME.test(safe);
+    if (!audio && !MEDIA_NAME.test(safe)) return send(res, 400, { error: 'Images, short videos or audio only: png, jpg, gif, webp, svg, avif, mp4, webm, mp3, ogg, wav' });
     const base64 = String(data ?? '').replace(/^data:[^;]+;base64,/, '');
-    mkdirSync(IMAGES, { recursive: true });
-    writeFileSync(join(IMAGES, safe), Buffer.from(base64, 'base64'));
-    return send(res, 200, { path: `/images/${safe}` });
+    // Music goes to public/audio, pictures and videos to public/images.
+    const dir = audio ? join(IMAGES, '..', 'audio') : IMAGES;
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, safe), Buffer.from(base64, 'base64'));
+    return send(res, 200, { path: `/${audio ? 'audio' : 'images'}/${safe}` });
   }
 
   // Typed or pasted ASCII for the sidebar card (same file the converter writes).

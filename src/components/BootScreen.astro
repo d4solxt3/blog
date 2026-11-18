@@ -1,0 +1,86 @@
+---
+/**
+ * A one-second ASCII "boot" when someone first opens the home page in a visit:
+ * a little POST log and a hatched meter, then it fades. Click or any key skips
+ * it. Never shown twice in a browser session, and never with reduced motion.
+ */
+import { SITE } from '../site.config';
+
+const name = SITE.name.toUpperCase();
+const year = new Date().getUTCFullYear();
+---
+
+<div class="boot" data-boot hidden aria-hidden="true">
+  <div class="boot-win">
+    <div class="boot-bar"><span>{SITE.name}.sys</span><span>v{year}.11</span></div>
+    <pre class="boot-log" data-boot-log></pre>
+    <div class="boot-meter"><span data-boot-meter></span></div>
+    <p class="boot-skip">press any key or click to skip</p>
+  </div>
+</div>
+
+<!-- Decides before the first paint, so the page never flashes underneath. -->
+<script is:inline>
+  (function () {
+    var el = document.querySelector('[data-boot]');
+    if (!el) return;
+    var seen = false;
+    try {
+      seen = sessionStorage.getItem('booted') === '1';
+      sessionStorage.setItem('booted', '1');
+    } catch (e) {
+      seen = true;
+    }
+    if (seen || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return el.remove();
+    el.hidden = false;
+  })();
+</script>
+
+<script define:vars={{ name }}>
+  (function () {
+    var el = document.querySelector('[data-boot]');
+    if (!el || el.hidden) return;
+    var log = el.querySelector('[data-boot-log]');
+    var meter = el.querySelector('[data-boot-meter]');
+    var lines = [
+      name + ' BIOS (C) 2003-' + new Date().getUTCFullYear(),
+      'memory test ........ 640K <ok>',
+      'mounting /posts .... <ok>',
+      'loading ascii.drv .. <ok>',
+      'dialing residual stream ··· <ok>',
+      '> welcome back.',
+    ];
+    var i = 0;
+    var done = false;
+    function leave() {
+      if (done) return;
+      done = true;
+      el.classList.add('is-leaving');
+      setTimeout(function () {
+        el.remove();
+      }, 240);
+      document.removeEventListener('keydown', leave, true);
+    }
+    function step() {
+      if (done) return;
+      if (i < lines.length) {
+        var line = document.createElement('div');
+        var parts = lines[i].split('<ok>');
+        line.textContent = parts[0];
+        if (parts.length > 1) {
+          var ok = document.createElement('span');
+          ok.className = 'ok';
+          ok.textContent = 'OK';
+          line.append(ok);
+        }
+        log.append(line);
+        i += 1;
+        meter.style.width = Math.round((i / lines.length) * 100) + '%';
+        setTimeout(step, 150);
+      } else setTimeout(leave, 260);
+    }
+    el.addEventListener('click', leave);
+    document.addEventListener('keydown', leave, true);
+    setTimeout(step, 60);
+  })();
+</script>

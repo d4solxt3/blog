@@ -4,6 +4,9 @@
  */
 import { MEDIA_SRC, SITE, WIDGET_TYPES, type Widget } from '../../site.config';
 
+/** Self-hosted audio only: /audio/… or /images/… */
+export const AUDIO_SRC = /^\/(audio|images)\/[a-z0-9._\/-]+\.(mp3|ogg|wav)$/i;
+
 type Link = { label: string; url: string };
 const text = (v: unknown, fallback = '') => (typeof v === 'string' && v.trim() ? v.trim() : fallback);
 const arr = <T>(v: unknown, fallback: T[]): T[] => (Array.isArray(v) ? (v as T[]) : fallback);
@@ -64,6 +67,16 @@ export function widgetData(w: Widget) {
         href: safeUrl(p.href),
       };
     }
+    case 'audio': {
+      const src = text(p.src);
+      const ok = AUDIO_SRC.test(src) && !src.includes('..');
+      return {
+        src: ok ? src : '',
+        problem: !src ? 'add props.src (an .mp3, .ogg or .wav in /audio/ or /images/)' : !ok ? 'src must be an .mp3, .ogg or .wav inside /audio/ or /images/' : '',
+        track: text(p.track, src.split('/').pop()?.replace(/\.[a-z0-9]+$/i, '') ?? 'untitled'),
+        loop: p.loop !== false,
+      };
+    }
     default:
       return {};
   }
@@ -84,6 +97,10 @@ export function widgetHasContent(w: Widget): boolean {
       return !!d.text;
     case 'text':
       return d.paras.length > 0;
+    case 'badges':
+      return SITE.badges.length > 0;
+    case 'audio':
+      return !!d.src || (import.meta.env.DEV && !!d.problem);
     case 'media':
       // In dev a broken media box explains itself; on the live site it just hides.
       return !!d.src || (import.meta.env.DEV && !!d.problem);

@@ -58,7 +58,7 @@ const byYear = [...years.entries()].sort((a, b) => b[0] - a[0]);
                 </div>
               ))
             ) : (
-              <p class="none">no series yet. add "series" to a post's frontmatter.</p>
+              <p class="none">no multi-part series yet.</p>
             )
           }
         </div>
@@ -71,7 +71,7 @@ const byYear = [...years.entries()].sort((a, b) => b[0] - a[0]);
             <span>{tags.length}</span>
           </div>
           <div class="panel-body">
-            <ul class="dir">
+            {tags.length === 0 ? <p class="none">none yet</p> : (<ul class="dir">
               {
                 tags.map(([slug, { label, count }]) => (
                   <li>
@@ -80,14 +80,14 @@ const byYear = [...years.entries()].sort((a, b) => b[0] - a[0]);
                   </li>
                 ))
               }
-            </ul>
+            </ul>)}
           </div>
         </section>
 
         <section class="panel" aria-labelledby="years-h">
           <div class="panel-bar"><h2 class="panel-title" id="years-h">by year</h2></div>
           <div class="panel-body">
-            <ul class="dir">
+            {byYear.length === 0 ? <p class="none">none yet</p> : (<ul class="dir">
               {
                 byYear.map(([y, n]) => (
                   <li>
@@ -98,7 +98,7 @@ const byYear = [...years.entries()].sort((a, b) => b[0] - a[0]);
                   </li>
                 ))
               }
-            </ul>
+            </ul>)}
           </div>
         </section>
       </div>

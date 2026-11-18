@@ -1,0 +1,288 @@
+---
+/**
+ * loop.exe — a tiny 2003-style music player for one self-hosted track.
+ * Real <audio> underneath (no autoplay): play/pause, a scrub bar, volume,
+ * elapsed / total time, and a little level meter that only moves while playing.
+ */
+import Panel from './Panel.astro';
+import type { Widget } from '../../site.config';
+import { widgetData } from './data';
+
+interface Props {
+  w: Widget;
+  title: string;
+}
+const { w, title } = Astro.props;
+const d = widgetData(w) as { src: string; problem: string; track: string; loop: boolean };
+const uid = `aud-${w.id}`;
+---
+
+<Panel id={w.id} title={title} type="audio">
+  {
+    d.src ? (
+      <div class="panel-body lx" data-loopexe>
+        <audio src={d.src} preload="metadata" loop={d.loop} data-audio />
+        <div class="lx-screen well" aria-hidden="true">
+          <span class="lx-state" data-state>■ stop</span>
+          <span class="lx-track">
+            <span class="lx-track-in">{d.track}</span>
+          </span>
+          <span class="lx-meter" data-meter>
+            {Array.from({ length: 6 }, (_, i) => (
+              <i style={`--i:${i}`} />
+            ))}
+          </span>
+        </div>
+        <div class="lx-row">
+          <button type="button" class="bevel lx-play" data-play aria-label={`Play ${d.track}`} aria-pressed="false">
+            <span aria-hidden="true" data-play-icon>▶</span>
+          </button>
+          <label class="sr-only" for={`${uid}-seek`}>Position in {d.track}</label>
+          <input class="lx-range lx-seek" id={`${uid}-seek`} type="range" min="0" max="1000" step="1" value="0" data-seek aria-valuetext="0:00" />
+          <span class="lx-time" data-time aria-hidden="true">0:00/--:--</span>
+        </div>
+        <div class="lx-row lx-row--vol">
+          <label class="lx-vol-label" for={`${uid}-vol`}>vol</label>
+          <input class="lx-range lx-vol" id={`${uid}-vol`} type="range" min="0" max="100" step="1" value="70" data-vol />
+          <span class="lx-loop" aria-hidden="true">{d.loop ? '⟲ loop' : '→ once'}</span>
+        </div>
+      </div>
+    ) : (
+      <p class="panel-body w-problem">loop.exe: {d.problem}</p>
+    )
+  }
+</Panel>
+
+<style>
+  .lx {
+    display: grid;
+    gap: 6px;
+    font: 11px/1.2 var(--font-mono);
+  }
+
+  .lx-screen {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 6px;
+    height: 22px;
+    padding: 0 6px;
+    background: var(--ink);
+    color: var(--surface-main);
+    border-color: var(--line);
+  }
+
+  :global(:root[data-theme='cyber']) .lx-screen {
+    background: #102038;
+    color: #dce6f2;
+  }
+
+  .lx-state {
+    font-size: 9.5px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    opacity: 0.85;
+  }
+
+  .lx-track {
+    overflow: hidden;
+    white-space: nowrap;
+  }
+
+  .lx-track-in {
+    display: inline-block;
+  }
+
+  /* Full motion + playing: the title scrolls like an old player's marquee. */
+  @media (prefers-reduced-motion: no-preference) {
+    :global(:root[data-motion='full']) .lx.is-playing .lx-track-in {
+      padding-left: 100%;
+      animation: lx-marquee 12s linear infinite;
+    }
+  }
+
+  @keyframes lx-marquee {
+    to {
+      transform: translateX(-100%);
+    }
+  }
+
+  .lx-meter {
+    display: inline-flex;
+    align-items: flex-end;
+    gap: 1px;
+    height: 10px;
+  }
+
+  .lx-meter i {
+    width: 2px;
+    height: 2px;
+    background: currentColor;
+  }
+
+  :global(:root[data-theme='cyber']) .lx-meter i {
+    background: #4a8fe7;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .lx.is-playing .lx-meter i {
+      animation: lx-level 0.9s steps(5) infinite alternate;
+      animation-delay: calc(var(--i) * -0.17s);
+    }
+  }
+
+  @keyframes lx-level {
+    to {
+      height: 10px;
+    }
+  }
+
+  .lx-row {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .lx-play {
+    width: 26px;
+    height: 20px;
+    padding: 0;
+    font: 600 10px/1 var(--font-mono);
+  }
+
+  .lx-time,
+  .lx-loop,
+  .lx-vol-label {
+    color: var(--muted);
+    font-size: 10px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Recessed track, square beveled thumb. */
+  .lx-range {
+    width: 100%;
+    height: 14px;
+    margin: 0;
+    background: transparent;
+    appearance: none;
+    cursor: pointer;
+  }
+
+  .lx-range::-webkit-slider-runnable-track {
+    height: 6px;
+    border: 1px solid var(--border-hairline);
+    background: linear-gradient(90deg, var(--accent) 0 var(--fill, 0%), var(--surface-recessed) var(--fill, 0%));
+    box-shadow: inset 1px 1px 0 var(--bevel-shadow);
+  }
+
+  .lx-range::-moz-range-track {
+    height: 4px;
+    border: 1px solid var(--border-hairline);
+    background: linear-gradient(90deg, var(--accent) 0 var(--fill, 0%), var(--surface-recessed) var(--fill, 0%));
+  }
+
+  .lx-range::-webkit-slider-thumb {
+    width: 9px;
+    height: 12px;
+    margin-top: -4px;
+    border: 1px solid var(--line);
+    border-radius: 0;
+    background: linear-gradient(var(--surface-raised), var(--surface-raised-low));
+    box-shadow: inset 0 1px 0 var(--bevel-highlight);
+    appearance: none;
+  }
+
+  .lx-range::-moz-range-thumb {
+    width: 7px;
+    height: 10px;
+    border: 1px solid var(--line);
+    border-radius: 0;
+    background: linear-gradient(var(--surface-raised), var(--surface-raised-low));
+  }
+
+  .lx-range:focus-visible {
+    outline: 1px dotted var(--ink);
+    outline-offset: 2px;
+  }
+
+  @media (pointer: coarse), (max-width: 560px) {
+    .lx-play {
+      width: 36px;
+      height: 36px;
+    }
+
+    .lx-range {
+      height: 36px;
+    }
+  }
+</style>
+
+<script>
+  import { onPage } from '../../scripts/lifecycle';
+
+  const fmt = (s: number) => (Number.isFinite(s) ? `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}` : '--:--');
+
+  onPage((signal) => {
+    document.querySelectorAll<HTMLElement>('[data-loopexe]').forEach((box) => {
+      const audio = box.querySelector<HTMLAudioElement>('[data-audio]')!;
+      const play = box.querySelector<HTMLButtonElement>('[data-play]')!;
+      const icon = box.querySelector<HTMLElement>('[data-play-icon]')!;
+      const seek = box.querySelector<HTMLInputElement>('[data-seek]')!;
+      const vol = box.querySelector<HTMLInputElement>('[data-vol]')!;
+      const time = box.querySelector<HTMLElement>('[data-time]')!;
+      const state = box.querySelector<HTMLElement>('[data-state]')!;
+      let scrubbing = false;
+
+      try {
+        const v = Number(localStorage.getItem('loopexe:vol'));
+        if (localStorage.getItem('loopexe:vol') !== null && v >= 0 && v <= 100) vol.value = String(v);
+      } catch {}
+      const paintVol = () => {
+        audio.volume = Number(vol.value) / 100;
+        vol.style.setProperty('--fill', `${vol.value}%`);
+        vol.setAttribute('aria-valuetext', `${vol.value}%`);
+      };
+      paintVol();
+
+      const paint = () => {
+        const dur = audio.duration;
+        const pos = audio.currentTime;
+        if (!scrubbing && Number.isFinite(dur) && dur > 0) seek.value = String(Math.round((pos / dur) * 1000));
+        seek.style.setProperty('--fill', `${Number(seek.value) / 10}%`);
+        seek.setAttribute('aria-valuetext', `${fmt(pos)} of ${fmt(dur)}`);
+        time.textContent = `${fmt(pos)}/${fmt(dur)}`;
+      };
+      const setPlaying = (on: boolean) => {
+        box.classList.toggle('is-playing', on);
+        play.setAttribute('aria-pressed', String(on));
+        play.setAttribute('aria-label', `${on ? 'Pause' : 'Play'} ${play.getAttribute('aria-label')!.replace(/^(Play|Pause) /, '')}`);
+        icon.textContent = on ? '❚❚' : '▶';
+        state.textContent = on ? '▶ play' : audio.currentTime > 0 ? '❚❚ pause' : '■ stop';
+      };
+
+      play.addEventListener('click', () => (audio.paused ? audio.play().catch(() => setPlaying(false)) : audio.pause()), { signal });
+      audio.addEventListener('play', () => setPlaying(true), { signal });
+      audio.addEventListener('pause', () => setPlaying(false), { signal });
+      audio.addEventListener('ended', () => setPlaying(false), { signal });
+      audio.addEventListener('timeupdate', paint, { signal });
+      audio.addEventListener('loadedmetadata', paint, { signal });
+      audio.addEventListener('error', () => (state.textContent = '× error'), { signal });
+      seek.addEventListener('input', () => {
+        scrubbing = true;
+        if (Number.isFinite(audio.duration)) audio.currentTime = (Number(seek.value) / 1000) * audio.duration;
+        paint();
+      }, { signal });
+      seek.addEventListener('change', () => (scrubbing = false), { signal });
+      vol.addEventListener('input', () => {
+        paintVol();
+        try {
+          localStorage.setItem('loopexe:vol', vol.value);
+        } catch {}
+      }, { signal });
+      // Leaving the page (client-side navigation) stops the music.
+      signal.addEventListener('abort', () => audio.pause());
+      paint();
+    });
+  });
+</script>

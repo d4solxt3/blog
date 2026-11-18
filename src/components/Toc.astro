@@ -33,11 +33,9 @@ const labelId = `toc-label-${variant}`;
 
 {
   variant === 'sidebar' ? (
-    <nav class="toc toc-sidebar dot-box" aria-labelledby={labelId}>
+    <nav class="toc toc-sidebar" aria-labelledby={labelId}>
       <div class="toc-head">
-        <p class="lsl lsl--bracket" id={labelId}>
-          contents<span class="close" />
-        </p>
+        <p class="toc-title" id={labelId}>contents</p>
         <button type="button" class="toc-hide bevel" data-toc-toggle="hidden" aria-label="Hide contents" title="Hide contents">
           hide ×
         </button>
@@ -103,26 +101,35 @@ const labelId = `toc-label-${variant}`;
 }
 
 <style>
+  /* Same chrome as the portal panels: 1px frame, 20px shaded title strip. */
   .toc-head {
     display: flex;
     align-items: center;
+    justify-content: space-between;
     gap: 8px;
+    min-height: 20px;
+    padding: 0 3px 0 8px;
+    border-bottom: 1px solid var(--line);
+    background: linear-gradient(var(--strip-top), var(--strip-bottom));
+    box-shadow: inset 0 1px 0 var(--bevel-highlight);
   }
 
-  .toc-head .lsl {
-    flex: 1;
-    margin-bottom: 0;
+  .toc-title {
+    margin: 0;
+    font: 600 11px/1.2 var(--font-mono);
+    color: var(--ink);
   }
 
   .toc-hide {
     flex: none;
-    min-height: 18px;
-    padding: 0 6px;
-    font: 10.5px/1 var(--font-mono);
+    min-height: 15px;
+    padding: 0 5px;
+    border-radius: 0;
+    font: 10px/1 var(--font-mono);
   }
 
   .toc-head + .toc-list {
-    margin-top: 0.5rem;
+    margin-top: 0;
   }
 
   .toc-list,
@@ -188,14 +195,15 @@ const labelId = `toc-label-${variant}`;
   .toc-sidebar {
     position: sticky;
     top: 1.25rem;
-    max-width: 220px;
+    border: 1px solid var(--line);
+    background: var(--surface-main);
     max-height: calc(100vh - 2.5rem);
     display: flex;
     flex-direction: column;
   }
 
   .toc-sidebar .toc-list {
-    padding: 0 0 0.1rem;
+    padding: 0.35rem 0.5rem 0.45rem 0.1rem;
     overflow-y: auto;
     scrollbar-width: thin;
   }

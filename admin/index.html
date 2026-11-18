@@ -310,6 +310,7 @@
                   <label class="field"><span>Bio</span><textarea data-key="profile.bio" data-type="paragraphs" rows="6"></textarea><small>leave a blank line between paragraphs</small></label>
                   <label class="field"><span>Interests</span><textarea data-key="profile.interests" data-type="lines" rows="3"></textarea><small>one per line</small></label>
                   <label class="field"><span>Links</span><textarea data-key="profile.links" data-type="links" rows="4"></textarea><small>one per line: label | https://address</small></label>
+                  <label class="field"><span>88×31 buttons (badges.txt)</span><textarea data-key="badges" data-type="badges" rows="5" spellcheck="false" placeholder="HEARTCACHE | est. 2026 | / | heart"></textarea><small>one per line: LABEL | small line | link | look | /images/own-88x31.gif. looks: heart, rss, hud, code, plain. the image is optional (your own 88×31 GIF/PNG replaces the drawn one). shown at the foot of the sidebar on home and about; leave empty for the four defaults</small></label>
                 </div>
               </section>
             </form>
@@ -467,6 +468,7 @@
         else if (type === 'updates') el.value = (v || []).map((u) => `${u.date} | ${u.text}`).join('\n');
         else if (type === 'todo') el.value = (v || []).map((t) => `${t.done ? '[x] ' : ''}${t.text}`).join('\n');
         else if (type === 'progress') el.value = (v || []).map((p) => `${p.percent} | ${p.label}`).join('\n');
+        else if (type === 'badges') el.value = (v || []).map((b) => [b.label, b.sub, b.href, b.look, b.image].map((x) => x ?? '').join(' | ').replace(/( \| )+$/, '')).join('\n');
         else el.value = v ?? '';
       };
       const fromField = (el) => {
@@ -490,6 +492,13 @@
             const [pct, ...rest] = line.split('|');
             return { label: rest.join('|').trim(), percent: Math.max(0, Math.min(100, Number.parseInt(pct, 10) || 0)) };
           }).filter((p) => p.label);
+        if (type === 'badges') {
+          const rows = el.value.split('\n').map((line) => line.trim()).filter(Boolean).map((line) => {
+            const [label = '', sub = '', href = '', look = 'plain', image = ''] = line.split('|').map((x) => x.trim());
+            return { label, sub, href, look: look || 'plain', image };
+          });
+          return rows.length ? rows : undefined;
+        }
         if (type === 'todo')
           return el.value.split('\n').map((line) => line.trim()).filter(Boolean).map((line) => {
             const done = /^\[x\]\s*/i.test(line);

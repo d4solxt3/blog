@@ -6,6 +6,8 @@ import Panel from './Panel.astro';
 import Calendar from './Calendar.astro';
 import Stats from './Stats.astro';
 import LoopMedia from '../LoopMedia.astro';
+import Badges from '../Badges.astro';
+import Audio from './Audio.astro';
 import { SITE, type Widget } from '../../site.config';
 import type { Post } from '../../utils/posts';
 import { widgetData, widgetTitle } from './data';
@@ -201,6 +203,10 @@ const dotDate = (s: string) => String(s).replace(/-/g, '.');
 {w.type === 'calendar' && <Calendar w={w} title={title} posts={posts} />}
 
 {w.type === 'stats' && <Stats w={w} title={title} posts={posts} />}
+
+{w.type === 'badges' && <Badges id={w.id} title={title} />}
+
+{w.type === 'audio' && <Audio w={w} title={title} />}
 
 {
   w.type === 'media' && (

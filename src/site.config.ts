@@ -111,6 +111,28 @@ function widgets(v: unknown): Widget[] {
   return out.sort((a, b) => a.order - b.order || a.i - b.i).map(({ i, order, ...w }) => w);
 }
 
+/** 88×31 buttons for the sidebar rack. look: heart | rss | hud | code | plain; image: your own 88×31 GIF/PNG in /images/. */
+export type Badge = { label: string; sub: string; href: string; look: 'heart' | 'rss' | 'hud' | 'code' | 'plain'; image: string };
+export const BADGE_LOOKS = ['heart', 'rss', 'hud', 'code', 'plain'] as const;
+const DEFAULT_BADGES: Badge[] = [
+  { label: 'HEARTCACHE', sub: 'est. 2026', href: '/', look: 'heart', image: '' },
+  { label: 'RSS 2.0', sub: 'subscribe', href: '/rss.xml', look: 'rss', image: '' },
+  { label: 'ASCII // HUD', sub: 'monospace', href: '/about/', look: 'hud', image: '' },
+];
+function badges(v: unknown): Badge[] {
+  if (!Array.isArray(v)) return DEFAULT_BADGES;
+  return v
+    .filter((b: any) => b && (typeof b.label === 'string' || typeof b.image === 'string'))
+    .slice(0, 12)
+    .map((b: any) => ({
+      label: String(b.label ?? '').slice(0, 14),
+      sub: String(b.sub ?? '').slice(0, 14),
+      href: /^(https?:\/\/|mailto:|\/(?!\/))/i.test(String(b.href ?? '')) ? String(b.href) : '',
+      look: (BADGE_LOOKS as readonly string[]).includes(b.look) ? b.look : 'plain',
+      image: /^\/images\/[a-z0-9._\/-]+\.(gif|png|webp)$/i.test(String(b.image ?? '')) && !String(b.image).includes('..') ? String(b.image) : '',
+    }));
+}
+
 export const SITE = {
   name,
   subtitle,
@@ -155,6 +177,8 @@ export const SITE = {
   },
   /** Animated emoticons before the browser tab title (quiet and full; off for reduced motion; paused when the tab is hidden). */
   tabAnimation: tabAnimation(r.tabAnimation),
+  /** The 88×31 button rack at the foot of the sidebar (home + about). [] hides it. */
+  badges: badges(r.badges),
   /** Front-page boxes, in order (see WIDGET_TYPES above). */
   widgets: widgets(r.widgets),
   /** Slim dithered strip under the nav on the hub pages. image "" = the built-in horizon. */
