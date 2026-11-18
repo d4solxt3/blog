@@ -48,11 +48,11 @@ const annotations = SITE.inlineAnnotations && post.data.annotations !== false;
 const fadeIn = {
   forwards: {
     old: { name: 'hud-fade-out', duration: '120ms', easing: 'linear', fillMode: 'both' },
-    new: { name: 'hud-fade-in', duration: '180ms', delay: '80ms', easing: 'linear', fillMode: 'both' },
+    new: { name: 'rise-in', duration: '260ms', delay: '90ms', easing: 'cubic-bezier(0.19, 1, 0.22, 1)', fillMode: 'both' },
   },
   backwards: {
     old: { name: 'hud-fade-out', duration: '120ms', easing: 'linear', fillMode: 'both' },
-    new: { name: 'hud-fade-in', duration: '180ms', delay: '80ms', easing: 'linear', fillMode: 'both' },
+    new: { name: 'rise-in', duration: '260ms', delay: '90ms', easing: 'cubic-bezier(0.19, 1, 0.22, 1)', fillMode: 'both' },
   },
 };
 const slideIn = {

@@ -284,8 +284,9 @@ a {
      the old and new contents cross-fade unscaled inside it.
    - tick-*: corner registration marks that glide out with the frame.
    - nav-indicator: the active-tab underline slides between tabs.
-   - portal-side / portal-main: hub boxes wipe open like desktop windows,
-     sidebar first, content 35ms later.
+   - portal-side / portal-main: the old boxes lift 4px and fade; the new
+     ones open like little windows (title bar, then the body unrolls), one
+     after another down each column (page-enter.ts + :root.is-entering).
    - post-title-<slug>: the clicked title glides into the article header.
    ========================================================================== */
 
@@ -349,15 +350,66 @@ a {
 
 ::view-transition-old(portal-side),
 ::view-transition-old(portal-main) {
-  animation: hud-fade-out 90ms linear both;
+  animation: page-lift 130ms cubic-bezier(0.4, 0, 1, 1) both;
 }
 
-::view-transition-new(portal-side) {
-  animation: tile-wipe 190ms var(--snap) both;
-}
-
+/* The new columns show live, so each box's own opening animation plays. */
+::view-transition-new(portal-side),
 ::view-transition-new(portal-main) {
-  animation: tile-wipe 190ms var(--snap) 40ms both;
+  animation: none;
+}
+
+@keyframes page-lift {
+  to {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+/* A box opening: it drops in 5px with only its title bar showing, then the
+   body unrolls downward (the window shade, in reverse). */
+:root.is-entering .portal:not(.studio-portal) .panel {
+  animation: win-open 330ms var(--snap) both;
+  animation-delay: calc(var(--enter-i, 0) * 45ms + 40ms);
+}
+
+@keyframes win-open {
+  0% {
+    opacity: 0;
+    transform: translateY(5px);
+    clip-path: inset(0 0 calc(100% - 22px) 0);
+  }
+  35% {
+    opacity: 1;
+    transform: none;
+    clip-path: inset(0 0 calc(100% - 22px) 0);
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+/* The title text flickers on like an old screen as its bar appears. */
+:root.is-entering .portal:not(.studio-portal) .panel > .panel-bar .panel-title {
+  animation: title-on 260ms steps(4, end) both;
+  animation-delay: calc(var(--enter-i, 0) * 45ms + 60ms);
+}
+
+@keyframes title-on {
+  0% {
+    opacity: 0;
+  }
+  50% {
+    opacity: 0.7;
+  }
+  75% {
+    opacity: 0.3;
+  }
+  100% {
+    opacity: 1;
+  }
 }
 
 /* Hub boxes take part in the tile wipe. */
@@ -368,15 +420,6 @@ a {
 .portal-main,
 .portal--wide {
   view-transition-name: portal-main;
-}
-
-@keyframes tile-wipe {
-  from {
-    clip-path: inset(0 100% 0 0);
-  }
-  to {
-    clip-path: inset(0 0 0 0);
-  }
 }
 
 @keyframes rule-draw {
@@ -416,6 +459,14 @@ a {
   -webkit-mask-repeat: no-repeat;
   mask-repeat: no-repeat;
   mask-size: 0 0;
+}
+
+/* An article's text: rises 6px into place as it fades in. */
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
 }
 
 @keyframes hud-fade-in {
