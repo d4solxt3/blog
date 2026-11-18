@@ -17,6 +17,11 @@ export default defineConfig({
   // Your public address (siteUrl in site.config.json). Optional until you deploy.
   site: siteUrl?.href,
 
+  // The "writing" tab lives at /archive/; a typed /writing lands there too.
+  redirects: {
+    '/writing': '/archive/',
+  },
+
   // Behind a host's proxy (Railway, Render…), trust its forwarded headers for
   // your own domain only, so the comment rate limit sees each visitor's real IP.
   security: {

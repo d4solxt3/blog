@@ -590,7 +590,261 @@
   border-left: 1px solid var(--rule);
 }
 
+/* ---- formatting ribbon: a compact second row of bevels in the bar ---- */
+.sb-ribbon {
+  display: flex;
+  flex: 1 1 100%;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 3px;
+  padding-top: 3px;
+  border-top: 1px dotted var(--rule);
+}
+
+.sb-ribbon .rb {
+  min-width: 26px;
+  height: 22px;
+  padding: 0 6px;
+  font: 600 11px/1 var(--font-mono);
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.sb-ribbon .rb[data-cmd='italic'] {
+  font-style: italic;
+}
+
+.sb-ribbon .rb:focus-visible,
+.rb-menu [role='menuitem']:focus-visible {
+  outline: 2px solid var(--accent, var(--ink));
+  outline-offset: 1px;
+}
+
+.rb-more-wrap {
+  position: relative;
+  margin-left: auto;
+}
+
+.rb-menu {
+  position: absolute;
+  top: calc(100% + 3px);
+  right: 0;
+  z-index: 40;
+  display: grid;
+  min-width: 15rem;
+  padding: 2px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  box-shadow: 3px 3px 0 var(--rule);
+}
+
+.rb-menu[hidden] {
+  display: none;
+}
+
+.rb-menu [role='menuitem'] {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 26px;
+  padding: 0 8px;
+  border: 0;
+  background: none;
+  font: 11.5px var(--font-mono);
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+}
+
+.rb-menu [role='menuitem']:hover {
+  background: var(--ink);
+  color: var(--surface);
+}
+
+.rb-menu kbd {
+  font: inherit;
+  color: var(--muted);
+}
+
+.rb-menu [role='menuitem']:hover kbd {
+  color: inherit;
+}
+
+/* Main-row commands only listed in "more" when the row hides them (phones). */
+.rb-menu .rb-phone-only {
+  display: none;
+}
+
+/* ---- media tray (drops down under the bar) ---- */
+.sb-count:empty {
+  display: none;
+}
+
+.sb-tray {
+  position: absolute;
+  top: 100%;
+  right: var(--gutter);
+  left: var(--gutter);
+  z-index: 35;
+  max-width: 44rem;
+  max-height: min(60vh, 30rem);
+  margin-left: auto;
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  box-shadow: 3px 3px 0 var(--rule);
+  color: var(--ink);
+}
+
+.sb-tray[hidden] {
+  display: none;
+}
+
+.tray-note {
+  margin: 0;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--rule);
+  background: var(--bar);
+  color: var(--muted);
+}
+
+.tray-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tray-item {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  grid-template-areas: 'thumb info' 'thumb acts';
+  gap: 4px 10px;
+  padding: 8px 10px;
+  border-bottom: 1px dotted var(--rule);
+}
+
+.tray-thumb {
+  grid-area: thumb;
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  border: 1px solid var(--rule);
+  background: var(--surface-recessed, var(--wash));
+}
+
+.tray-thumb img,
+.tray-thumb video {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.tray-info {
+  grid-area: info;
+  display: grid;
+  min-width: 0;
+}
+
+.tray-name {
+  overflow: hidden;
+  color: var(--ink);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tray-meta {
+  color: var(--muted);
+}
+
+.tray-acts {
+  grid-area: acts;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.tray-acts button {
+  min-height: 24px;
+  padding: 0 8px;
+  font: 11px var(--font-mono);
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.tray-acts button:disabled {
+  color: var(--muted);
+  cursor: not-allowed;
+}
+
+.tray-acts .tray-del:not(:disabled) {
+  color: var(--signal, var(--ink));
+}
+
+/* Touch screens and phones: 36px+ targets; the ribbon keeps the main actions
+   on one wrapping row and moves the rest into "more"; the selection bubble is
+   replaced by the ribbon. */
+@media (pointer: coarse), (max-width: 700px) {
+  :root:has(.studio) {
+    scroll-padding-top: 150px;
+  }
+
+  .sb-ribbon {
+    gap: 4px;
+  }
+
+  .sb-ribbon .rb {
+    min-width: 36px;
+    height: 40px;
+    padding: 0 5px;
+    font-size: 12.5px;
+  }
+
+  .sb-ribbon .rb-wide {
+    display: none;
+  }
+
+  .rb-menu .rb-phone-only {
+    display: flex;
+  }
+
+  .rb-menu [role='menuitem'] {
+    align-items: center;
+    min-height: 40px;
+    font-size: 13px;
+  }
+
+  .w-bubble {
+    display: none !important;
+  }
+
+  .tray-acts button {
+    min-height: 40px;
+    padding: 0 12px;
+  }
+
+  .sb-tray {
+    right: 0;
+    left: 0;
+    max-height: 55vh;
+  }
+}
+
+@media (pointer: fine) and (min-width: 701px) {
+  :root:has(.studio) {
+    scroll-padding-top: 92px;
+  }
+}
+
 /* ---- images: thumbnails beside the lines that use them ---- */
+.w-thumb.is-uploading {
+  border-style: dashed;
+}
+
+.w-thumb.is-uploading img {
+  opacity: 0.7;
+}
+
 .w-gutter {
   position: absolute;
   top: 1rem;
@@ -659,6 +913,258 @@
   margin-top: 1.4rem;
   padding-top: 1rem;
   border-top: 1px dotted var(--muted);
+}
+
+/* ---- chart dialog: form | live preview, in a beveled window ---- */
+.w-chart {
+  width: min(66rem, calc(100% - 2rem));
+  max-width: none;
+  max-height: calc(100% - 2rem);
+  margin: auto;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  box-shadow: 4px 4px 0 var(--line);
+  color: var(--ink);
+}
+
+.w-chart[open] {
+  display: flex;
+  flex-direction: column;
+}
+
+.w-chart::backdrop {
+  background: color-mix(in srgb, var(--canvas) 65%, transparent);
+}
+
+.w-chart .win-bar {
+  flex: none;
+}
+
+.w-chart .win-title {
+  margin: 0;
+}
+
+.w-chart-x {
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 18px;
+  padding: 0;
+  font: 600 12px/1 var(--font-mono);
+  color: var(--ink);
+}
+
+.w-chart-body {
+  display: grid;
+  grid-template-columns: minmax(0, 22rem) minmax(0, 1fr);
+  grid-template-areas: 'fields preview' 'acts acts';
+  gap: 12px 16px;
+  min-height: 0;
+  padding: 12px;
+  overflow-y: auto;
+  font: 11px/1.45 var(--font-mono);
+}
+
+.w-chart-fields {
+  grid-area: fields;
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  min-width: 0;
+}
+
+.w-chart-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.w-chart-row3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.w-chart-fields label {
+  display: grid;
+  align-content: start;
+  gap: 3px;
+  min-width: 0;
+  color: var(--muted);
+}
+
+.w-chart-opt {
+  color: var(--muted);
+}
+
+.w-chart-fields input,
+.w-chart-fields select,
+.w-chart-fields textarea {
+  width: 100%;
+  min-width: 0;
+  min-height: 24px;
+  padding: 3px 5px;
+  border: 1px solid var(--line);
+  border-radius: 0;
+  background: var(--surface);
+  font: 12px/1.45 var(--font-mono);
+  color: var(--ink);
+}
+
+.w-chart-fields textarea {
+  min-height: 10em;
+  resize: vertical;
+  white-space: pre;
+  overflow-wrap: normal;
+  overflow-x: auto;
+  tab-size: 4;
+}
+
+.w-chart-fields ::placeholder {
+  color: var(--muted);
+  opacity: 1;
+}
+
+.w-chart-fields :focus-visible,
+.w-chart-acts button:focus-visible,
+.w-chart-x:focus-visible,
+.w-chart-src summary:focus-visible {
+  outline: 2px solid var(--accent, var(--ink));
+  outline-offset: 1px;
+}
+
+.w-chart-preview {
+  grid-area: preview;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.w-chart-ptitle {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  margin: 0;
+  font: inherit;
+  color: var(--muted);
+}
+
+.w-chart-state {
+  color: var(--ink-2);
+}
+
+.w-chart-out {
+  flex: 1;
+  min-height: 14rem;
+  max-height: 60vh;
+  padding: 10px 12px;
+  overflow: auto;
+  border: 1px dashed var(--line);
+  background: var(--surface);
+}
+
+.w-chart-out > :first-child {
+  margin-top: 0;
+}
+
+.w-chart-src summary {
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.w-chart-src pre {
+  max-height: 12rem;
+  margin: 4px 0 0;
+  padding: 6px 8px;
+  overflow: auto;
+  border: 1px solid var(--rule);
+  background: var(--wash);
+  font: 11px/1.45 var(--font-mono);
+  color: var(--ink);
+  white-space: pre;
+}
+
+.w-chart-acts {
+  grid-area: acts;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.w-chart-acts button {
+  min-height: 26px;
+  padding: 0 10px;
+  font: 12px var(--font-mono);
+  color: var(--ink);
+}
+
+.w-chart-insert {
+  font-weight: 600;
+}
+
+/* Phones: the whole screen, one column, 40px controls. */
+@media (max-width: 700px) {
+  .w-chart {
+    width: 100%;
+    height: 100%;
+    max-height: 100%;
+    margin: 0;
+    box-shadow: none;
+  }
+
+  .w-chart-body {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: 'fields' 'preview' 'acts';
+    padding: 10px;
+  }
+
+  .w-chart-row3 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .w-chart-out {
+    min-height: 12rem;
+    max-height: none;
+  }
+
+  .w-chart-acts {
+    position: sticky;
+    bottom: -10px;
+    margin: 0 -10px -10px;
+    padding: 8px 10px;
+    border-top: 1px solid var(--rule);
+    background: var(--surface);
+  }
+}
+
+@media (pointer: coarse), (max-width: 700px) {
+  .w-chart-fields input,
+  .w-chart-fields select,
+  .w-chart-acts button {
+    min-height: 40px;
+    font-size: 16px; /* no zoom-on-focus on iOS */
+  }
+
+  .w-chart-fields textarea {
+    font-size: 16px;
+  }
+
+  .w-chart-x {
+    width: 40px;
+    height: 40px;
+    margin-right: -0.4rem;
+    font-size: 18px;
+  }
+
+  .w-chart .win-bar {
+    height: 44px;
+  }
+
+  .w-chart-src summary {
+    padding-block: 12px;
+  }
 }
 
 /* ---- focus mode: just the words ---- */

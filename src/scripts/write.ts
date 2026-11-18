@@ -59,13 +59,67 @@ async function api(path: string, method: string, body?: unknown, headers: Record
   return data;
 }
 
+// ---- chart snippets (pure, so they can be checked on their own) ----------------------
+export type ChartSpec = { type: string; title: string; xLabel: string; yLabel: string; unit: string; caption: string; id: string; data: string };
+
+/** "My Chart!" → "my-chart" (ids become #fig-<id> anchors). */
+export const chartId = (s: string) =>
+  s
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9-]+/g, '-')
+    .replace(/-{2,}/g, '-')
+    .replace(/^-+|-+$/g, '');
+
+/** A YAML scalar: plain when that's safe, JSON-quoted (valid YAML) otherwise. */
+const yamlValue = (v: string) =>
+  /[:#,[\]{}]|^[\s'"!&*|>%@`?-]|\s$/.test(v) || /^(true|false|yes|no|on|off|null|~|[-+]?(\d[\d_]*)?\.?\d+(e[-+]?\d+)?)$/i.test(v) ? JSON.stringify(v) : v;
+
+/** Pasted data, tidied: newlines normalised, common indent and blank edges removed. */
+function chartData(raw: string) {
+  const lines = raw.replace(/\r\n?/g, '\n').replace(/\s+$/, '').split('\n');
+  while (lines.length && !lines[0].trim()) lines.shift();
+  const indent = Math.min(...lines.filter((l) => l.trim()).map((l) => l.match(/^[ \t]*/)![0].length));
+  return Number.isFinite(indent) ? lines.map((l) => l.slice(indent)) : [];
+}
+
+/** ```chart fence for .md posts. */
+export function chartFence(s: ChartSpec) {
+  const out = [`type: ${s.type || 'line'}`];
+  if (s.title) out.push(`title: ${yamlValue(s.title)}`);
+  if (s.caption) out.push(`caption: ${yamlValue(s.caption)}`);
+  if (s.xLabel) out.push(`x: { label: ${yamlValue(s.xLabel)} }`);
+  const y = [s.yLabel && `label: ${yamlValue(s.yLabel)}`, s.unit && `unit: ${yamlValue(s.unit)}`].filter(Boolean);
+  if (y.length) out.push(`y: { ${y.join(', ')} }`);
+  const data = chartData(s.data);
+  if (data.length) {
+    // A first line that's still indented needs an explicit indent, or YAML guesses wrong.
+    out.push(/^\s/.test(data[0]) ? 'data: |2' : 'data: |', ...data.map((l) => (l ? `  ${l}` : '')));
+  }
+  const ticks = '`'.repeat(Math.max(3, ...[...s.data.matchAll(/`+/g)].map((m) => m[0].length + 1)));
+  const id = chartId(s.id);
+  return `${ticks}chart${id ? ` id=${id}` : ''}\n${out.join('\n')}\n${ticks}\n`;
+}
+
+/** <Chart … /> element for .mdx posts. */
+export function chartMdx(s: ChartSpec) {
+  const attr = (k: string, v: string) => (v ? ` ${k}="${v.replace(/"/g, '&quot;')}"` : '');
+  const data = chartData(s.data).join('\n').replace(/\\/g, '\\\\').replace(/`/g, '\\`').replace(/\$\{/g, '\\${');
+  return (
+    `<Chart${attr('type', s.type || 'line')}${attr('title', s.title)}${attr('caption', s.caption)}${attr('xLabel', s.xLabel)}` +
+    `${attr('yLabel', s.yLabel)}${attr('unit', s.unit)}${attr('id', chartId(s.id))}${data ? ` data={\`${data}\`}` : ''} />\n`
+  );
+}
+
 export function initWriter(signal: AbortSignal) {
-  const root = document.querySelector<HTMLElement>('[data-studio]');
-  if (!root) return;
+  const studio = document.querySelector<HTMLElement>('[data-studio]');
+  if (!studio) return;
+  const root = studio;
   const data: Data = JSON.parse(root.querySelector('[data-studio-data]')?.textContent || '{}');
   const q = <T extends Element = HTMLElement>(sel: string) => root.querySelector<T>(sel)!;
   const field = <T extends HTMLElement = HTMLInputElement>(name: string) => root.querySelector<T>(`[data-f="${name}"]`)!;
   const on = (el: EventTarget, type: string, fn: (e: any) => void) => el.addEventListener(type, fn, { signal });
+  const coarse = () => window.matchMedia('(pointer: coarse)').matches;
 
   const ta = q<HTMLTextAreaElement>('[data-body]');
   const wrap = q('[data-wrap]');
@@ -126,7 +180,8 @@ export function initWriter(signal: AbortSignal) {
     };
   }
 
-  function fill(f: Fields, body: string) {
+  /** `undoable`: put the new text in through the browser's undo stack (restore banners). */
+  function fill(f: Fields, body: string, undoable = false) {
     field('title').value = f.title;
     subtitle.value = f.subtitle;
     field<HTMLTextAreaElement>('description').value = f.description;
@@ -137,7 +192,12 @@ export function initWriter(signal: AbortSignal) {
     field<HTMLSelectElement>('font').value = f.font;
     root.querySelectorAll<HTMLInputElement>('[data-f="draft"]').forEach((r) => (r.checked = (r.value === 'draft') === f.draft));
     field('pinned').checked = f.pinned;
-    ta.value = body;
+    if (undoable && ta.value !== body) {
+      const y = window.scrollY;
+      ta.focus({ preventScroll: true });
+      replace(0, ta.value.length, body, 0, 0);
+      window.scrollTo({ top: y, behavior: 'instant' });
+    } else ta.value = body;
     applyFont();
     syncPublishLabel();
     autosize();
@@ -317,8 +377,15 @@ export function initWriter(signal: AbortSignal) {
   let lastSaved = '';
   const savedLabel = () => (serverSavedAt ? `draft saved ${hhmm(serverSavedAt)}` : 'no draft changes');
   const payload = () => ({ slug, ext, extra, basis, fields: collect(), body: ta.value });
+  // Nothing is saved (server draft, page-leave flush, browser backup) until the
+  // post has actually been loaded into the editor. If setup ever fails part-way,
+  // leaving the page must not save a blank editor over the real post.
+  let ready = false;
+  /** A blank editor (no title, no text) never replaces a post that has content. */
+  const blankOverReal = () => !ta.value.trim() && !field('title').value.trim() && !!(publishedDoc?.body.trim() || doc.body.trim());
 
   function edited() {
+    if (!ready) return;
     writeLocal(false);
     clearTimeout(timer);
     renderState();
@@ -329,6 +396,7 @@ export function initWriter(signal: AbortSignal) {
 
   async function save(): Promise<void> {
     clearTimeout(timer);
+    if (!ready || blankOverReal()) return;
     const snap = snapshot();
     if (snap === lastSaved) return;
     if (saving) {
@@ -359,7 +427,7 @@ export function initWriter(signal: AbortSignal) {
 
   // Leaving the page with unsaved edits: send them on the way out.
   const flush = () => {
-    if (snapshot() === lastSaved) return;
+    if (!ready || blankOverReal() || snapshot() === lastSaved) return;
     writeLocal(false);
     const body = JSON.stringify(payload());
     fetch('/api/write/post', { method: 'PUT', keepalive: body.length < 60_000, headers: { 'content-type': 'application/json' }, body }).catch(() => {});
@@ -494,33 +562,183 @@ export function initWriter(signal: AbortSignal) {
     replace(start, end, clean, start + s, start + e);
   }
 
-  /** Remove the "/query" the menu was opened with, then run the block. */
-  const atSlash = (fn: (pos: number) => void) => () => {
-    const pos = ta.selectionStart;
-    const start = lineStartOf(pos);
-    replace(start, pos, '');
-    fn(start);
-  };
-  const template = (tpl: string) => () => {
-    const pos = ta.selectionStart;
-    insertTemplate(lineStartOf(pos), pos, tpl);
+  // ---- one command list --------------------------------------------------------------
+  // The "/" menu, the formatting ribbon, the selection bubble and keyboard
+  // shortcuts all run the same command objects, so they can never disagree.
+  type Via = 'slash' | 'ribbon' | 'key' | 'bubble';
+  type Cmd = {
+    id: string;
+    label: string;
+    icon: string;
+    keys: string;
+    hint?: string;
+    /** "mod+b", "mod+shift+f", "mod+alt+2" — mod is Ctrl, or ⌘ on a Mac. */
+    shortcut?: string;
+    /** main = always on the ribbon; more = in the "more" menu. */
+    ribbon?: 'main' | 'more';
+    /** main-row buttons that stay visible on phones (the rest move into "more"). */
+    phone?: boolean;
+    slash?: boolean;
+    run: (via: Via) => void;
   };
 
-  const BLOCKS: { label: string; hint?: string; keys: string; run: () => void }[] = [
-    { label: 'H2 subtitle', hint: '##', keys: 'h2 heading subtitle', run: template('## ') },
-    { label: 'H3 sub-subtitle', hint: '###', keys: 'h3 heading', run: template('### ') },
-    { label: 'TL;DR box', keys: 'tldr summary box', run: template('> [!TLDR]\n> ') },
-    { label: 'Epistemic status', keys: 'epistemic status confidence', run: template('> [!EPISTEMIC] Epistemic status\n> ') },
+  const lineEndOf = (pos: number) => {
+    const i = ta.value.indexOf('\n', pos);
+    return i < 0 ? ta.value.length : i;
+  };
+
+  /** Drop the "/query" the slash menu was opened with. */
+  function clearSlash() {
+    const pos = ta.selectionStart;
+    const start = lineStartOf(pos);
+    if (/^\/[\w;$<-]*$/.test(ta.value.slice(start, pos))) replace(start, pos, '');
+  }
+
+  /** Insert a block template on its own line (the current one if it's empty). */
+  function blockInsert(tpl: string, via: Via) {
+    if (via === 'slash') {
+      const pos = ta.selectionStart;
+      return insertTemplate(lineStartOf(pos), pos, tpl);
+    }
+    const { selectionStart: s, selectionEnd: e } = ta;
+    const ls = lineStartOf(s);
+    const le = lineEndOf(e);
+    if (s === e && !ta.value.slice(ls, le).trim()) return insertTemplate(ls, le, tpl);
+    insertTemplate(le, le, `\n\n${tpl}`);
+  }
+
+  /** Rewrite the selected lines (or the caret's line), keeping the caret on its line. */
+  function editLines(transform: (lines: string[]) => string[]) {
+    const { selectionStart: s, selectionEnd: e } = ta;
+    const start = lineStartOf(s);
+    const end = lineEndOf(e > s && ta.value[e - 1] === '\n' ? e - 1 : e);
+    const before = ta.value.slice(start, end).split('\n');
+    const after = transform(before);
+    const out = after.join('\n');
+    if (s === e && before.length === 1) {
+      const col = Math.max(0, Math.min(after[0].length, s - start + after[0].length - before[0].length));
+      replace(start, end, out, start + col);
+    } else replace(start, end, out, start, start + out.length);
+  }
+
+  function heading(level: number, via: Via) {
+    if (via === 'slash') clearSlash();
+    const prefix = `${'#'.repeat(level)} `;
+    editLines((lines) => {
+      const all = lines.every((l) => l.startsWith(prefix) && !l.startsWith(`${prefix}#`));
+      return lines.map((l) => {
+        const bare = l.replace(/^#{1,6}\s+/, '');
+        return all ? bare : `${prefix}${bare}`;
+      });
+    });
+  }
+
+  function list(kind: 'ul' | 'ol', via: Via) {
+    if (via === 'slash') clearSlash();
+    const marker = kind === 'ul' ? /^(\s*)[-*+]\s+/ : /^(\s*)\d+[.)]\s+/;
+    editLines((lines) => {
+      // An empty line just starts a list.
+      if (lines.every((l) => !l.trim())) return [kind === 'ul' ? '- ' : '1. ', ...lines.slice(1)];
+      const all = lines.every((l) => marker.test(l) || !l.trim());
+      let n = 0;
+      return lines.map((l) => {
+        if (!l.trim()) return l;
+        const bare = l.replace(/^(\s*)([-*+]|\d+[.)])\s+/, '$1');
+        if (all) return bare;
+        n += 1;
+        const indent = bare.match(/^\s*/)![0];
+        return `${indent}${kind === 'ul' ? '-' : `${n}.`} ${bare.slice(indent.length)}`;
+      });
+    });
+  }
+
+  function quoteLines(via: Via) {
+    if (via === 'slash') clearSlash();
+    editLines((lines) => {
+      const quoted = lines.every((l) => l.startsWith('>'));
+      return lines.map((l) => (quoted ? l.replace(/^> ?/, '') : `> ${l}`));
+    });
+  }
+
+  function makeLink() {
+    const { selectionStart: s, selectionEnd: e } = ta;
+    const text = ta.value.slice(s, e).trim();
+    if (/^https?:\/\/\S+$/.test(text)) replace(s, e, `[link text](${text})`, s + 1, s + 10);
+    else {
+      const label = text || 'link text';
+      const url = s + label.length + 3;
+      replace(s, e, `[${label}](https://)`, url, url + 8);
+    }
+  }
+
+  const CMDS: Cmd[] = [
+    { id: 'bold', label: 'bold', icon: 'B', keys: 'bold strong', shortcut: 'mod+b', ribbon: 'main', phone: true, run: () => wrapSelection('**', '**', 'bold text') },
+    { id: 'italic', label: 'italic', icon: 'I', keys: 'italic emphasis', shortcut: 'mod+i', ribbon: 'main', phone: true, run: () => wrapSelection('*', '*', 'italic text') },
+    { id: 'link', label: 'link', icon: 'link', keys: 'link url', shortcut: 'mod+k', ribbon: 'main', phone: true, run: makeLink },
+    { id: 'h2', label: 'H2 subtitle', icon: 'H2', keys: 'h2 heading subtitle', hint: '##', shortcut: 'mod+alt+2', ribbon: 'main', phone: true, slash: true, run: (via) => heading(2, via) },
+    { id: 'h3', label: 'H3 sub-subtitle', icon: 'H3', keys: 'h3 heading', hint: '###', shortcut: 'mod+alt+3', ribbon: 'main', slash: true, run: (via) => heading(3, via) },
+    { id: 'ul', label: 'bulleted list', icon: '•', keys: 'list bullet unordered ul', hint: '-', shortcut: 'mod+shift+8', ribbon: 'main', phone: true, slash: true, run: (via) => list('ul', via) },
+    { id: 'ol', label: 'numbered list', icon: '1.', keys: 'list numbered ordered ol', hint: '1.', shortcut: 'mod+shift+7', ribbon: 'main', slash: true, run: (via) => list('ol', via) },
+    { id: 'quote', label: 'quote', icon: '“', keys: 'quote blockquote', hint: '>', ribbon: 'main', phone: true, slash: true, run: (via) => quoteLines(via) },
+    { id: 'code', label: 'inline code', icon: '</>', keys: 'code inline', ribbon: 'main', run: () => wrapSelection('`', '`', 'code') },
+    { id: 'footnote', label: 'footnote', icon: 'fn', keys: 'footnote note', shortcut: 'mod+shift+f', ribbon: 'main', slash: true, run: (via) => (via === 'slash' && clearSlash(), openFootnote()) },
+    { id: 'image', label: 'image / GIF', icon: 'img', keys: 'image gif picture upload', hint: 'upload', ribbon: 'main', phone: true, slash: true, run: (via) => (via === 'slash' && clearSlash(), pickFile()) },
+    { id: 'chart', label: 'chart', icon: 'chart', keys: 'chart graph plot data csv line bar area scatter', hint: 'from data', ribbon: 'main', phone: true, slash: true, run: (via) => openChart(via) },
+    { id: 'tldr', label: 'TL;DR box', icon: 'tl;dr', keys: 'tldr summary box callout', ribbon: 'more', slash: true, run: (via) => blockInsert('> [!TLDR]\n> ', via) },
+    { id: 'epistemic', label: 'Epistemic status', icon: 'status', keys: 'epistemic status confidence callout', ribbon: 'more', slash: true, run: (via) => blockInsert('> [!EPISTEMIC] Epistemic status\n> ', via) },
+    { id: 'pullquote', label: 'Pull quote', icon: 'pull', keys: 'quote pull callout', ribbon: 'more', slash: true, run: (via) => blockInsert('> [!QUOTE] Who said it\n> ', via) },
     {
+      id: 'details',
       label: 'Collapsible <details>',
+      icon: 'details',
       keys: 'details collapsible toggle',
-      run: template(`<details>\n<summary>${SEL_START}Title${SEL_END}</summary>\n\nHidden text goes here.\n\n</details>\n`),
+      ribbon: 'more',
+      slash: true,
+      run: (via) => blockInsert(`<details>\n<summary>${SEL_START}Title${SEL_END}</summary>\n\nHidden text goes here.\n\n</details>\n`, via),
     },
-    { label: 'Math block $$', keys: 'math equation latex block', run: template(`$$\n${SEL_START}${SEL_END}\n$$\n`) },
-    { label: 'Image / GIF', hint: 'upload', keys: 'image gif picture upload', run: atSlash(() => pickFile()) },
-    { label: 'Footnote', hint: `${MOD}+shift+f`, keys: 'footnote note', run: atSlash(() => openFootnote()) },
-    { label: 'Pull quote', keys: 'quote pull', run: template('> [!QUOTE] Who said it\n> ') },
+    { id: 'codeblock', label: 'code block', icon: '{ }', keys: 'code block fence pre', hint: '```', ribbon: 'more', slash: true, run: (via) => blockInsert(`\`\`\`\n${SEL_START}${SEL_END}\n\`\`\`\n`, via) },
+    { id: 'mathblock', label: 'Math block $$', icon: '$$', keys: 'math equation latex block', ribbon: 'more', slash: true, run: (via) => blockInsert(`$$\n${SEL_START}${SEL_END}\n$$\n`, via) },
+    {
+      id: 'diagram',
+      label: 'diagram',
+      icon: 'diagram',
+      keys: 'diagram flow flowchart boxes arrows',
+      hint: 'A -> B',
+      ribbon: 'more',
+      slash: true,
+      run: (via) => blockInsert(`\`\`\`diagram\ndirection: right\ncaption: ${SEL_START}What this shows${SEL_END}\nA[Input] -> B[Process] -> C[Output]\n\`\`\`\n`, via),
+    },
+    {
+      id: 'figure',
+      label: 'figure (images side by side)',
+      icon: 'figure',
+      keys: 'figure images gallery grid side caption',
+      ribbon: 'more',
+      slash: true,
+      run: (via) =>
+        blockInsert(
+          ext === 'mdx'
+            ? `<Figure caption="${SEL_START}Caption${SEL_END}" cols="2">\n\n![left](/images/…)\n\n![right](/images/…)\n\n</Figure>\n`
+            : `\`\`\`figure\ncaption: ${SEL_START}Caption${SEL_END}\ncols: 2\nitems:\n  - image: /images/…\n    alt: left\n  - image: /images/…\n    alt: right\n\`\`\`\n`,
+          via,
+        ),
+    },
+    { id: 'math', label: 'inline math $', icon: '$', keys: 'math inline latex', ribbon: 'more', run: () => wrapSelection('$', '$', 'x^2') },
+    { id: 'strike', label: 'strikethrough', icon: 'del', keys: 'strike strikethrough delete', ribbon: 'more', run: () => wrapSelection('~~', '~~', 'text') },
+    { id: 'hr', label: 'divider', icon: '—', keys: 'divider rule hr line', hint: '---', ribbon: 'more', slash: true, run: (via) => blockInsert('---\n', via) },
   ];
+  const cmd = (id: string) => CMDS.find((c) => c.id === id)!;
+  const keyLabel = (sc?: string) => (sc ? sc.replace('mod', MOD).replace('alt', MOD === '⌘' ? '⌥' : 'alt') : '');
+
+  /** Run a command from anywhere, on the text's own selection, keeping undo. */
+  function runCmd(c: Cmd, via: Via) {
+    closeMenu();
+    // The textarea keeps its selection while blurred; focusing it again (without
+    // scrolling) lets the edit go through the browser's undo stack.
+    if (document.activeElement !== ta) ta.focus({ preventScroll: true });
+    c.run(via);
+    if (via === 'bubble') requestAnimationFrame(showBubble);
+  }
 
   function detect() {
     const pos = ta.selectionStart;
@@ -530,7 +748,7 @@ export function initWriter(signal: AbortSignal) {
     if (slash) {
       const query = slash[1].toLowerCase();
       // Best first: label starts with it, then a word starts with it, then it appears anywhere.
-      const score = (b: (typeof BLOCKS)[number]) => {
+      const score = (b: Cmd) => {
         const label = b.label.toLowerCase();
         const words = `${label} ${b.keys}`.split(/[^a-z0-9$<]+/);
         if (!query || label.startsWith(query)) return 0;
@@ -538,10 +756,11 @@ export function initWriter(signal: AbortSignal) {
         if (label.includes(query) || b.keys.includes(query)) return 2;
         return 9;
       };
-      const items = BLOCKS.map((b) => ({ b, s: score(b) }))
+      const items: Item[] = CMDS.filter((c) => c.slash)
+        .map((b) => ({ b, s: score(b) }))
         .filter((x) => x.s < 9)
         .sort((x, y) => x.s - y.s)
-        .map((x) => x.b);
+        .map(({ b }) => ({ label: b.label, hint: b.shortcut ? keyLabel(b.shortcut) : b.hint, run: () => runCmd(b, 'slash') }));
       return openMenu(slashEl, 'insert', items, start);
     }
     const wiki = ta.value.slice(Math.max(0, pos - 100), pos).match(/\[\[([^[\]\n|]{0,60})$/);
@@ -565,32 +784,27 @@ export function initWriter(signal: AbortSignal) {
     closeMenu();
   }
 
-  // ---- formatting bubble ------------------------------------------------------------
+  // ---- formatting bubble (desktop; the ribbon covers touch screens) ----------------
   const bubble = document.createElement('div');
   bubble.className = 'w-bubble';
   bubble.setAttribute('role', 'toolbar');
   bubble.setAttribute('aria-label', 'Format selection');
   bubble.hidden = true;
-  const FORMATS: [string, string, string][] = [
-    ['bold', 'B', `${MOD}+b`],
-    ['italic', 'I', `${MOD}+i`],
-    ['code', '</>', ''],
-    ['link', 'link', `${MOD}+k`],
-    ['math', '$', ''],
-    ['quote', '“', ''],
-  ];
-  bubble.innerHTML = FORMATS.map(
-    ([id, label, key]) => `<button type="button" data-fmt="${id}" title="${id}${key ? ` (${key})` : ''}" aria-label="${id}">${esc(label)}</button>`,
-  ).join('');
+  bubble.innerHTML = ['bold', 'italic', 'code', 'link', 'math', 'quote']
+    .map((id) => {
+      const c = cmd(id);
+      return `<button type="button" data-cmd="${c.id}" title="${esc(c.label)}${c.shortcut ? ` (${keyLabel(c.shortcut)})` : ''}" aria-label="${esc(c.label)}">${esc(c.icon)}</button>`;
+    })
+    .join('');
   wrap.append(bubble);
   on(bubble, 'mousedown', (e: MouseEvent) => e.preventDefault());
   on(bubble, 'click', (e: MouseEvent) => {
-    const b = (e.target as HTMLElement).closest<HTMLElement>('[data-fmt]');
-    if (b) fmt(b.dataset.fmt!);
+    const b = (e.target as HTMLElement).closest<HTMLElement>('[data-cmd]');
+    if (b) runCmd(cmd(b.dataset.cmd!), 'bubble');
   });
 
   function showBubble() {
-    if (document.activeElement !== ta || ta.selectionStart === ta.selectionEnd || menu) return hideBubble();
+    if (document.activeElement !== ta || ta.selectionStart === ta.selectionEnd || menu || coarse()) return hideBubble();
     const c = caret(ta.selectionStart);
     bubble.hidden = false;
     const above = c.y - bubble.offsetHeight - 6;
@@ -614,31 +828,102 @@ export function initWriter(signal: AbortSignal) {
     }
   }
 
-  function fmt(kind: string) {
-    const { selectionStart: s, selectionEnd: e } = ta;
-    if (kind === 'bold') wrapSelection('**', '**', 'bold text');
-    else if (kind === 'italic') wrapSelection('*', '*', 'italic text');
-    else if (kind === 'code') wrapSelection('`', '`', 'code');
-    else if (kind === 'math') wrapSelection('$', '$', 'x^2');
-    else if (kind === 'link') {
-      const text = ta.value.slice(s, e).trim();
-      if (/^https?:\/\/\S+$/.test(text)) replace(s, e, `[link text](${text})`, s + 1, s + 10);
-      else {
-        const label = text || 'link text';
-        const url = s + label.length + 3;
-        replace(s, e, `[${label}](https://)`, url, url + 8);
-      }
-    } else if (kind === 'quote') {
-      const start = lineStartOf(s);
-      let end = ta.value.indexOf('\n', e);
-      if (end < 0) end = ta.value.length;
-      const lines = ta.value.slice(start, end).split('\n');
-      const quoted = lines.every((l) => l.startsWith('>'));
-      const out = lines.map((l) => (quoted ? l.replace(/^> ?/, '') : `> ${l}`)).join('\n');
-      replace(start, end, out, start, start + out.length);
-    }
-    requestAnimationFrame(showBubble);
+  // ---- ribbon: a compact second row in the bar ----------------------------------------
+  const bar = root.querySelector<HTMLElement>('.studio-bar')!;
+  const ribbon = document.createElement('div');
+  ribbon.className = 'sb-ribbon';
+  ribbon.setAttribute('role', 'toolbar');
+  ribbon.setAttribute('aria-label', 'Formatting');
+  ribbon.setAttribute('aria-controls', ta.id || 'w-body');
+  if (!ta.id) ta.id = 'w-body';
+  const title = (c: Cmd) => `${c.label}${c.shortcut ? ` (${keyLabel(c.shortcut)})` : ''}`;
+  const mains = CMDS.filter((c) => c.ribbon === 'main');
+  const menuCmds = [...mains.filter((c) => !c.phone), ...CMDS.filter((c) => c.ribbon === 'more')];
+  ribbon.innerHTML =
+    mains
+      .map(
+        (c, i) =>
+          `<button type="button" class="rb bevel${c.phone ? '' : ' rb-wide'}" data-cmd="${c.id}" tabindex="${i === 0 ? 0 : -1}" title="${esc(title(c))}" aria-label="${esc(title(c))}">${esc(c.icon)}</button>`,
+      )
+      .join('') +
+    `<span class="rb-more-wrap"><button type="button" class="rb rb-more bevel" tabindex="-1" aria-haspopup="menu" aria-expanded="false" aria-controls="rb-menu">more ▾</button>` +
+    `<div class="rb-menu" id="rb-menu" role="menu" aria-label="More formatting" hidden>${menuCmds
+      .map(
+        (c) =>
+          `<button type="button" role="menuitem" tabindex="-1" class="${c.ribbon === 'main' ? 'rb-phone-only' : ''}" data-cmd="${c.id}"><span>${esc(c.label)}</span>${c.shortcut ? `<kbd>${esc(keyLabel(c.shortcut))}</kbd>` : c.hint ? `<kbd>${esc(c.hint)}</kbd>` : ''}</button>`,
+      )
+      .join('')}</div></span>`;
+  bar.append(ribbon);
+  const moreBtn = ribbon.querySelector<HTMLButtonElement>('.rb-more')!;
+  const moreMenu = ribbon.querySelector<HTMLElement>('.rb-menu')!;
+  const visible = (els: Iterable<HTMLElement>) => [...els].filter((b) => b.offsetParent !== null);
+  const ribbonButtons = () => visible(ribbon.querySelectorAll<HTMLElement>(':scope > .rb, .rb-more'));
+  const menuItems = () => visible(moreMenu.querySelectorAll<HTMLElement>('[role="menuitem"]'));
+  // One tab stop for the whole row (arrow keys move inside it).
+  const rove = (to: HTMLElement) => {
+    ribbonButtons().forEach((b) => (b.tabIndex = b === to ? 0 : -1));
+    to.focus();
+  };
+  const resetRove = () => {
+    const btns = ribbonButtons();
+    btns.forEach((b, i) => (b.tabIndex = i === 0 ? 0 : -1));
+  };
+  // (A timer, not requestAnimationFrame: that never fires in a background tab.)
+  window.setTimeout(resetRove, 0);
+  on(window, 'resize', resetRove);
+  // Pressing a button must not take the text's focus or selection away.
+  on(ribbon, 'mousedown', (e: MouseEvent) => e.preventDefault());
+
+  function openMore(focusFirst: boolean) {
+    moreMenu.hidden = false;
+    moreBtn.setAttribute('aria-expanded', 'true');
+    if (focusFirst) menuItems()[0]?.focus();
   }
+  function closeMore(focusButton: boolean) {
+    if (moreMenu.hidden) return;
+    moreMenu.hidden = true;
+    moreBtn.setAttribute('aria-expanded', 'false');
+    if (focusButton) moreBtn.focus();
+  }
+  const backToWriting = () => ta.focus({ preventScroll: true });
+
+  on(ribbon, 'click', (e: MouseEvent) => {
+    const b = (e.target as HTMLElement).closest<HTMLElement>('button');
+    if (!b) return;
+    if (b === moreBtn) return moreMenu.hidden ? openMore(e.detail === 0) : closeMore(false);
+    if (b.dataset.cmd) {
+      // Who to give focus back to if the command opens a dialog (a menu item vanishes: use "more").
+      const was = document.activeElement as HTMLElement | null;
+      cmdOpener = was && moreMenu.contains(was) ? moreBtn : was;
+      closeMore(false);
+      runCmd(cmd(b.dataset.cmd), 'ribbon');
+      cmdOpener = null;
+    }
+  });
+  on(ribbon, 'keydown', (e: KeyboardEvent) => {
+    const target = e.target as HTMLElement;
+    if (moreMenu.contains(target)) {
+      const items = menuItems();
+      const i = items.indexOf(target);
+      if (e.key === 'ArrowDown') return e.preventDefault(), items[(i + 1) % items.length]?.focus();
+      if (e.key === 'ArrowUp') return e.preventDefault(), items[(i - 1 + items.length) % items.length]?.focus();
+      if (e.key === 'Home') return e.preventDefault(), items[0]?.focus();
+      if (e.key === 'End') return e.preventDefault(), items.at(-1)?.focus();
+      if (e.key === 'Escape') return e.preventDefault(), closeMore(true);
+      if (e.key === 'Tab') return closeMore(false);
+      return;
+    }
+    const btns = ribbonButtons();
+    const i = btns.indexOf(target);
+    if (i < 0) return;
+    if (e.key === 'ArrowRight') return e.preventDefault(), rove(btns[(i + 1) % btns.length]);
+    if (e.key === 'ArrowLeft') return e.preventDefault(), rove(btns[(i - 1 + btns.length) % btns.length]);
+    if (e.key === 'Home') return e.preventDefault(), rove(btns[0]);
+    if (e.key === 'End') return e.preventDefault(), rove(btns.at(-1)!);
+    if (e.key === 'ArrowDown' && target === moreBtn) return e.preventDefault(), openMore(true);
+    if (e.key === 'Escape') return e.preventDefault(), closeMore(false), backToWriting();
+  });
+  on(document, 'pointerdown', (e: PointerEvent) => !ribbon.contains(e.target as Node) && closeMore(false));
 
   // ---- footnotes ------------------------------------------------------------------------
   const footEl = makePop('w-foot');
@@ -690,13 +975,125 @@ export function initWriter(signal: AbortSignal) {
   });
   on(footInput, 'blur', () => window.setTimeout(() => document.activeElement !== footInput && (footEl.hidden = true), 150));
 
+  // ---- chart dialog: fields + data on the left, the real renderer's output on the right ----
+  const chartDlg = q<HTMLDialogElement>('[data-chart]');
+  const chartForm = q<HTMLFormElement>('[data-chart-form]');
+  const chartOut = q('[data-chart-out]');
+  const chartState = q('[data-chart-state]');
+  const chartSrc = q('[data-chart-src]');
+  const chartInput = <T extends HTMLElement = HTMLInputElement>(name: string) => chartForm.elements.namedItem(name) as unknown as T;
+  const CHART_EMPTY = '<p class="studio-note">paste or type data to see the chart.</p>';
+  /** Set by the ribbon just before a command runs (the button, or the text if the mouse was used). */
+  let cmdOpener: HTMLElement | null = null;
+  let chartBack = { s: 0, e: 0, d: 'none' as Dir, y: 0, opener: ta as HTMLElement };
+  let chartTimer = 0;
+  let chartSeq = 0;
+
+  const chartSpec = (): ChartSpec => {
+    const v = (n: string) => chartInput(n).value.trim();
+    return { type: v('type') || 'line', title: v('title'), xLabel: v('xLabel'), yLabel: v('yLabel'), unit: v('unit'), caption: v('caption'), id: v('id'), data: chartInput<HTMLTextAreaElement>('data').value };
+  };
+  const chartSnippet = (s: ChartSpec) => (ext === 'mdx' ? chartMdx(s) : chartFence(s));
+
+  function openChart(via: Via) {
+    if (chartDlg.open) return;
+    const opener = via === 'ribbon' && cmdOpener && cmdOpener !== document.body ? cmdOpener : ta;
+    closeMenu();
+    hideBubble();
+    closeMore(false);
+    // Inserting needs the text on screen (and focusable, so undo works).
+    if (!preview.hidden) togglePreview(false);
+    if (via === 'slash') clearSlash();
+    chartBack = { s: ta.selectionStart, e: ta.selectionEnd, d: ta.selectionDirection as Dir, y: window.scrollY, opener };
+    chartForm.reset();
+    chartOut.innerHTML = CHART_EMPTY;
+    chartSrc.textContent = '';
+    chartState.textContent = '';
+    chartDlg.showModal();
+    chartInput<HTMLSelectElement>('type').focus();
+  }
+
+  /** Close, put the caret/selection and scroll back; with a snippet, insert it there (undoable). */
+  function closeChart(snippet?: string) {
+    clearTimeout(chartTimer);
+    chartSeq += 1;
+    if (chartDlg.open) chartDlg.close();
+    const { s, e, d, y, opener } = chartBack;
+    window.scrollTo({ top: y, behavior: 'instant' });
+    const toText = !!snippet || opener === ta || !opener.isConnected || opener.offsetParent === null;
+    if (toText) ta.focus({ preventScroll: true });
+    ta.setSelectionRange(s, e, d);
+    if (!toText) opener.focus({ preventScroll: true });
+    if (snippet) blockInsert(snippet, 'ribbon');
+  }
+
+  function queueChartPreview() {
+    clearTimeout(chartTimer);
+    chartState.textContent = 'updating…';
+    chartTimer = window.setTimeout(renderChartPreview, 350);
+  }
+
+  async function renderChartPreview() {
+    const spec = chartSpec();
+    const seq = ++chartSeq;
+    chartSrc.textContent = chartSnippet(spec);
+    if (!spec.data.trim()) {
+      chartOut.innerHTML = CHART_EMPTY;
+      chartState.textContent = '';
+      return;
+    }
+    try {
+      // The preview renders Markdown, so it gets the fence (the same spec an .mdx <Chart> carries).
+      const { html } = await api('/api/write/preview', 'POST', { slug, body: chartFence(spec) });
+      if (seq !== chartSeq || !chartDlg.open) return;
+      chartOut.innerHTML = html || CHART_EMPTY;
+      const failed = chartOut.querySelector('.chart-error, [class*="error"]');
+      chartState.textContent = failed ? 'the renderer rejected this: see the preview' : 'preview up to date';
+    } catch (err) {
+      if (seq !== chartSeq) return;
+      chartOut.innerHTML = `<p class="studio-note">couldn't render the preview: ${esc(err instanceof Error ? err.message : 'error')}</p>`;
+      chartState.textContent = 'preview failed';
+    }
+  }
+
+  on(chartForm, 'input', queueChartPreview);
+  on(chartForm, 'change', queueChartPreview);
+  on(chartInput('id'), 'change', () => (chartInput('id').value = chartId(chartInput('id').value)));
+  on(chartForm, 'submit', (e: SubmitEvent) => {
+    e.preventDefault();
+    const spec = chartSpec();
+    if (!spec.data.trim()) {
+      chartState.textContent = 'add some data first (CSV, JSON or a Markdown table).';
+      return chartInput<HTMLTextAreaElement>('data').focus();
+    }
+    closeChart(chartSnippet(spec));
+  });
+  // Escape (the dialog's own cancel), × and [ cancel ] all close without inserting.
+  on(chartDlg, 'cancel', (e: Event) => {
+    e.preventDefault();
+    closeChart();
+  });
+  chartDlg.querySelectorAll('[data-chart-close]').forEach((b) => on(b, 'click', () => closeChart()));
+
   // ---- images: upload, insert, thumbnails ---------------------------------------------
   const mediaSrc = new Map<string, string>();
+  /** Local previews while an upload is in flight, keyed by the placeholder's alt text. */
+  const pending = new Map<string, string>();
+  let pickSel: { s: number; e: number; d: Dir } | null = null;
   const pickFile = () => {
+    pickSel = { s: ta.selectionStart, e: ta.selectionEnd, d: ta.selectionDirection as Dir };
     fileInput.value = '';
     fileInput.click();
   };
-  on(fileInput, 'change', () => upload([...(fileInput.files ?? [])]));
+  on(fileInput, 'change', () => {
+    // Back to the exact caret, focused, so the insert keeps undo working.
+    if (pickSel) {
+      ta.focus({ preventScroll: true });
+      ta.setSelectionRange(pickSel.s, pickSel.e, pickSel.d);
+      pickSel = null;
+    }
+    upload([...(fileInput.files ?? [])]);
+  });
 
   function swapToken(token: string, text: string) {
     const i = ta.value.indexOf(token);
@@ -719,13 +1116,19 @@ export function initWriter(signal: AbortSignal) {
         say(`${esc(file.name)} is over 20 MB.`);
         continue;
       }
-      const token = `![uploading ${Math.random().toString(36).slice(2, 7)}…]()`;
+      const label = `uploading ${Math.random().toString(36).slice(2, 7)}…`;
+      const token = `![${label}]()`;
+      const local = URL.createObjectURL(file);
+      pending.set(label, local);
       const pos = ta.selectionEnd;
       const before = ta.value.slice(0, pos);
       const after = ta.value.slice(pos);
       const pre = !before || before.endsWith('\n\n') ? '' : before.endsWith('\n') ? '\n' : '\n\n';
       const post = after.startsWith('\n\n') ? '' : after.startsWith('\n') ? '\n' : '\n\n';
       replace(pos, pos, `${pre}${token}${post}`);
+      // Show the picture beside its block right away, from the local file.
+      clearTimeout(gutterTimer);
+      renderGutter();
       setStatus(`uploading ${file.name || 'image'}…`, 'saving');
       try {
         const kind = file.type.split('/')[1].replace('+xml', '').replace('jpeg', 'jpg');
@@ -737,10 +1140,15 @@ export function initWriter(signal: AbortSignal) {
         });
         const d = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(d.error ?? `upload failed (${res.status})`);
-        mediaSrc.set(d.path, d.src);
+        // Keep showing the local copy: it's already decoded, so nothing flickers.
+        mediaSrc.set(d.path, local);
+        pending.delete(label);
         swapToken(token, `![](${d.path})`);
         say(null);
+        refreshTray();
       } catch (err) {
+        pending.delete(label);
+        URL.revokeObjectURL(local);
         swapToken(token, '');
         say(`couldn't upload ${esc(file.name || 'the image')}: ${esc(err instanceof Error ? err.message : 'error')}`);
         setStatus('upload failed', 'error');
@@ -799,10 +1207,11 @@ export function initWriter(signal: AbortSignal) {
   function renderGutter() {
     const beside = getComputedStyle(gutter).position === 'absolute';
     let minTop = 0;
-    const found = [...ta.value.matchAll(IMG_RE)].filter((m) => !m[1].startsWith('uploading') && m[2]);
+    const found = [...ta.value.matchAll(IMG_RE)].filter((m) => m[2] || pending.has(m[1]));
     gutter.replaceChildren(
       ...found.map((m) => {
-        const src = thumbSrc(m[2]);
+        const uploading = !m[2];
+        const src = uploading ? pending.get(m[1])! : thumbSrc(m[2]);
         const a = document.createElement('a');
         a.className = 'w-thumb';
         a.href = src;
@@ -812,9 +1221,10 @@ export function initWriter(signal: AbortSignal) {
         img.alt = '';
         img.decoding = 'async';
         img.src = src;
-        if (src !== m[2]) img.onerror = () => ((img.onerror = null), (img.src = m[2]));
+        if (!uploading && src !== m[2]) img.onerror = () => ((img.onerror = null), (img.src = m[2]));
         const cap = document.createElement('span');
-        cap.textContent = m[2].split('/').pop() ?? '';
+        cap.textContent = uploading ? 'uploading…' : (m[2].split('/').pop() ?? '');
+        if (uploading) a.classList.add('is-uploading');
         a.append(img, cap);
         if (beside) {
           const top = Math.max(caret(m.index!).y - gutter.offsetTop, minTop);
@@ -826,22 +1236,186 @@ export function initWriter(signal: AbortSignal) {
     );
   }
 
+  // ---- media tray: every upload of this post (and every image the text uses) ----------
+  // Opens under the sticky bar, so the caret and scroll stay exactly where they are.
+  type MediaFile = { name: string; path: string; src: string; size: number; type: string; modified: string; uses: string[]; published: boolean };
+  const trayBtn = q<HTMLButtonElement>('[data-act="media"]');
+  const tray = q('[data-tray]');
+  const trayList = q('[data-tray-list]');
+  const trayNote = q('[data-tray-note]');
+  const trayCount = q('[data-tray-count]');
+  let trayFiles: MediaFile[] = [];
+  let trayLoaded = false;
+
+  const kb = (n: number) => (n > 1024 * 1024 ? `${(n / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`);
+  const usedHere = (path: string) => [...ta.value.matchAll(IMG_RE)].filter((m) => m[2] === path).length;
+
+  async function refreshTray() {
+    try {
+      const r = await api(`/api/upload-media?slug=${encodeURIComponent(slug)}`, 'GET');
+      trayFiles = r.files ?? [];
+      trayLoaded = true;
+    } catch (err) {
+      trayNote.textContent = `couldn't list the uploads: ${err instanceof Error ? err.message : 'error'}`;
+    }
+    renderTray();
+  }
+
+  function renderTray() {
+    // Uploads of this post, plus anything else the text points at (other posts' images, links).
+    const known = new Set(trayFiles.map((f) => f.path));
+    const others = [...new Set([...ta.value.matchAll(IMG_RE)].map((m) => m[2]).filter((p) => p && !known.has(p)))];
+    trayCount.textContent = String(trayFiles.length + others.length);
+    if (tray.hidden) return;
+    trayNote.textContent = !trayLoaded ? 'loading…' : trayFiles.length + others.length ? '[ insert ] puts it at the cursor; [ remove ] takes it out of this post (undo with ctrl+z).' : 'no images yet: paste, drop or use the img button.';
+    const row = (o: { path: string; src: string; name: string; meta: string; file?: MediaFile }) => {
+      const here = usedHere(o.path);
+      const elsewhere = (o.file?.uses ?? []).filter((u) => u !== slug);
+      const li = document.createElement('li');
+      li.className = 'tray-item';
+      li.dataset.path = o.path;
+      const isVideo = /\.(mp4|webm)$/i.test(o.path);
+      li.innerHTML = `
+        <span class="tray-thumb">${isVideo ? `<video muted loop playsinline preload="metadata" src="${esc(o.src)}"></video>` : `<img alt="" decoding="async" loading="lazy" src="${esc(o.src)}" />`}</span>
+        <span class="tray-info">
+          <span class="tray-name">${esc(o.name)}</span>
+          <span class="tray-meta">${esc(o.meta)} · ${here ? `used ${here}× here` : 'not used here'}${elsewhere.length ? ` · also in ${esc(elsewhere.join(', '))}` : ''}${o.file?.published ? ' · on the live site' : ''}</span>
+        </span>
+        <span class="tray-acts">
+          <button type="button" class="bevel" data-tray-insert>insert</button>
+          <button type="button" class="bevel" data-tray-remove ${here ? '' : 'disabled'}>remove</button>
+          ${o.file ? `<button type="button" class="bevel tray-del" data-tray-delete ${o.file.published ? 'disabled title="Already on the live site: deleting it here would not remove it there."' : ''}>delete file…</button>` : ''}
+        </span>`;
+      return li;
+    };
+    trayList.replaceChildren(
+      ...trayFiles.map((f) => row({ path: f.path, src: mediaSrc.get(f.path) ?? f.src, name: f.name, meta: kb(f.size), file: f })),
+      ...others.map((p) => row({ path: p, src: thumbSrc(p), name: p.split('/').pop() ?? p, meta: 'not an upload of this post' })),
+    );
+  }
+
+  function openTray(open: boolean, focusInside = false) {
+    tray.hidden = !open;
+    trayBtn.setAttribute('aria-expanded', String(open));
+    if (open) {
+      renderTray();
+      refreshTray();
+      if (focusInside) window.setTimeout(() => tray.querySelector<HTMLElement>('button:not([disabled])')?.focus(), 0);
+    }
+  }
+
+  /** Take every use of `path` out of the text in one undoable step. */
+  function removeRefs(path: string) {
+    const v = ta.value;
+    const hits = [...v.matchAll(IMG_RE)].filter((m) => m[2] === path);
+    if (!hits.length) return;
+    let out = '';
+    let last = 0;
+    let first = -1;
+    let lastEnd = 0;
+    for (const m of hits) {
+      let a = m.index!;
+      let b = a + m[0].length;
+      // An image alone on its line takes the line (and its newline) with it.
+      const ls = lineStartOf(a);
+      const le = v.indexOf('\n', b) < 0 ? v.length : v.indexOf('\n', b);
+      if (!v.slice(ls, a).trim() && !v.slice(b, le).trim()) {
+        a = ls;
+        b = le < v.length ? le + 1 : le;
+      }
+      if (first < 0) first = a;
+      out += v.slice(last, a);
+      last = b;
+      lastEnd = b;
+    }
+    const span = out.slice(first) + v.slice(last, lastEnd);
+    const { selectionStart: s, selectionEnd: e } = ta;
+    const delta = span.length - (lastEnd - first);
+    const map = (p: number) => (p >= lastEnd ? p + delta : p > first ? first : p);
+    const y = window.scrollY;
+    ta.focus({ preventScroll: true });
+    replace(first, lastEnd, span, map(s), map(e));
+    window.scrollTo({ top: y, behavior: 'instant' });
+  }
+
+  async function deleteFile(f: MediaFile) {
+    const here = usedHere(f.path);
+    const elsewhere = f.uses.filter((u) => u !== slug);
+    const impact = [here ? `it's used ${here}× in this post` : '', elsewhere.length ? `it's used in: ${elsewhere.join(', ')}` : ''].filter(Boolean);
+    const question = impact.length
+      ? `Delete ${f.name}? ${impact.join(', and ')}: those images will break. (Use [ remove ] first to take it out of this post.) This can't be undone.`
+      : `Delete ${f.name}? It isn't used anywhere. This can't be undone.`;
+    if (!window.confirm(question)) return;
+    const uses = [...new Set([...f.uses, ...(here ? [slug] : [])])].sort().join(',');
+    try {
+      const headers: Record<string, string> = { 'x-studio-action': 'delete-media' };
+      if (uses) headers['x-studio-confirm-uses'] = uses;
+      await api(`/api/upload-media?slug=${encodeURIComponent(slug)}&name=${encodeURIComponent(f.name)}`, 'DELETE', undefined, headers);
+      say(`deleted ${esc(f.name)}.`);
+    } catch (err) {
+      say(`didn't delete ${esc(f.name)}: ${esc(err instanceof Error ? err.message : 'error')}`);
+    }
+    refreshTray();
+  }
+
+  on(trayBtn, 'click', (e: MouseEvent) => openTray(tray.hidden, e.detail === 0));
+  on(tray, 'mousedown', (e: MouseEvent) => (e.target as HTMLElement).closest('button') && e.preventDefault());
+  on(tray, 'click', (e: MouseEvent) => {
+    const b = (e.target as HTMLElement).closest<HTMLButtonElement>('button');
+    const item = b?.closest<HTMLElement>('[data-path]');
+    if (!b || !item) return;
+    const path = item.dataset.path!;
+    if (b.hasAttribute('data-tray-insert')) {
+      ta.focus({ preventScroll: true });
+      blockInsert(`![](${path})\n`, 'ribbon');
+      renderTray();
+    } else if (b.hasAttribute('data-tray-remove')) {
+      removeRefs(path);
+      renderTray();
+    } else if (b.hasAttribute('data-tray-delete')) {
+      const f = trayFiles.find((x) => x.path === path);
+      if (f) deleteFile(f);
+    }
+  });
+  on(tray, 'keydown', (e: KeyboardEvent) => {
+    if (e.key !== 'Escape') return;
+    e.preventDefault();
+    openTray(false);
+    trayBtn.focus({ preventScroll: true });
+  });
+  let trayTimer = 0;
+  on(ta, 'input', () => {
+    clearTimeout(trayTimer);
+    trayTimer = window.setTimeout(renderTray, 400);
+  });
+
   // ---- preview, focus, details ------------------------------------------------------------
   // Where you were (scroll, cursor, selection, whether you were typing) before
   // preview or details, so coming back puts all of it back exactly.
-  let spot = { y: 0, s: 0, e: 0, typing: false };
-  // Toolbar buttons take focus on press, so note whether the text had it first.
+  // Several of these can be open at once (preview, then details): the place is
+  // taken when the first one opens and given back when the last one closes.
+  type Dir = 'forward' | 'backward' | 'none';
+  let spot = { y: 0, s: 0, e: 0, d: 'none' as Dir, typing: false };
+  const away = new Set<string>();
+  // Bar buttons take focus on press, so note whether the text had it first.
   let typingBeforePress = false;
-  on(root.querySelector('.sb-tools')!, 'pointerdown', () => (typingBeforePress = document.activeElement === ta));
-  const remember = () => {
-    spot = { y: window.scrollY, s: ta.selectionStart, e: ta.selectionEnd, typing: document.activeElement === ta || typingBeforePress };
+  on(root.querySelector('.studio-bar')!, 'pointerdown', () => (typingBeforePress = document.activeElement === ta));
+  const remember = (why: string) => {
+    if (!away.size) {
+      spot = { y: window.scrollY, s: ta.selectionStart, e: ta.selectionEnd, d: ta.selectionDirection as Dir, typing: document.activeElement === ta || typingBeforePress };
+    }
+    away.add(why);
     typingBeforePress = false;
   };
-  const returnToText = () => {
+  const returnToText = (why: string) => {
+    // Opened by itself (e.g. details on a post with no description): nothing to return to.
+    if (!away.has(why)) return;
+    away.delete(why);
+    if (away.size) return;
     window.scrollTo({ top: spot.y, behavior: 'instant' });
     if (!spot.typing) return;
     ta.focus({ preventScroll: true });
-    ta.setSelectionRange(spot.s, spot.e);
+    ta.setSelectionRange(spot.s, spot.e, spot.d);
   };
   /** Keep the line you're on in the same place on screen while things above it change. */
   const keepPlace = (change: () => void) => {
@@ -856,10 +1430,10 @@ export function initWriter(signal: AbortSignal) {
     if (!show) {
       preview.hidden = true;
       wrap.hidden = false;
-      returnToText();
+      returnToText('preview');
       return;
     }
-    remember();
+    remember('preview');
     closeMenu();
     hideBubble();
     preview.hidden = false;
@@ -879,15 +1453,19 @@ export function initWriter(signal: AbortSignal) {
     typingBeforePress = false;
     const s = ta.selectionStart;
     const e = ta.selectionEnd;
+    const d = ta.selectionDirection as Dir;
     let active = false;
     keepPlace(() => {
       active = document.documentElement.classList.toggle('write-focus', force);
-      if (active) showMeta(false);
+      if (active) {
+        showMeta(false);
+        away.delete('details');
+      }
     });
     q('[data-act="focus"]').setAttribute('aria-pressed', String(active));
     if (typing) {
       ta.focus({ preventScroll: true });
-      ta.setSelectionRange(s, e);
+      ta.setSelectionRange(s, e, d);
     }
   }
 
@@ -899,7 +1477,7 @@ export function initWriter(signal: AbortSignal) {
 
   /** [ details ]: bring the panel into view under the sticky bar… */
   function openDetails() {
-    remember();
+    remember('details');
     showMeta(true);
     const bar = root.querySelector<HTMLElement>('.studio-bar')!.getBoundingClientRect().height;
     window.scrollTo({ top: Math.max(0, meta.getBoundingClientRect().top + window.scrollY - bar - 10), behavior: 'instant' });
@@ -907,8 +1485,10 @@ export function initWriter(signal: AbortSignal) {
 
   /** …and closing it returns to exactly where you were writing. */
   function closeDetails() {
+    // Opened by itself, not by you: just fold it away without moving your line.
+    if (!away.has('details')) return keepPlace(() => showMeta(false));
     showMeta(false);
-    returnToText();
+    returnToText('details');
   }
 
   // ---- publish ---------------------------------------------------------------------------------
@@ -999,7 +1579,7 @@ export function initWriter(signal: AbortSignal) {
   }
 
   // ---- wiring ---------------------------------------------------------------------------------
-  root.querySelectorAll<HTMLInputElement>('[data-f]').forEach((el) => {
+  root.querySelectorAll<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>('[data-f]').forEach((el) => {
     const instant = el.tagName === 'SELECT' || el.type === 'radio' || el.type === 'checkbox';
     on(el, instant ? 'change' : 'input', () => {
       if (el.dataset.f === 'font') applyFont();
@@ -1046,22 +1626,22 @@ export function initWriter(signal: AbortSignal) {
       if ((e.key === 'Enter' || e.key === 'Tab') && menu.items.length) return e.preventDefault(), pickMenu();
       if (e.key === 'Escape') return e.preventDefault(), closeMenu();
     }
-    if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
-    const k = e.key.toLowerCase();
-    // (No Ctrl+E for code: browsers use it for the address bar. The bubble has a code button.)
-    const formats: Record<string, string> = { b: 'bold', i: 'italic', k: 'link' };
-    if (!e.shiftKey && formats[k]) {
+    if (!(e.ctrlKey || e.metaKey)) return;
+    // (No Ctrl+E for code: browsers use it for the address bar. The ribbon has a code button.)
+    const digit = /^Digit(\d)$/.exec(e.code)?.[1];
+    const combo = ['mod', e.altKey && 'alt', e.shiftKey && 'shift', digit ?? e.key.toLowerCase()].filter(Boolean).join('+');
+    const hit = CMDS.find((c) => c.shortcut === combo);
+    if (hit) {
       e.preventDefault();
-      fmt(formats[k]);
-    } else if (e.shiftKey && k === 'f') {
-      e.preventDefault();
-      openFootnote();
+      runCmd(hit, 'key');
     }
   });
 
   on(document, 'keydown', (e: KeyboardEvent) => {
     if (e.defaultPrevented || !(e.ctrlKey || e.metaKey) || e.altKey) return;
     const k = e.key.toLowerCase();
+    // Behind the chart dialog only "save now" makes sense.
+    if (chartDlg.open && k !== 's') return;
     if (k === 'p' && !e.shiftKey) {
       e.preventDefault();
       togglePreview();
@@ -1077,6 +1657,19 @@ export function initWriter(signal: AbortSignal) {
   on(q('[data-act="preview"]'), 'click', () => togglePreview());
   on(q('[data-act="focus"]'), 'click', () => toggleFocus());
   on(metaBtn, 'click', () => (meta.hidden ? openDetails() : closeDetails()));
+  // Escape (from the [ details ] button or anywhere in the panel) closes it
+  // and goes back to where you were writing — same as clicking the button.
+  // A native picker (select, date) that's open eats its own Escape first.
+  const escDetails = (e: KeyboardEvent) => {
+    if (e.key !== 'Escape' || meta.hidden || e.defaultPrevented) return;
+    e.preventDefault();
+    const fromPanel = meta.contains(document.activeElement);
+    closeDetails();
+    // The focused field just got hidden: hand focus to the button that opens it.
+    if (fromPanel || document.activeElement === document.body) metaBtn.focus({ preventScroll: true });
+  };
+  on(metaBtn, 'keydown', escDetails);
+  on(meta, 'keydown', escDetails);
   on(keysBtn, 'click', () => {
     keysPanel.hidden = !keysPanel.hidden;
     keysBtn.setAttribute('aria-expanded', String(!keysPanel.hidden));
@@ -1085,9 +1678,35 @@ export function initWriter(signal: AbortSignal) {
   on(window, 'resize', queueGutter);
   on(document, 'astro:before-swap', () => document.documentElement.classList.remove('write-focus'));
 
+  // ---- your place (caret, direction, scroll), kept across reloads and back/forward ----------
+  const PLACE = `write:${slug}:place`;
+  const bodyKey = (b: string) => {
+    let h = 5381;
+    for (let i = 0; i < b.length; i += 1) h = ((h * 33) ^ b.charCodeAt(i)) >>> 0;
+    return `${b.length}:${h}`;
+  };
+  const savePlace = () => {
+    if (!wrap.hidden && !away.size) {
+      spot = { y: window.scrollY, s: ta.selectionStart, e: ta.selectionEnd, d: ta.selectionDirection as Dir, typing: document.activeElement === ta };
+    }
+    try {
+      localStorage.setItem(PLACE, JSON.stringify({ k: bodyKey(ta.value), ...spot }));
+    } catch {}
+  };
+  let placeTimer = 0;
+  const queuePlace = () => {
+    clearTimeout(placeTimer);
+    placeTimer = window.setTimeout(savePlace, 300);
+  };
+  on(document, 'selectionchange', () => document.activeElement === ta && queuePlace());
+  on(window, 'scroll', queuePlace);
+  on(window, 'pagehide', savePlace);
+  on(document, 'astro:before-preparation', savePlace);
+
   // ---- start ---------------------------------------------------------------------------------
   fill(doc.fields, doc.body);
   lastSaved = snapshot();
+  ready = true;
   setStatus(serverSavedAt ? `draft saved ${hhmm(serverSavedAt)}` : savedLabel());
   if (!doc.fields.description) showMeta(true);
 
@@ -1105,7 +1724,7 @@ export function initWriter(signal: AbortSignal) {
     banner.querySelector('span')!.textContent = `this browser kept newer changes from ${new Date(local.at).toLocaleString()} that the server doesn't have (${what}).`;
     banner.hidden = false;
     on(q('[data-restore-yes]'), 'click', () => {
-      fill(local.fields, local.body);
+      fill(local.fields, local.body, true);
       banner.hidden = true;
       edited();
     });
@@ -1117,6 +1736,7 @@ export function initWriter(signal: AbortSignal) {
   }
   renderState();
   sizeSubtitle();
+  refreshTray(); // fills the [ media n ] count
 
   if (older) {
     const banner = q('[data-older]');
@@ -1124,7 +1744,7 @@ export function initWriter(signal: AbortSignal) {
     q('[data-older-time]').textContent = new Date(draft.savedAt).toLocaleString();
     banner.hidden = false;
     on(q('[data-older-yes]'), 'click', () => {
-      fill(draft.fields, draft.body);
+      fill(draft.fields, draft.body, true);
       banner.hidden = true;
       edited();
     });
@@ -1134,11 +1754,31 @@ export function initWriter(signal: AbortSignal) {
     });
   }
 
-  // Start at the top with the cursor at the beginning. (Focusing a long post's
-  // textarea normally scrolls to the cursor at the very end.)
-  if (doc.fields.title) {
-    ta.focus({ preventScroll: true });
-    ta.setSelectionRange(0, 0);
-  } else field('title').focus({ preventScroll: true });
-  window.scrollTo({ top: 0, behavior: 'instant' });
+  // Come back to exactly where you were if the text is unchanged; otherwise
+  // start at the top with the cursor at the beginning. (Focusing a long post's
+  // textarea normally scrolls to the cursor at the very end.) On touch screens
+  // nothing is focused, so the keyboard doesn't pop up by itself.
+  let saved: (typeof spot & { k: string }) | null = null;
+  try {
+    saved = JSON.parse(localStorage.getItem(PLACE) || 'null');
+  } catch {}
+  if (saved && saved.k === bodyKey(ta.value)) {
+    const p = saved;
+    ta.setSelectionRange(p.s, p.e, p.d);
+    if (p.typing && !coarse()) ta.focus({ preventScroll: true });
+    spot = { y: p.y, s: p.s, e: p.e, d: p.d, typing: p.typing };
+    // Once the text is laid out in its real font — unless you've already moved.
+    let moved = false;
+    const stop = () => (moved = true);
+    for (const t of ['wheel', 'touchstart', 'pointerdown', 'keydown']) window.addEventListener(t, stop, { once: true, capture: true, signal });
+    const settle = () => !signal.aborted && !moved && window.scrollTo({ top: p.y, behavior: 'instant' });
+    window.setTimeout(settle, 0);
+    (document.fonts?.ready ?? Promise.resolve()).then(() => window.setTimeout(settle, 0));
+  } else {
+    if (doc.fields.title) {
+      ta.setSelectionRange(0, 0);
+      if (!coarse()) ta.focus({ preventScroll: true });
+    } else if (!coarse()) field('title').focus({ preventScroll: true });
+    window.scrollTo({ top: 0, behavior: 'instant' });
+  }
 }

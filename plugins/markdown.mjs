@@ -8,6 +8,8 @@ import { createCssVariablesTheme } from 'shiki';
 import remarkWikiLinks from './remark-wikilinks.mjs';
 import rehypeCallouts from './rehype-callouts.mjs';
 import rehypeFigures from './rehype-figures.mjs';
+import remarkCharts from './remark-charts.mjs';
+import rehypeFigureNumbers from './rehype-figure-numbers.mjs';
 
 /**
  * Wraps each highlighted <pre> in a non-scrolling frame with a language label
@@ -43,10 +45,13 @@ export const shikiConfig = {
   transformers: [codeFrame],
 };
 
-export const remarkPlugins = [remarkMath, remarkWikiLinks];
+// remarkCharts first: chart/diagram fences must become figures before Shiki
+// (which runs ahead of the rehype plugins) turns them into code blocks.
+export const remarkPlugins = [remarkCharts, remarkMath, remarkWikiLinks];
 
 export const remarkRehype = { footnoteLabel: 'Notes', footnoteBackContent: '↑' };
 
+/** @type {import('@astrojs/markdown-remark').RehypePlugins} */
 export const rehypePlugins = [
   // Heading ids must exist before the anchor links are appended.
   rehypeHeadingIds,
@@ -63,4 +68,6 @@ export const rehypePlugins = [
   [rehypeKatex, { strict: false }],
   rehypeCallouts,
   rehypeFigures,
+  // After figures exist: number them and fill in [[fig:id]] references.
+  rehypeFigureNumbers,
 ];

@@ -63,6 +63,9 @@ const json = JSON.stringify(data).replace(/</g, '\\u003c');
             <button type="button" data-act="keys" aria-expanded="false" aria-controls="keys">
               <span class="br" aria-hidden="true">[ </span>keys<span class="br" aria-hidden="true"> ]</span>
             </button>
+            <button type="button" data-act="media" aria-expanded="false" aria-controls="media-tray">
+              <span class="br" aria-hidden="true">[ </span>media <span class="sb-count" data-tray-count></span><span class="br" aria-hidden="true"> ]</span>
+            </button>
             <button type="button" data-act="meta" aria-expanded="false" aria-controls="meta">
               <span class="br" aria-hidden="true">[ </span>details<span class="br" aria-hidden="true"> ]</span>
             </button>
@@ -76,6 +79,11 @@ const json = JSON.stringify(data).replace(/</g, '\\u003c');
               <span class="br" aria-hidden="true">[ </span>publish<span class="br" aria-hidden="true"> ]</span>
             </button>
           </span>
+          <!-- Media tray: drops down under the bar, so the text and caret don't move. -->
+          <section class="sb-tray" id="media-tray" data-tray aria-label="Media in this post" hidden>
+            <p class="tray-note" data-tray-note>loading…</p>
+            <ul class="tray-list" data-tray-list></ul>
+          </section>
         </div>
 
         <!-- One column for banners, details and the canvas, sized like the post's reading column. -->
@@ -85,11 +93,17 @@ const json = JSON.stringify(data).replace(/</g, '\\u003c');
             <dt>/</dt><dd>block menu (at the start of a line)</dd>
             <dt>[[</dt><dd>link another post</dd>
             <dt data-mod>ctrl+b / i / k</dt><dd>bold / italic / link</dd>
+            <dt data-mod>ctrl+alt+2 / 3</dt><dd>H2 / H3 heading</dd>
+            <dt data-mod>ctrl+shift+8 / 7</dt><dd>bulleted / numbered list</dd>
+            <dt>formatting row</dt><dd>tab into it, ← → to move, esc back to the text</dd>
             <dt data-mod>ctrl+shift+f</dt><dd>footnote</dd>
             <dt data-mod>ctrl+p</dt><dd>preview</dd>
             <dt data-mod>ctrl+\</dt><dd>focus mode</dd>
             <dt data-mod>ctrl+s</dt><dd>save now</dd>
             <dt>paste / drop</dt><dd>add an image or gif</dd>
+            <dt>/chart</dt><dd>chart from CSV, JSON or a Markdown table, with a live preview</dd>
+            <dt>/diagram</dt><dd>boxes and arrows: <code>A[Input] -&gt; B[Output]</code></dd>
+            <dt>/figure</dt><dd>images side by side with one caption</dd>
           </dl>
         </div>
 
@@ -184,6 +198,73 @@ const json = JSON.stringify(data).replace(/</g, '\\u003c');
         </div>
         </div>
         <input type="file" data-file accept="image/png,image/jpeg,image/gif,image/webp,image/svg+xml" multiple hidden />
+
+        <!-- Chart dialog (/chart or the ribbon): fields and data | live preview from the real renderer. -->
+        <dialog class="win w-chart" data-chart aria-labelledby="w-chart-title">
+          <div class="win-bar">
+            <h2 class="win-title" id="w-chart-title">chart.exe · insert a chart</h2>
+            <button type="button" class="w-chart-x bevel" data-chart-close aria-label="Close without inserting">×</button>
+          </div>
+          <form class="w-chart-body" data-chart-form novalidate>
+            <div class="w-chart-fields">
+              <div class="w-chart-row">
+                <label>
+                  type
+                  <select name="type">
+                    <option value="line">line</option>
+                    <option value="bar">bar</option>
+                    <option value="area">area</option>
+                    <option value="scatter">scatter</option>
+                    <option value="hbar">horizontal bar</option>
+                  </select>
+                </label>
+                <label>
+                  id <span class="w-chart-opt">(optional)</span>
+                  <input name="id" type="text" autocomplete="off" spellcheck="false" placeholder="e.g. latency" pattern="[a-z0-9-]*" />
+                </label>
+              </div>
+              <label>
+                title
+                <input name="title" type="text" autocomplete="off" />
+              </label>
+              <div class="w-chart-row w-chart-row3">
+                <label>
+                  x-axis label
+                  <input name="xLabel" type="text" autocomplete="off" />
+                </label>
+                <label>
+                  y-axis label
+                  <input name="yLabel" type="text" autocomplete="off" />
+                </label>
+                <label>
+                  unit <span class="w-chart-opt">(optional)</span>
+                  <input name="unit" type="text" autocomplete="off" placeholder="ms, %, $" />
+                </label>
+              </div>
+              <label>
+                caption
+                <input name="caption" type="text" autocomplete="off" />
+              </label>
+              <label class="w-chart-data">
+                data
+                <span class="w-chart-opt" id="w-chart-help">CSV, JSON (rows or {"{"}columns, rows{"}"}) or a Markdown table. First column is x; the rest are series.</span>
+                <textarea name="data" rows="9" spellcheck="false" autocomplete="off" aria-describedby="w-chart-help" placeholder={'month,visits\nJan,120\nFeb,180\nMar,150'}></textarea>
+              </label>
+            </div>
+            <section class="w-chart-preview" aria-labelledby="w-chart-ptitle">
+              <h3 class="w-chart-ptitle" id="w-chart-ptitle">preview <span class="w-chart-state" data-chart-state role="status"></span></h3>
+              <div class="w-chart-out prose" data-chart-out></div>
+              <details class="w-chart-src">
+                <summary>source that will be inserted</summary>
+                <pre data-chart-src></pre>
+              </details>
+            </section>
+            <div class="w-chart-acts">
+              <button type="button" class="bevel" data-chart-close><span class="br" aria-hidden="true">[ </span>cancel<span class="br" aria-hidden="true"> ]</span></button>
+              <button type="submit" class="bevel w-chart-insert"><span class="br" aria-hidden="true">[ </span>insert<span class="br" aria-hidden="true"> ]</span></button>
+            </div>
+          </form>
+        </dialog>
       </div>
     )
   }

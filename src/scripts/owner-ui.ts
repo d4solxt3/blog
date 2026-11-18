@@ -134,7 +134,7 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'e' && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey && !typing(e.target) && !modal) {
     const slug = postSlug();
     if (!slug) return;
-    ownerStatus().then((ok) => ok && navigate(`/write/${slug}`));
+    ownerStatus().then((ok) => ok ? navigate(`/write/${slug}`) : undefined);
   }
 });
 

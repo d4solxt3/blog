@@ -244,8 +244,31 @@ export function initPostPage(signal: AbortSignal) {
   update();
 
   drawer?.querySelectorAll('a').forEach((a) => a.addEventListener('click', () => (drawer.open = false)));
+  // Escape closes the phone contents drawer and puts focus back on its toggle.
+  drawer?.addEventListener(
+    'keydown',
+    (e) => {
+      if (e.key !== 'Escape' || !drawer.open) return;
+      e.preventDefault();
+      drawer.open = false;
+      drawer.querySelector<HTMLElement>('summary')?.focus();
+    },
+    { signal },
+  );
 
   initPreviews(body, signal);
+
+  // Chart values: hover and keyboard focus show them in CSS; a tap shows the
+  // tapped point's value (and hides the others) on touch screens too.
+  body.addEventListener(
+    'pointerup',
+    (e) => {
+      const pt = (e.target as Element).closest?.('.chart-svg .pt');
+      body.querySelectorAll('.chart-svg .pt.is-shown').forEach((p) => p !== pt && p.classList.remove('is-shown'));
+      pt?.classList.toggle('is-shown');
+    },
+    { signal },
+  );
 
   document.querySelectorAll<HTMLElement>('.prose .code-frame').forEach((frame) => {
     const label = frame.querySelector('.code-label');

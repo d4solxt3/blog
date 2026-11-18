@@ -289,13 +289,13 @@
   --shiki-token-constant: #3c3c41;
   --shiki-token-string: #5c5c62;
   --shiki-token-string-expression: #5c5c62;
-  --shiki-token-comment: #94949a;
+  --shiki-token-comment: #66666c; /* 5:1 on the code wash */
   --shiki-token-function: #18181a;
   --shiki-token-parameter: #3c3c41;
-  --shiki-token-punctuation: #85858b;
+  --shiki-token-punctuation: #66666c;
   --shiki-token-link: #18181a;
   --shiki-token-inserted: #18181a;
-  --shiki-token-deleted: #85858b;
+  --shiki-token-deleted: #66666c;
   --shiki-token-changed: #3c3c41;
 }
 
@@ -732,9 +732,256 @@
   background: var(--surface);
 }
 
-.prose .figure figcaption::before {
-  content: 'fig. ';
+/* "Fig. 01" is real text (rehype-figure-numbers), so it's read and copied. */
+.prose .fig-num {
   color: var(--ink);
+  font-weight: 600;
+}
+
+/* GIFs and photos always keep their own colours, in both themes. */
+.prose .figure img,
+.prose .figure video {
+  filter: none;
+  mix-blend-mode: normal;
+}
+
+/* ---- Figure groups: <Figure cols="2"> / ```figure — side-by-side comparisons ---- */
+.prose .figure-grid {
+  display: grid;
+  gap: 1rem;
+  align-items: start;
+}
+
+.prose .figure-group.cols-2 .figure-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.prose .figure-group.cols-3 .figure-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.prose .figure-grid > *,
+.prose .figure-grid .figure {
+  margin: 0;
+}
+
+.prose .figure-grid figcaption {
+  margin-top: 0.4rem;
+}
+
+@media (max-width: 560px) {
+  .prose .figure-group.cols-2 .figure-grid,
+  .prose .figure-group.cols-3 .figure-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* ---- Charts and diagrams (inline SVG, plugins/charts.mjs) ---- */
+.prose .chart,
+.prose .diagram {
+  margin-block: 2.2em;
+}
+
+.prose .chart-title {
+  margin: 0 0 0.4rem;
+  font: 600 0.8125rem/1.4 var(--font-mono);
+  color: var(--ink);
+}
+
+.prose .chart-svg,
+.prose .diagram-svg {
+  display: block;
+  height: auto;
+  overflow: visible;
+  font-family: var(--font-mono);
+}
+
+.prose .chart-svg {
+  width: 100%;
+}
+
+/* Diagrams keep their natural size (width/height attributes), never wider than the column. */
+.prose .diagram-svg {
+  max-width: 100%;
+  margin-inline: auto;
+}
+
+.chart-svg .grid {
+  stroke: var(--rule);
+  stroke-width: 1;
+}
+
+.chart-svg .axis {
+  stroke: var(--muted);
+  stroke-width: 1;
+}
+
+.chart-svg .tick,
+.chart-svg .axis-title {
+  fill: var(--muted);
+  font-size: 11px;
+}
+
+.chart-svg .axis-title {
+  fill: var(--ink);
+}
+
+.chart-svg .series-label {
+  fill: var(--ink);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+/* Series colours (theme tokens) — series also differ by dash and marker shape. */
+.chart-svg .c-s1 { --c: var(--chart-1); }
+.chart-svg .c-s2 { --c: var(--chart-2); }
+.chart-svg .c-s3 { --c: var(--chart-3); }
+.chart-svg .c-s4 { --c: var(--chart-4); }
+
+.chart-svg .line {
+  fill: none;
+  stroke: var(--c);
+  stroke-width: 2;
+  stroke-linejoin: round;
+}
+
+.chart-svg .area {
+  fill: var(--c);
+  fill-opacity: 0.16;
+  stroke: none;
+}
+
+.chart-svg .bar {
+  fill: var(--c);
+}
+
+.chart-svg .pt > :first-child:not(.bar) {
+  fill: var(--surface);
+  stroke: var(--c);
+  stroke-width: 1.6;
+}
+
+/* Values: shown on hover, keyboard focus or tap (post-page.ts toggles .is-shown). */
+.chart-svg .pt {
+  cursor: default;
+  outline: none;
+}
+
+.chart-svg .pt-label {
+  fill: var(--ink);
+  font-size: 11px;
+  font-weight: 600;
+  paint-order: stroke;
+  stroke: var(--surface);
+  stroke-width: 3px;
+  stroke-linejoin: round;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.chart-svg .pt:hover .pt-label,
+.chart-svg .pt:focus .pt-label,
+.chart-svg .pt.is-shown .pt-label {
+  opacity: 1;
+}
+
+.chart-svg .pt:focus-visible > :first-child {
+  stroke: var(--ink);
+  stroke-width: 2.5;
+}
+
+.prose .chart-data {
+  margin-top: 0.5rem;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+}
+
+.prose .chart-data > summary {
+  display: inline-block;
+  min-height: 24px;
+  padding: 2px 8px;
+  border: 1px solid var(--rule);
+  color: var(--ink);
+  cursor: pointer;
+  list-style: none;
+}
+
+.prose .chart-data > summary::-webkit-details-marker {
+  display: none;
+}
+
+.prose .chart-data > summary::before {
+  content: '▸ ';
+}
+
+.prose .chart-data[open] > summary::before {
+  content: '▾ ';
+}
+
+.prose .chart-data .table-wrap {
+  margin-top: 0.5rem;
+  overflow-x: auto;
+}
+
+.prose .chart-data table {
+  margin: 0;
+}
+
+.prose .chart-error {
+  margin: 0;
+  padding: 0.6rem 0.8rem;
+  border: 1px dashed var(--signal, var(--ink));
+  font: 0.75rem/1.5 var(--font-mono);
+  color: var(--ink);
+  white-space: pre-wrap;
+}
+
+/* Diagrams: beveled boxes and hairline arrows. */
+.diagram-svg .dg-box {
+  fill: var(--surface);
+  stroke: var(--ink);
+  stroke-width: 1.25;
+}
+
+.diagram-svg .dg-shadow {
+  fill: var(--rule);
+}
+
+.diagram-svg .dg-label {
+  fill: var(--ink);
+  font-size: 12px;
+}
+
+.diagram-svg .dg-edge {
+  fill: none;
+  stroke: var(--muted);
+  stroke-width: 1.25;
+}
+
+.diagram-svg .dg-head {
+  fill: var(--muted);
+}
+
+@media (pointer: coarse) {
+  .prose .chart-data > summary {
+    min-height: 36px;
+    padding: 8px 12px;
+  }
+}
+
+/* Print: the data table shows, and charts print in ink. */
+@media print {
+  .prose .chart-data::details-content {
+    content-visibility: visible;
+  }
+
+  .prose .chart-data > summary {
+    display: none;
+  }
+
+  .chart-svg .pt-label {
+    opacity: 0;
+  }
 }
 
 /* ---- Wiki-links ([[slug]]) ---------------------------------------------- */

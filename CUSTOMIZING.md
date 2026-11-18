@@ -251,6 +251,12 @@ Before publishing, set `siteUrl` in `site.config.json` to your real address.
 
 ---
 
+### Browse earlier versions on your computer
+
+With the dev server running, open [Versions](http://localhost:4321/_admin/versions). Choose a commit and click **preview** to open its site in a separate local window. **Save snapshot** gives the current work a name, including saved edits that have not been committed. Your working files and branch stay where they are. Previews use the dependencies installed on your computer.
+
+To rehearse a release, choose the local mock destination and review the list of changes. For an intentional live release later, restart the dev server with \`VERSIONS_LIVE_PUBLISH=1\`, select the GitHub and Railway destination, review the post and media changes, and type the displayed revision to confirm. A named snapshot stays on this computer until you choose to release it.
+
 ## 9. If something looks wrong
 
 - **The page didn't update:** save the file again, or refresh the browser.

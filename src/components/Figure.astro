@@ -1,0 +1,13 @@
+---
+interface Props {
+  caption?: string;
+  cols?: string | number;
+  id?: string;
+}
+const { caption, cols, id } = Astro.props;
+const columns = Math.max(1, Math.min(3, Math.round(Number(cols) || 1)));
+---
+<figure class={`figure figure-group cols-${columns}`} id={id && `fig-${id}`}>
+  <div class="figure-grid"><slot /></div>
+  {caption && <figcaption>{caption}</figcaption>}
+</figure>

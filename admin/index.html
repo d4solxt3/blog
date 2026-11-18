@@ -36,7 +36,7 @@
       .field { display: grid; gap: 0.3rem; }
       .field input[type='file'] { max-width: 100%; font: 0.75rem var(--font-mono); color: var(--muted); }
       .field > span { font: 600 0.6875rem var(--font-mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
-      .field small { font: 0.6875rem/1.5 var(--font-mono); color: var(--faint); }
+      .field small { font: 0.6875rem/1.5 var(--font-mono); color: var(--muted); }
       .field input[type='text'], .field input[type='number'], .field input[type='url'], .field select, .field textarea {
         width: 100%; padding: 0.45rem 0.55rem; border: 1px solid var(--rule); border-radius: 0; background: var(--surface);
         font: 0.75rem/1.55 var(--font-mono); color: var(--ink);
@@ -82,7 +82,7 @@
       .post-list li:first-child button { border-top: 0; }
       .post-list button:hover { background: var(--wash); }
       .post-list button[aria-current='true'] { background: var(--ink); color: var(--surface); }
-      .post-list small { display: block; opacity: 0.7; }
+      .post-list small { display: block; color: var(--muted); }
       .editor-win, .preview-win { display: flex; flex-direction: column; min-height: 70vh; }
       .editor-tools { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; justify-content: space-between; padding: 0.4rem 0.6rem; border-bottom: 1px solid var(--rule); font: 0.6875rem var(--font-mono); color: var(--muted); }
       #editor { flex: 1; width: 100%; min-height: 60vh; padding: 0.8rem; border: 0; resize: none; background: var(--surface); font: 0.8125rem/1.7 var(--font-mono); color: var(--ink); tab-size: 2; }
@@ -105,6 +105,7 @@
           <div class="tabs" role="tablist">
             <button class="tab" role="tab" aria-selected="true" data-tab="settings">[site settings]</button>
             <button class="tab" role="tab" aria-selected="false" data-tab="posts">[posts]</button>
+            <a class="tab" href="/_admin/versions">[versions]</a>
           </div>
           <a href="https://heartcache.xyz/" target="_blank" rel="noopener">view live site ↗</a>
         </header>
@@ -142,7 +143,7 @@
                       <small>more columns = a sharper drawing with smaller characters</small>
                     </label>
                     <div><button class="btn" id="ascii-make" type="button">[ make ascii ]</button></div>
-                    <small style="font: 0.6875rem/1.5 var(--font-mono); color: var(--faint)">black-on-white line drawings work best. the result is saved straight to public/images/frontpage-ascii.txt and appears on the front page after you save to heartcache.xyz.</small>
+                    <small style="font: 0.6875rem/1.5 var(--font-mono); color: var(--muted)">black-on-white line drawings work best. the result is saved straight to public/images/frontpage-ascii.txt and appears on the front page after you save to heartcache.xyz.</small>
                   </div>
                   <div class="ascii-stage" id="ascii-stage">
                     <pre id="ascii-preview" aria-label="ASCII preview"></pre>
@@ -367,6 +368,7 @@
       if (pendingRelease) void showRelease(pendingRelease);
 
       /* ---------------- tabs ---------------- */
+      if (location.hash === '#versions') location.replace('/_admin/versions');
       document.querySelectorAll('[data-tab]').forEach((b) =>
         b.addEventListener('click', () => {
           document.querySelectorAll('[data-tab]').forEach((x) => x.setAttribute('aria-selected', String(x === b)));
@@ -679,6 +681,7 @@
       });
       window.addEventListener('beforeunload', (e) => { if (dirty) { e.preventDefault(); e.returnValue = ''; } });
 
+      if (location.hash === '#posts') document.querySelector('[data-tab="posts"]').click();
       loadSettings().catch((err) => ($('#settings-status').textContent = `> could not load settings: ${err.message}`));
     </script>
   </body>

@@ -1,0 +1,5 @@
+---
+import { renderArticleChart } from '../../plugins/preview.mjs';
+const html = await renderArticleChart(Astro.props);
+---
+<Fragment set:html={html} />

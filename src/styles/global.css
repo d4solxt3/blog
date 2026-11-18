@@ -39,6 +39,12 @@
   --accent: var(--ink); /* paper keeps its ink-only look */
   --accent-2: var(--ink);
   --signal: var(--ink);
+  /* Chart series (marks, not text: each >= 3:1 on the page). Series also
+     differ by dash and marker, so these never carry meaning alone. */
+  --chart-1: #18181a;
+  --chart-2: #5e5e64;
+  --chart-3: #8a8a90;
+  --chart-4: #3f3f45;
 
   /* Type: Plex Mono for UI, Silkscreen for tiny badges, Plex Sans for headings
      and (by default) reading. Readers can switch prose to serif or raw mono. */
@@ -110,6 +116,10 @@
   --accent: #2b6cb0; /* 5.2:1 on porcelain */
   --accent-2: #4a8fe7;
   --signal: #c93b4b;
+  --chart-1: #2b6cb0;
+  --chart-2: #c93b4b;
+  --chart-3: #102038;
+  --chart-4: #5b7fa8;
   --link: var(--accent);
   --link-underline: rgb(43 108 176 / 0.35);
   --art-ink: #14294a;

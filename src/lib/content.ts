@@ -10,6 +10,7 @@
  * - Pasted/dropped images go to public/images/posts/<slug>/ locally, or to
  *   <data dir>/media/posts/<slug>/ on the live site until they're published.
  */
+import { execFile } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
@@ -390,12 +391,17 @@ export function saveMedia(slug: string, name: string, buf: Buffer): { path: stri
   mkdirSync(dir, { recursive: true });
   const full = join(dir, file);
   if (!existsSync(full)) writeAtomic(full, buf);
-  const path = `/images/posts/${slug}/${file}`;
-  return { path, src: DEV ? path : `/api/media/${slug}/${file}` };
+  return { path: mediaPath(slug, file), src: mediaSrc(slug, file) };
 }
 
+/** Names saveMedia produces (and the only names served, listed or deleted). */
+export const MEDIA_FILE = /^[a-z0-9][a-z0-9-]*\.(png|jpg|gif|webp|svg)$/;
+export const mediaPath = (slug: string, file: string) => `/images/posts/${slug}/${file}`;
+/** A URL that shows the file in the editor right now. */
+export const mediaSrc = (slug: string, file: string) => (DEV ? mediaPath(slug, file) : `/api/media/${slug}/${file}`);
+
 export function readMedia(slug: string, file: string): { buf: Buffer; type: string } | null {
-  if (!SLUG.test(slug) || !/^[a-z0-9][a-z0-9-]*\.(png|jpg|gif|webp|svg)$/.test(file)) return null;
+  if (!SLUG.test(slug) || !MEDIA_FILE.test(file)) return null;
   const full = join(MEDIA_DIR, slug, file);
   if (!existsSync(full) || !statSync(full).isFile()) return null;
   return { buf: readFileSync(full), type: mediaType(file)! };
@@ -406,6 +412,103 @@ function referencedMedia(slug: string, body: string) {
   const re = new RegExp(`/images/posts/${slug}/([a-z0-9][a-z0-9-]*\\.(?:png|jpg|gif|webp|svg))`, 'g');
   const names = new Set([...body.matchAll(re)].map((m) => m[1]));
   return [...names].map((file) => ({ file, media: readMedia(slug, file) })).filter((m) => m.media);
+}
+
+/** Slugs of every post (file on disk or server draft) whose body links to this exact media path. */
+export function mediaUses(path: string): string[] {
+  const esc = path.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const re = new RegExp(`${esc}(?![A-Za-z0-9_.-])`);
+  const uses = new Set<string>();
+  if (existsSync(POSTS_DIR)) {
+    for (const file of readdirSync(POSTS_DIR)) {
+      const m = file.match(POST_FILE);
+      if (!m || file.startsWith('_') || retiredOnServer(m[1])) continue;
+      try {
+        if (re.test(readFileSync(join(POSTS_DIR, file), 'utf8'))) uses.add(m[1]);
+      } catch {}
+    }
+  }
+  if (existsSync(DRAFTS_DIR)) {
+    for (const file of readdirSync(DRAFTS_DIR)) {
+      const slug = file.replace(/\.json$/, '');
+      if (!SLUG.test(slug)) continue;
+      const d = readDraft(slug);
+      if (d && typeof d.body === 'string' && re.test(d.body)) uses.add(slug);
+    }
+  }
+  return [...uses].sort();
+}
+
+/**
+ * Whether this file is already part of the published site:
+ * tracked in git (npm run dev), in the GitHub repo (live site with a token),
+ * or shipped with the current deploy (live site without one).
+ */
+export async function mediaPublished(slug: string, file: string): Promise<boolean> {
+  if (!SLUG.test(slug) || !MEDIA_FILE.test(file)) return false;
+  const rel = `public/images/posts/${slug}/${file}`;
+  if (MODE === 'local') {
+    return new Promise((done) => {
+      execFile('git', ['ls-files', '--error-unmatch', '--', rel], { cwd: ROOT, windowsHide: true }, (err) => done(!err));
+    });
+  }
+  if (MODE === 'github') return !!(await repoFile(rel, PUBLISHING.branch));
+  return existsSync(join(ROOT, rel)) || existsSync(join(ROOT, 'dist/client/images/posts', slug, file));
+}
+
+export type MediaInfo = {
+  name: string;
+  path: string;
+  src: string;
+  size: number;
+  type: string;
+  modified: string;
+  uses: string[];
+  published: boolean;
+};
+
+/** The post's media folder, newest first. Unknown file names are skipped. */
+export async function listMedia(slug: string): Promise<MediaInfo[]> {
+  if (!SLUG.test(slug)) return [];
+  const dir = join(MEDIA_DIR, slug);
+  if (!existsSync(dir)) return [];
+  const files = readdirSync(dir).filter((name) => MEDIA_FILE.test(name));
+  const out = await Promise.all(
+    files.map(async (name): Promise<(MediaInfo & { mtime: number }) | null> => {
+      let st;
+      try {
+        st = statSync(join(dir, name));
+      } catch {
+        return null;
+      }
+      if (!st.isFile()) return null;
+      const path = mediaPath(slug, name);
+      return {
+        name,
+        path,
+        src: mediaSrc(slug, name),
+        size: st.size,
+        type: mediaType(name)!,
+        modified: st.mtime.toISOString(),
+        uses: mediaUses(path),
+        published: await mediaPublished(slug, name),
+        mtime: st.mtimeMs,
+      };
+    }),
+  );
+  return out
+    .filter((f): f is MediaInfo & { mtime: number } => !!f)
+    .sort((a, b) => b.mtime - a.mtime || a.name.localeCompare(b.name))
+    .map(({ mtime: _mtime, ...f }) => f);
+}
+
+/** Removes one file from the post's media folder. Callers check uses/published first. */
+export function deleteMedia(slug: string, file: string): boolean {
+  if (!SLUG.test(slug) || !MEDIA_FILE.test(file)) return false;
+  const full = join(MEDIA_DIR, slug, file);
+  if (!existsSync(full) || !statSync(full).isFile()) return false;
+  rmSync(full);
+  return true;
 }
 
 // ---- publishing -----------------------------------------------------------

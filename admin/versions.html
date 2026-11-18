@@ -1,0 +1,279 @@
+<!doctype html>
+<html lang="en" data-font="sans">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <title>versions.exe — local editor</title>
+    <script>
+      (function () {
+        var t = null;
+        try { t = localStorage.getItem('theme'); } catch (e) {}
+        if (t === 'light' || t === 'dark') t = t === 'dark' ? 'cyber' : 'paper';
+        if (t !== 'paper' && t !== 'cyber') t = 'paper';
+        document.documentElement.setAttribute('data-theme', t);
+      })();
+    </script>
+    <link rel="stylesheet" href="/node_modules/@fontsource/ibm-plex-mono/latin-400.css" />
+    <link rel="stylesheet" href="/node_modules/@fontsource/ibm-plex-mono/latin-600.css" />
+    <link rel="stylesheet" href="/node_modules/@fontsource-variable/ibm-plex-sans/wght.css" />
+    <link rel="stylesheet" href="/src/styles/global.css" />
+    <style>
+      .shell { --frame-max: 1320px; }
+      main { padding: 1.25rem clamp(12px, 2.4vw, 20px) 2rem; display: grid; gap: 1rem; }
+      .tabs { display: flex; gap: 0.3rem; }
+      .tab { padding: 0.25rem 0.5rem; border: 1px solid transparent; background: none; font: 600 0.75rem var(--font-mono); color: var(--muted); text-decoration: none; }
+      .tab:hover { color: var(--ink); border-color: var(--rule); }
+      .tab[aria-current='page'] { background: var(--ink); color: var(--surface); }
+      .intro, .note { margin: 0; font: 0.75rem/1.6 var(--font-mono); color: var(--muted); }
+      .intro b { color: var(--ink); }
+      .btn { padding: 0.35rem 0.75rem; border: 1px solid var(--line); background: var(--ink); color: var(--surface); font: 700 0.75rem var(--font-mono); letter-spacing: 0.04em; text-transform: uppercase; cursor: pointer; }
+      .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+      .btn--quiet { background: var(--surface); color: var(--ink); }
+      .save-row { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+      .save-row input { flex: 1 1 16rem; min-width: 0; min-height: 30px; padding: 0 0.5rem; border: 1px solid var(--border-hairline); background: var(--surface-recessed); font: 0.8125rem var(--font-mono); color: var(--ink); }
+      .status { min-height: 1.4em; font: 0.75rem var(--font-mono); color: var(--muted); }
+      table { width: 100%; border-collapse: collapse; font: 0.75rem/1.45 var(--font-mono); }
+      th { text-align: left; font-weight: 600; color: var(--muted); border-bottom: 1px solid var(--line); padding: 0.35rem 0.5rem; }
+      td { border-bottom: 1px dotted var(--rule); padding: 0.45rem 0.5rem; vertical-align: top; }
+      td.name { font-family: var(--font-sans); font-size: 0.8125rem; color: var(--ink); }
+      td.rev code { font: 600 0.75rem var(--font-mono); }
+      .tag { display: inline-block; margin-left: 0.35rem; padding: 0 0.3rem; border: 1px solid var(--line); font: 0.625rem/1.5 var(--font-mono); color: var(--ink); text-transform: uppercase; }
+      .tag--snap { border-style: dashed; }
+      .acts { display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: center; }
+      .acts button { min-height: 26px; padding: 0 0.5rem; border: 1px solid var(--border-hairline); background: linear-gradient(var(--surface-raised), var(--surface-raised-low)); font: 0.6875rem var(--font-mono); color: var(--ink); cursor: pointer; }
+      .acts a { font: 600 0.6875rem var(--font-mono); color: var(--accent, var(--ink)); }
+      .pv-state { font: 0.6875rem var(--font-mono); color: var(--muted); }
+      .table-wrap { overflow-x: auto; }
+      dialog.win { width: min(760px, calc(100vw - 24px)); max-height: calc(100vh - 40px); padding: 0; border: 1px solid var(--line); background: var(--surface); color: var(--ink); }
+      dialog.win::backdrop { background: rgb(10 14 22 / 0.35); }
+      .plan { padding: 1rem 1.1rem 1.1rem; display: grid; gap: 0.8rem; font: 0.75rem/1.55 var(--font-mono); overflow: auto; }
+      .plan dl { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 0.25rem 0.9rem; margin: 0; }
+      .plan dt { color: var(--muted); }
+      .plan dd { margin: 0; overflow-wrap: anywhere; }
+      .plan h3 { margin: 0.3rem 0 0.2rem; font: 600 0.75rem var(--font-mono); text-transform: uppercase; letter-spacing: 0.04em; }
+      .plan ul { margin: 0; padding-left: 1.1rem; }
+      .plan select, .plan input { min-height: 30px; padding: 0 0.4rem; border: 1px solid var(--border-hairline); background: var(--surface-recessed); font: 0.75rem var(--font-mono); color: var(--ink); }
+      .confirm-row { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; padding-top: 0.6rem; border-top: 1px solid var(--rule); }
+      .warn { color: var(--signal, var(--ink)); }
+      .ok { color: var(--accent, var(--ink)); }
+      @media (max-width: 680px) {
+        main, .win, .win-body { min-width: 0; }
+        .win-body { padding: 8px 10px; }
+        .table-wrap { overflow: visible; }
+        table, tbody { display: block; }
+        thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+        tbody tr { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 3px 8px; border-bottom: 1px dotted var(--rule); padding: 6px 0; }
+        td { border: 0; padding: 0; }
+        td.name, td:last-child { grid-column: 1 / -1; overflow-wrap: anywhere; }
+        td.rev { text-align: end; }
+        .acts { margin-top: 2px; }
+        .acts button, .acts a { min-height: 36px; display: inline-flex; align-items: center; }
+        .pv-state { overflow-wrap: anywhere; }
+        .save-row > * { max-width: 100%; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="shell">
+      <div class="viewport">
+        <div class="titlebar" aria-hidden="true">
+          <span class="lights"><i></i><i></i><i></i></span>
+          <span class="title">versions.exe — local editor (only works on this computer)</span>
+          <span class="pill"></span>
+        </div>
+        <header class="topbar" style="height: 40px; display: flex; align-items: center; padding: 0 16px; border-bottom: 1px solid var(--rule)">
+          <nav class="tabs" aria-label="Editor">
+            <a class="tab" href="/_admin">[site settings]</a>
+            <a class="tab" href="/_admin#posts">[posts]</a>
+            <a class="tab" href="/_admin/versions" aria-current="page">[versions]</a>
+          </nav>
+        </header>
+
+        <main>
+          <section class="win" aria-labelledby="save-h">
+            <div class="win-bar"><span class="win-title" id="save-h">save_version.exe</span></div>
+            <div class="win-body" style="display: grid; gap: 0.6rem">
+              <form class="save-row" id="save-form">
+                <label class="sr-only" for="save-name">Version name</label>
+                <input id="save-name" maxlength="80" placeholder="name this version, e.g. before cyber" autocomplete="off" required />
+                <button class="btn" type="submit">[ save current version ]</button>
+              </form>
+              <p class="note">saves your current source, posts, config and media as a named version (a git commit kept under refs/versions/, so your files, branch and staging area are not touched). never included: .env files, the data folder, passwords and sessions, comments, drafts.</p>
+              <p class="status" id="save-status" aria-live="polite"></p>
+            </div>
+          </section>
+
+          <section class="win" aria-labelledby="shelf-h">
+            <div class="win-bar"><span class="win-title" id="shelf-h">version_shelf.exe</span></div>
+            <div class="win-body" style="display: grid; gap: 0.6rem">
+              <p class="intro" id="shelf-intro">loading…</p>
+              <div class="table-wrap">
+                <table>
+                  <thead><tr><th scope="col">name</th><th scope="col">date</th><th scope="col">revision</th><th scope="col">actions</th></tr></thead>
+                  <tbody id="shelf"></tbody>
+                </table>
+              </div>
+              <p class="note">[preview] builds that version in its own folder and serves it on 127.0.0.1, read-only (only GET/HEAD reach it) with an empty data folder: your editor files never change. the first build of a version takes a little while; later opens are quick. "tracked origin/master" is the branch this checkout tracks as last fetched, not proof of what's deployed.</p>
+            </div>
+          </section>
+        </main>
+      </div>
+    </div>
+
+    <dialog class="win" id="publish-dialog" aria-labelledby="publish-h">
+      <div class="win-bar">
+        <span class="win-title" id="publish-h">release_version.exe</span>
+        <form method="dialog"><button class="ctl ctl-close bevel" aria-label="Close (Esc)">×</button></form>
+      </div>
+      <div class="plan" id="plan"></div>
+    </dialog>
+
+    <script type="module">
+      const $ = (s) => document.querySelector(s);
+      const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+      const api = async (path, opts = {}) => {
+        const action = path.replace(/^\//, '') || 'shelf';
+        const res = await fetch(`/_admin/api/versions${path}`, { headers: { 'content-type': 'application/json', 'x-versions-action': action }, ...opts });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+        return data;
+      };
+      const fmtDate = (iso) => { const d = new Date(iso); return isNaN(d) ? iso : `${d.toISOString().slice(0, 10)} ${d.toTimeString().slice(0, 5)}`; };
+
+      let data = null;
+      let polling = 0;
+
+      function previewCell(e) {
+        const p = e.preview || { status: 'none' };
+        if (p.status === 'ready') return `<a href="${esc(p.url)}" target="_blank" rel="noopener">open preview ↗</a> <span class="pv-state">${esc(p.url)}</span> <button type="button" data-stop="${e.rev}">stop</button>`;
+        if (['queued', 'exporting', 'building', 'starting'].includes(p.status)) return `<span class="pv-state">${esc(p.status)}…</span>`;
+        if (p.status === 'error') return `<span class="pv-state warn">preview failed: ${esc(p.error)}</span> <button type="button" data-preview="${e.rev}">retry</button>`;
+        return `<button type="button" data-preview="${e.rev}">[ preview ]</button>`;
+      }
+
+      function render() {
+        const snaps = data.entries.filter((e) => e.kind === 'snapshot').length;
+        $('#shelf-intro').innerHTML = `branch <b>${esc(data.branch)}</b> · ${data.entries.length - snaps} commits · ${snaps} saved versions. publishing is a separate step with its own confirmation${data.liveEnabled ? '' : '; live releases are <b>off</b> this session (local mock remote only)'}.`;
+        $('#shelf').innerHTML = data.entries.map((e) => `
+          <tr>
+            <td class="name">${esc(e.name)}${e.kind === 'snapshot' ? '<span class="tag tag--snap">saved</span>' : ''}${e.head ? '<span class="tag">current</span>' : ''}${e.tracked ? '<span class="tag" title="origin/master as last fetched: the branch this checkout tracks, not proof of what is deployed">tracked origin/master</span>' : ''}</td>
+            <td>${esc(fmtDate(e.date))}</td>
+            <td class="rev"><code title="${e.rev}">${e.short}</code></td>
+            <td><div class="acts">${previewCell(e)} <button type="button" data-publish="${e.rev}">[ publish… ]</button></div></td>
+          </tr>`).join('');
+        const busy = data.entries.some((e) => ['queued', 'exporting', 'building', 'starting'].includes(e.preview?.status));
+        clearTimeout(polling);
+        if (busy) polling = setTimeout(load, 1500);
+      }
+
+      async function load() {
+        try { data = await api(''); render(); }
+        catch (err) { $('#shelf-intro').textContent = `> ${err.message}`; }
+      }
+
+      $('#save-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const name = $('#save-name').value.trim();
+        if (!name) return;
+        $('#save-status').textContent = '> saving…';
+        try {
+          const v = await api('/snapshot', { method: 'POST', body: JSON.stringify({ name }) });
+          $('#save-status').textContent = `> saved "${v.name}" as ${v.short} (${v.files} files)`;
+          $('#save-name').value = '';
+          await load();
+        } catch (err) { $('#save-status').textContent = `> ${err.message}`; }
+      });
+
+      $('#shelf').addEventListener('click', async (e) => {
+        const b = e.target.closest('button');
+        if (!b) return;
+        if (b.dataset.preview) { b.disabled = true; await api('/preview', { method: 'POST', body: JSON.stringify({ rev: b.dataset.preview }) }).catch((err) => alert(err.message)); return load(); }
+        if (b.dataset.stop) { await api('/preview-stop', { method: 'POST', body: JSON.stringify({ rev: b.dataset.stop }) }).catch(() => {}); return load(); }
+        if (b.dataset.publish) openPublish(b.dataset.publish, b);
+      });
+
+      // ---- release: plan → review → type the revision → publish ----
+      const dialog = $('#publish-dialog');
+      let dests = null;
+      async function openPublish(rev, opener) {
+        dests ??= await api('/destinations').catch(() => null);
+        const opts = Object.values(dests || {}).map((d) => `<option value="${d.id}" ${d.enabled ? '' : 'disabled'}>${esc(d.label)}${d.enabled ? '' : ' (off)'}</option>`).join('');
+        $('#plan').innerHTML = `<label>destination <select id="dest">${opts}</select></label>${dests?.live && !dests.live.enabled ? `<p class="note">live release is ${esc(dests.live.why)}.</p>` : ''}<div id="plan-body"><p class="note">planning…</p></div>`;
+        dialog.showModal();
+        const loadPlan = async () => {
+          $('#plan-body').innerHTML = '<p class="note">planning…</p>';
+          try { renderPlan(await api('/plan', { method: 'POST', body: JSON.stringify({ rev, destination: $('#dest').value }) })); }
+          catch (err) { $('#plan-body').innerHTML = `<p class="warn">${esc(err.message)}</p>`; }
+        };
+        $('#dest').addEventListener('change', loadPlan);
+        await loadPlan();
+      }
+
+      let currentLines = {};
+      const withLines = (paths) => paths.map((x) => (currentLines[x] ? `${x}  (${currentLines[x]})` : x));
+      const list = (items, empty = 'none') => (items.length ? `<ul>${items.map((p) => `<li>${esc(p)}</li>`).join('')}</ul>` : `<p class="note">${empty}</p>`);
+      function renderPlan(p) {
+        const i = p.impact;
+        currentLines = i.lines || {};
+        $('#plan-body').innerHTML = `
+          <dl>
+            <dt>destination</dt><dd>${esc(p.destination.label)} — <b>${esc(p.destination.url)}</b> · branch <b>${esc(p.destination.branch)}</b> · now at <code>${p.destination.headShort}</code></dd>
+            <dt>version</dt><dd>"${esc(p.version.name)}" · ${esc(fmtDate(p.version.date))}</dd>
+            <dt>exact revision</dt><dd><code>${p.version.rev}</code></dd>
+            <dt>method</dt><dd>one new commit on top of <code>${p.destination.headShort}</code>, fast-forward push only (never forced). the release is this version's own source — exactly what [preview] built — plus the destination's newer posts, deleted-post records and the media those posts use.</dd>
+          </dl>
+          ${p.unchanged ? '<p class="ok">the destination already matches this version: nothing to release.</p>' : ''}
+          <h3>posts</h3>
+          <p class="note">added</p>${list(withLines(i.posts.added))}
+          <p class="note">changed to this version's text</p>${list(withLines(i.posts.changed))}
+          <p class="note">kept as they are at the destination (newer posts: never deleted)</p>${list(i.posts.kept)}
+          ${i.posts.removed.length ? `<p class="warn">removed</p>${list(i.posts.removed)}` : ''}
+          <h3>deleted-post records</h3>${list([...i.retired.kept.map((m) => 'kept ' + m), ...i.retired.added.map((m) => '+ ' + m), ...i.retired.changed.map((m) => '~ ' + m), ...i.retired.removed.map((m) => '− ' + m)])}
+          <h3>site settings</h3><p>${i.config.changed.length || i.config.added.length ? `site.config.json changes to this version (${esc(i.lines['site.config.json'] || 'changed')})` : 'unchanged'}</p>
+          <h3>media</h3>${list([...i.media.added.map((m) => '+ ' + m), ...i.media.changed.map((m) => '~ ' + m), ...i.media.removed.map((m) => '− ' + m), ...i.media.kept.map((m) => 'kept (used by a kept post) ' + m)])}
+          <h3>source (routes, components, scripts, styles)</h3>
+          <p>${i.source.added.length} added, ${i.source.changed.length} changed, ${i.source.removed.length} removed — newer source that this version doesn't have is removed, so the release matches the preview.</p>
+          ${i.source.removed.length ? `<details><summary>removed source files</summary>${list(i.source.removed)}</details>` : ''}
+          ${i.source.added.length ? `<details><summary>added source files</summary>${list(i.source.added)}</details>` : ''}
+          ${i.private.kept ? `<p class="note">${i.private.kept} private file(s) at the destination are left alone.</p>` : ''}
+          <div class="confirm-row">
+            <label for="confirm">type <b>${p.version.short}</b> to release to ${esc(p.destination.id === 'mock' ? 'the mock remote' : p.destination.url)}</label>
+            <input id="confirm" autocomplete="off" spellcheck="false" size="10" ${p.unchanged ? 'disabled' : ''} />
+            <button class="btn" id="do-publish" type="button" disabled>[ publish ]</button>
+          </div>
+          <p class="status" id="publish-status" aria-live="polite"></p>`;
+        const input = $('#confirm');
+        const go = $('#do-publish');
+        input?.addEventListener('input', () => (go.disabled = input.value.trim() !== p.version.short));
+        go.addEventListener('click', async () => {
+          go.disabled = true;
+          $('#publish-status').textContent = '> publishing…';
+          try {
+            const r = await api('/publish', { method: 'POST', body: JSON.stringify({ rev: p.version.rev, destination: p.destination.id, confirm: input.value.trim(), expectHead: p.destination.head, expectTree: p.tree }) });
+            $('#publish-status').innerHTML = `<span class="ok">> released ${r.version.short} as commit <code>${r.short}</code> on ${esc(r.destination.branch)}${r.deploy === 'requested' ? ' · deploy requested' : ''}.</span>${r.remoteLog.length ? `<br>mock remote log:<br>${r.remoteLog.map(esc).join('<br>')}` : ''}`;
+            input.disabled = true;
+            if (r.deploy === 'failed') showRetry(r);
+          } catch (err) { $('#publish-status').innerHTML = `<span class="warn">> ${esc(err.message)}</span>`; go.disabled = false; }
+        });
+      }
+
+      // The push landed but the deploy request failed: retry just the deploy.
+      function showRetry(r) {
+        const box = document.createElement('p');
+        box.className = 'status';
+        box.innerHTML = `<span class="warn">> pushed, but the deploy request failed: ${esc(r.deployError)}</span> <button class="btn btn--quiet" type="button">[ retry deploy ]</button>`;
+        $('#publish-status').after(box);
+        box.querySelector('button').addEventListener('click', async (e) => {
+          e.target.disabled = true;
+          try {
+            const d = await api('/deploy-retry', { method: 'POST', body: JSON.stringify({ commit: r.commit }) });
+            box.innerHTML = d.deploy === 'requested' ? '<span class="ok">> deploy requested.</span>' : `<span class="warn">> still failing: ${esc(d.deployError)}</span>`;
+          } catch (err) { box.innerHTML = `<span class="warn">> ${esc(err.message)}</span>`; }
+        });
+      }
+
+      load();
+    </script>
+  </body>
+</html>

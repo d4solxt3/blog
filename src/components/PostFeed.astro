@@ -539,13 +539,19 @@ const repliesEnabled = SITE.comments.provider === 'native';
   /* Narrow: the date joins the meta column under the title. */
   @media (max-width: 480px) {
     .feed-tools {
+      flex-wrap: wrap;
       width: 100%;
       justify-content: space-between;
+      row-gap: 6px;
     }
 
+    /* Shrinks with the row; when there's no room beside the view buttons
+       (smallest phones) it drops to its own full-width line instead of
+       running past the panel edge. */
     .filter {
-      flex: 1;
-      max-width: 160px;
+      flex: 1 1 6rem;
+      min-width: 0;
+      max-width: none;
       height: 36px;
       font-size: 13px;
     }

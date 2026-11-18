@@ -6,6 +6,8 @@ import ProgressBar from '../../components/ProgressBar.astro';
 import Toc from '../../components/Toc.astro';
 import Callout from '../../components/Callout.astro';
 import Details from '../../components/Details.astro';
+import Chart from '../../components/Chart.astro';
+import Figure from '../../components/Figure.astro';
 import PostFooter from '../../components/PostFooter.astro';
 import Comments from '../../components/Comments.astro';
 import FontToggle from '../../components/FontToggle.astro';
@@ -127,7 +129,7 @@ const slideIn = {
               </Callout>
             )
           }
-          <Content components={{ Callout, Details }} />
+          <Content components={{ Callout, Details, Chart, Figure }} />
         </div>
 
         {series && <SeriesNav series={series} position="bottom" />}

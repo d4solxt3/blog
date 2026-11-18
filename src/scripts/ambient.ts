@@ -25,7 +25,7 @@ let anim: TabAnim = { enabled: false, intervalMs: 950, frames: [] };
 
 function tickClock() {
   window.clearTimeout(clockTimer);
-  const el = document.querySelector<HTMLElement>('[data-clock]');
+  const el = document.querySelector<HTMLTimeElement>('[data-clock]');
   if (!el || document.hidden) return;
   const d = new Date();
   const seconds = full();

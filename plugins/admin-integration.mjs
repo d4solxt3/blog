@@ -8,6 +8,7 @@ import { ASCII_OUTPUT, writeAsciiFromImage } from '../scripts/ascii-lib.mjs';
 import { normalizeSiteUrl } from '../scripts/site-url.mjs';
 import { publishFile, releaseStatus } from './editor-publish.mjs';
 import { renderPreview } from './preview.mjs';
+import { handleVersions } from './versions.mjs';
 
 const ROOT = process.cwd();
 const CONFIG = resolve(ROOT, 'site.config.json');
@@ -72,6 +73,9 @@ function listPosts() {
 async function handle(req, res, url) {
   const path = url.pathname.replace(/\/+$/, '') || '/_admin';
   const method = req.method ?? 'GET';
+
+  // Version shelf: /_admin/versions and /_admin/api/versions/*
+  if (await handleVersions(req, res, path)) return;
 
   if (path === '/_admin' && method === 'GET') {
     return send(res, 200, readFileSync(ADMIN_HTML, 'utf8'), 'text/html; charset=utf-8');

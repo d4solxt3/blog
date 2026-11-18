@@ -28,8 +28,9 @@ const truncate = (s: string, n: number) => (s.length > n ? `${s.slice(0, n - 1).
 
 export function initComments(signal: AbortSignal) {
   const root = document.querySelector<HTMLElement>('[data-comment-system]');
-  const prose = document.querySelector<HTMLElement>('[data-post-body]');
-  if (!root || !prose) return;
+  const postBody = document.querySelector<HTMLElement>('[data-post-body]');
+  if (!root || !postBody) return;
+  const prose = postBody;
 
   const post = root.dataset.post ?? '';
   const native = root.dataset.provider === 'native';
@@ -366,7 +367,7 @@ export function initComments(signal: AbortSignal) {
     const back =
       lastFocus?.isConnected && lastFocus.getClientRects().length
         ? lastFocus
-        : ((openAnchorId && prose.querySelector<HTMLElement>(`.anno-badge[data-anchor="${CSS.escape(openAnchorId)}"]`)) ??
+        : ((openAnchorId ? prose.querySelector<HTMLElement>(`.anno-badge[data-anchor="${CSS.escape(openAnchorId)}"]`) : null) ??
           prose);
     if (back === prose && !prose.hasAttribute('tabindex')) prose.setAttribute('tabindex', '-1');
     back.focus({ preventScroll: true });

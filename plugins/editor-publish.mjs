@@ -37,7 +37,7 @@ async function railway(args) {
   return JSON.parse(stdout);
 }
 
-async function deployRevision(revision) {
+export async function deployRevision(revision) {
   const deployments = await railway(['deployment', 'list', '--limit', '8']);
   const current = deployments[0];
   let id = current?.id;
