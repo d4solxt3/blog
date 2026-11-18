@@ -16,6 +16,7 @@ import { dirname, join, resolve } from 'node:path';
 import YAML from 'yaml';
 import { isRetiredLocally, retiredPath } from '../../scripts/post-template.mjs';
 import raw from '../../site.config.json';
+import { retiredOnServer, retireOnServer } from './retired-posts';
 import { DATA_DIR, DEV } from './auth';
 
 const ROOT = process.cwd();
@@ -157,6 +158,7 @@ async function repoFile(path: string, ref: string) {
 }
 
 export async function isRetired(slug: string, ref = PUBLISHING.branch): Promise<boolean> {
+  if (retiredOnServer(slug)) return true;
   return MODE === 'github' ? !!(await repoFile(retiredPath(slug), ref)) : isRetiredLocally(slug);
 }
 
@@ -164,6 +166,7 @@ type Published = { ext: 'md' | 'mdx'; source: string; sha: string };
 
 /** The current published file for a slug: GitHub on the live site, the local file otherwise. */
 export async function readPublished(slug: string): Promise<Published | null> {
+  if (retiredOnServer(slug)) return null;
   for (const ext of ['md', 'mdx'] as const) {
     if (MODE === 'github') {
       const data = await repoFile(`content/posts/${slug}.${ext}`, PUBLISHING.branch);
@@ -184,6 +187,7 @@ export async function readPublished(slug: string): Promise<Published | null> {
 const draftFile = (slug: string) => join(DRAFTS_DIR, `${slug}.json`);
 
 export function readDraft(slug: string): Draft | null {
+  if (retiredOnServer(slug)) return null;
   try {
     return JSON.parse(readFileSync(draftFile(slug), 'utf8')) as Draft;
   } catch {
@@ -225,10 +229,11 @@ export async function removePost(slug: string, version: string) {
   }
 
   if (pub) {
-    if (MODE === 'off') throw Object.assign(new Error('Enable GitHub publishing in settings to delete a post file.'), { status: 503 });
     const name = `${slug}.${pub.ext}`;
     const marker = retiredPath(slug);
-    if (MODE === 'local') {
+    if (MODE === 'off') {
+      retireOnServer(slug);
+    } else if (MODE === 'local') {
       const markerFile = join(ROOT, marker);
       mkdirSync(dirname(markerFile), { recursive: true });
       const alreadyReserved = existsSync(markerFile);
@@ -265,7 +270,7 @@ export function listPosts(): Listing[] {
   if (existsSync(POSTS_DIR)) {
     for (const file of readdirSync(POSTS_DIR)) {
       const m = file.match(POST_FILE);
-      if (!m || file.startsWith('_')) continue;
+      if (!m || file.startsWith('_') || retiredOnServer(m[1])) continue;
       const source = readFileSync(join(POSTS_DIR, file), 'utf8');
       const doc = parsePost(m[1], m[2] as 'md' | 'mdx', source);
       out.set(m[1], { publishedSha: blobSha(source), slug: m[1], title: doc.fields.title || m[1], date: doc.fields.date, draft: doc.fields.draft, unsaved: false, savedAt: null });
@@ -303,7 +308,7 @@ export function metaIndex(): MetaIndex {
   if (existsSync(POSTS_DIR)) {
     for (const file of readdirSync(POSTS_DIR)) {
       const m = file.match(POST_FILE);
-      if (m && !file.startsWith('_')) docs.set(m[1], parsePost(m[1], m[2] as 'md' | 'mdx', readFileSync(join(POSTS_DIR, file), 'utf8')).fields);
+      if (m && !file.startsWith('_') && !retiredOnServer(m[1])) docs.set(m[1], parsePost(m[1], m[2] as 'md' | 'mdx', readFileSync(join(POSTS_DIR, file), 'utf8')).fields);
     }
   }
   if (existsSync(DRAFTS_DIR)) {

@@ -2,6 +2,7 @@
  * Reads /site.config.json (the file you edit) and fills in safe defaults.
  * You shouldn't need to change this file — edit site.config.json or use /_admin.
  */
+import { normalizeSiteUrl } from '../scripts/site-url.mjs';
 import raw from '../site.config.json';
 
 export type FontChoice = 'sans' | 'serif' | 'mono';
@@ -22,7 +23,7 @@ const name = str(r.siteName ?? r.siteTitle, 'my notebook');
 const subtitle = str(r.siteSubtitle ?? r.tagline, '');
 const authorName = str(r.authorName ?? r.author ?? r.profile?.displayName, '');
 const authorHandle = str(r.authorHandle ?? r.profile?.handle, 'anon').replace(/^@/, '');
-const url = str(r.siteUrl, '').replace(/\/$/, '');
+const url = normalizeSiteUrl(r.siteUrl);
 const frontpageImage = str(r.frontpageImage, '/images/frontpage-art.png');
 const giscus = r.comments?.giscus ?? {};
 

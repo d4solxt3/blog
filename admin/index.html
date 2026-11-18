@@ -70,7 +70,7 @@
       .ascii-stage { display: grid; place-items: center; min-height: 20rem; padding: 0.9rem; border: 1px dotted var(--muted); overflow: auto; }
       #ascii-preview { margin: 0; font: 8px/1 var(--font-mono); color: var(--ink); white-space: pre; font-variant-ligatures: none; }
       @media (max-width: 760px) { .ascii-body { grid-template-columns: minmax(0, 1fr); } .ascii-stage { min-height: 14rem; } }
-      .savebar { position: sticky; bottom: 0; display: flex; justify-content: space-between; align-items: center; gap: 1rem; margin-top: 1rem; padding: 0.6rem 0.75rem; border: 1px solid var(--line); background: var(--bar); font: 0.75rem var(--font-mono); }
+      .savebar { flex-wrap: wrap; position: sticky; bottom: 0; display: flex; justify-content: space-between; align-items: center; gap: 1rem; margin-top: 1rem; padding: 0.6rem 0.75rem; border: 1px solid var(--line); background: var(--bar); font: 0.75rem var(--font-mono); }
       .btn { padding: 0.35rem 0.75rem; border: 1px solid var(--line); background: var(--ink); color: var(--surface); font: 700 0.75rem var(--font-mono); letter-spacing: 0.04em; text-transform: uppercase; cursor: pointer; }
       .btn.ghost { background: transparent; color: var(--ink); }
       .btn:disabled { opacity: 0.5; cursor: progress; }
@@ -112,7 +112,7 @@
         <main>
           <!-- ============================ SITE SETTINGS ============================ -->
           <section id="tab-settings" role="tabpanel">
-            <p class="intro">&gt; everything here is saved to <b>site.config.json</b>. press save, and any open tab of the site reloads by itself.</p>
+            <p class="intro">&gt; everything here is saved to <b>site.config.json</b>. save locally to preview, or choose <b>save &amp; publish</b> to update heartcache.xyz.</p>
             <form id="settings" class="settings" autocomplete="off">
               <section class="win"><div class="win-bar"><span class="win-title">identity.cfg</span></div>
                 <div class="win-body fields">
@@ -276,7 +276,7 @@
                 </div>
               </section>
             </form>
-            <div class="savebar"><span id="settings-status">&gt; loading…</span><button class="btn" id="save-settings" type="button">[ save settings ]</button></div>
+            <div class="savebar"><span role="status" id="settings-status">&gt; loading…</span><button class="btn" id="save-settings" type="button">[ save locally ]</button><button class="btn" id="publish-settings" type="button" disabled>[ save &amp; publish ]</button></div>
           </section>
 
           <!-- ================================ POSTS ================================ -->
@@ -289,15 +289,16 @@
               </section>
               <section class="win editor-win"><div class="win-bar"><span class="win-title" id="editor-title">editor.exe</span></div>
                 <div class="editor-tools"><span id="editor-status">&gt; pick a post on the left</span>
-                  <span style="display: flex; gap: 0.5rem"><a id="open-post" href="/" target="_blank" rel="noopener" hidden>open ↗</a><button class="btn" id="save-post" type="button" disabled>[ save ]</button></span>
+                  <span style="display: flex; gap: 0.5rem"><a id="open-post" href="/" target="_blank" rel="noopener" hidden>open ↗</a><button class="btn" id="save-post" type="button" disabled>[ save ]</button><button class="btn" id="publish-post" type="button" disabled>[ save &amp; publish ]</button></span>
                 </div>
                 <textarea id="editor" spellcheck="true" disabled placeholder="markdown goes here…"></textarea>
               </section>
               <section class="win preview-win"><div class="win-bar"><span class="win-title">preview.exe</span></div>
-                <iframe id="preview" title="Live preview"></iframe>
+                <iframe sandbox id="preview" title="Live preview"></iframe>
               </section>
             </div>
           </section>
+          <p class="intro" id="release-status" role="status" aria-live="polite"></p>
         </main>
       </div>
       <footer class="outside"><p class="colophon">local editor // files are written straight to your project folder</p></footer>
@@ -312,6 +313,42 @@
         return data;
       };
       const now = () => new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+      const releaseStatus = $('#release-status');
+      let watching = 0;
+      async function watchRelease(revision) {
+        const ticket = ++watching;
+        releaseStatus.textContent = 'Sent to GitHub. Waiting for Railway…';
+        for (let attempt = 0; attempt < 90 && ticket === watching; attempt++) {
+          const live = await api('release').catch(() => ({}));
+          if (ticket !== watching) return;
+          if (live.revision === revision) {
+            sessionStorage.removeItem('editor-release');
+            releaseStatus.textContent = 'Published to heartcache.xyz.';
+            return;
+          }
+          await new Promise(resolve => setTimeout(resolve, 4000));
+        }
+        if (ticket === watching) releaseStatus.textContent = 'GitHub has the change. Railway has not confirmed this release. Check the deployment in Railway.';
+      }
+      async function publishSaved(file) {
+        const buttons = [$('#publish-post'), $('#publish-settings')];
+        buttons.forEach(b => b.disabled = true);
+        ++watching;
+        releaseStatus.textContent = 'Publishing saved changes…';
+        try {
+          const { revision } = await api('publish', { method:'POST', headers:{'Content-Type':'application/json', 'X-Editor-Action':'publish'}, body:JSON.stringify({file}) });
+          sessionStorage.setItem('editor-release', revision);
+          void watchRelease(revision);
+        } catch (err) {
+          releaseStatus.textContent = 'Saved locally. Publish failed: ' + err.message;
+        } finally {
+          $('#publish-settings').disabled = false;
+          $('#publish-post').disabled = !current;
+        }
+      }
+      const pendingRelease = sessionStorage.getItem('editor-release');
+      if (pendingRelease) void watchRelease(pendingRelease);
 
       /* ---------------- tabs ---------------- */
       document.querySelectorAll('[data-tab]').forEach((b) =>
@@ -376,6 +413,7 @@
 
       async function loadSettings() {
         config = await api('config');
+        $('#publish-settings').disabled = false;
         document.querySelectorAll('#settings [data-key]').forEach((el) => toField(el, getPath(config, el.dataset.key)));
         thumb();
         $('#settings-status').textContent = '> loaded site.config.json';
@@ -508,17 +546,22 @@
         .catch(() => {});
       window.addEventListener('resize', () => showAscii($('#ascii-preview').textContent));
 
-      $('#save-settings').addEventListener('click', async () => {
+      async function saveSettings(publish = false) {
         const next = structuredClone(config);
         document.querySelectorAll('#settings [data-key]').forEach((el) => setPath(next, el.dataset.key, fromField(el)));
         $('#save-settings').disabled = true;
         try {
-          await api('config', { method: 'PUT', body: JSON.stringify(next) });
+          const saved = await api('config', { method: 'PUT', body: JSON.stringify(next) });
+          next.siteUrl = saved.siteUrl ?? next.siteUrl;
+          $('#settings [data-key="siteUrl"]').value = next.siteUrl;
           config = next;
-          $('#settings-status').textContent = `> saved ✓ ${now()}`;
+          $('#settings-status').textContent = `> saved locally ✓ ${now()}`;
+          if (publish) await publishSaved('site.config.json');
         } catch (err) { $('#settings-status').textContent = `> could not save: ${err.message}`; }
         $('#save-settings').disabled = false;
-      });
+      }
+      $('#save-settings').addEventListener('click', () => saveSettings());
+      $('#publish-settings').addEventListener('click', () => saveSettings(true));
 
       /* ---------------- posts ---------------- */
       let current = null;
@@ -555,6 +598,7 @@
         editor.value = content;
         editor.disabled = false;
         $('#save-post').disabled = false;
+        $('#publish-post').disabled = false;
         $('#editor-title').textContent = file;
         const open = $('#open-post');
         open.hidden = false;
@@ -565,13 +609,15 @@
         loadPosts();
       }
 
-      async function savePost() {
+      async function savePost(publish = false) {
         if (!current) return;
         $('#save-post').disabled = true;
+        const file = current;
         try {
           await api(`post?file=${encodeURIComponent(current)}`, { method: 'PUT', body: JSON.stringify({ content: editor.value }) });
           setDirty(false);
           loadPosts();
+          if (publish) await publishSaved('content/posts/' + file);
         } catch (err) { $('#editor-status').textContent = `> could not save: ${err.message}`; }
         $('#save-post').disabled = false;
       }
@@ -607,7 +653,8 @@
         clearTimeout(previewTimer);
         previewTimer = setTimeout(renderPreview, 350);
       });
-      $('#save-post').addEventListener('click', savePost);
+      $('#save-post').addEventListener('click', () => savePost());
+      $('#publish-post').addEventListener('click', () => savePost(true));
       document.addEventListener('keydown', (e) => {
         if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's' && !$('#tab-posts').hidden) { e.preventDefault(); savePost(); }
       });

@@ -1,5 +1,6 @@
 import { getCollection, type CollectionEntry } from 'astro:content';
 import { isRetiredLocally } from '../../scripts/post-template.mjs';
+import { retiredOnServer } from '../lib/retired-posts';
 import { SITE } from '../site.config';
 
 export type Post = CollectionEntry<'posts'>;
@@ -9,7 +10,7 @@ export async function getPosts(): Promise<Post[]> {
   const posts = await getCollection('posts', ({ data }) => import.meta.env.DEV || !data.draft);
   const conflict = posts.find((post) => isRetiredLocally(post.id));
   if (conflict) throw new Error(`The address "${conflict.id}" is retired. Rename the new Markdown file to give it its own discussion.`);
-  return posts.sort((a, b) => Number(b.data.pinned) - Number(a.data.pinned) || b.data.date.valueOf() - a.data.date.valueOf());
+  return posts.filter((post) => !retiredOnServer(post.id)).sort((a, b) => Number(b.data.pinned) - Number(a.data.pinned) || b.data.date.valueOf() - a.data.date.valueOf());
 }
 
 /** Same posts, strictly newest first (used for entry numbers and prev/next). */

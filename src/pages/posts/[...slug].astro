@@ -20,33 +20,20 @@ import {
   readingTime,
   seriesOf,
   tagSlug,
-  type Post,
-  type SeriesInfo,
 } from '../../utils/posts';
 
-export async function getStaticPaths() {
-  const posts = await getPostsByDate();
-  return posts.map((post, i) => ({
-    params: { slug: post.id },
-    props: {
-      post,
-      index: posts.length - i, // chronological entry number, oldest = 001
-      newer: posts[i - 1] ?? null,
-      older: posts[i + 1] ?? null,
-      series: seriesOf(post, posts),
-    },
-  }));
+export const prerender = false;
+const posts = await getPostsByDate();
+const position = posts.findIndex((entry) => entry.id === Astro.params.slug);
+if (position < 0) {
+  const page = await Astro.rewrite('/404');
+  return new Response(page.body, { status: 404, headers: page.headers });
 }
-
-interface Props {
-  post: Post;
-  index: number;
-  newer: Post | null;
-  older: Post | null;
-  series: SeriesInfo | null;
-}
-
-const { post, index, newer, older, series } = Astro.props;
+const post = posts[position];
+const index = posts.length - position;
+const newer = posts[position - 1] ?? null;
+const older = posts[position + 1] ?? null;
+const series = seriesOf(post, posts);
 const { title, subtitle, description, date, updated, tags, tldr, draft, font } = post.data;
 const { Content, headings } = await render(post);
 const toc = headings.filter((h) => (h.depth === 2 || h.depth === 3) && h.slug !== 'footnote-label');

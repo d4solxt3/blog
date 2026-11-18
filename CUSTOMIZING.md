@@ -33,7 +33,7 @@ While `npm run dev` is running, open **http://localhost:4321/_admin** in your br
 - **Avatar**: click *Choose File* under "Avatar image (about page)", pick a picture, then press **save settings**. It's copied into `public/images/` for you.
 - **[posts]**: pick a post on the left to edit it. The right-hand panel shows a live preview as you type. Press **save** (or `Ctrl + S`). **+ new post** creates a fresh draft.
 
-The editor only exists on your own computer. It is never part of the published site.
+Use **Save & publish** to send the current settings or selected post and its referenced images to GitHub. Railway deploys the master branch. Keep the editor open to see when the release is live. A post marked `draft: true` stays hidden on the public site. **Save locally** keeps a change on this computer for preview.
 
 ---
 
@@ -207,7 +207,7 @@ There's a writing studio at **`/write`**. Visitors never see a link to it.
 2. To change it later, sign in and open **[config]** (`/write/settings/`). The new password is stored scrambled (hashed) on the server's disk and replaces `ADMIN_PASSWORD`. Changing it signs out every other browser.
 3. **Forgot it?** Change `ADMIN_PASSWORD` in Railway to something new. A new value always takes over again.
 
-Deleting a post file in the studio also reserves its URL. A new post with the same title gets a numbered URL and a fresh discussion. Keep the small files in `content/retired-posts/` when you commit local deletions. Discarding a draft that has never been written to a post file does not reserve an address.
+Deleting in the live writing studio works even when GitHub publishing is off. In that case the server records the deletion on the Railway volume and immediately removes the post from public pages and feeds. Its source stays in Git. Deleting a post file in the studio also reserves its URL. A new post with the same title gets a numbered URL and a fresh discussion. Keep the small files in `content/retired-posts/` when you commit local deletions. Discarding a draft that has never been written to a post file does not reserve an address.
 
 **Publishing from the studio** (one-time setup)
 1. On GitHub: **Settings → Developer settings → Personal access tokens → Fine-grained tokens → Generate new token**. Under *Repository access*, pick **Only select repositories** and choose this blog's repo. Under *Permissions*, set **Contents** to **Read and write**. Generate it and copy it.

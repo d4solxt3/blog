@@ -1,6 +1,8 @@
 // Data for [[wiki-link]] hover previews: { slug: { title, date, summary } }.
 import { getPostsByDate, formatDate } from '../utils/posts';
 
+export const prerender = false;
+
 export async function GET() {
   const posts = await getPostsByDate();
   const data = Object.fromEntries(

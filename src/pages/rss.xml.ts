@@ -3,6 +3,8 @@ import type { APIContext } from 'astro';
 import { SITE } from '../site.config';
 import { getPostsByDate, postUrl } from '../utils/posts';
 
+export const prerender = false;
+
 export async function GET(context: APIContext) {
   const posts = (await getPostsByDate()).filter((p) => !p.data.draft);
   return rss({

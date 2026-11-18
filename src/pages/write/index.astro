@@ -101,7 +101,7 @@ const modeLabel =
       confirmButton.textContent = hasFile ? 'delete post' : 'delete draft';
       dialogTitle.textContent = button.closest('li')!.querySelector('a')!.textContent!.trim();
       detail.textContent = hasFile
-        ? 'This permanently removes the post and its saved draft. Its address stays reserved for the original discussion.'
+        ? 'This removes the post from this site and deletes its saved draft. Its address stays reserved for the original discussion.'
         : 'This permanently removes this saved draft from the studio.';
       // Escape leaves the return value as-is, including after a previous confirmation.
       dialog.returnValue = 'cancel';

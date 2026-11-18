@@ -5,6 +5,8 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, writeFile
 import { join, resolve } from 'node:path';
 import { createPost, isRetiredLocally, POSTS_DIR } from '../scripts/post-template.mjs';
 import { ASCII_OUTPUT, writeAsciiFromImage } from '../scripts/ascii-lib.mjs';
+import { normalizeSiteUrl } from '../scripts/site-url.mjs';
+import { publishFile } from './editor-publish.mjs';
 import { renderPreview } from './preview.mjs';
 
 const ROOT = process.cwd();
@@ -75,11 +77,33 @@ async function handle(req, res, url) {
     return send(res, 200, readFileSync(ADMIN_HTML, 'utf8'), 'text/html; charset=utf-8');
   }
 
+  if (path === '/_admin/api/publish' && method === 'POST') {
+    if (req.headers.origin !== 'http://' + req.headers.host ||
+        !['localhost', '127.0.0.1', '[::1]'].includes(new URL(req.headers.origin).hostname) ||
+        req.headers['x-editor-action'] !== 'publish') {
+      return send(res, 403, { error: 'Publish from the local editor.' });
+    }
+    const { file } = JSON.parse(await readBody(req));
+    return send(res, 200, { revision: await publishFile(file) });
+  }
+
+  if (path === '/_admin/api/release' && method === 'GET') {
+    const live = await fetch('https://heartcache.xyz/release.json', { cache: 'no-store', signal: AbortSignal.timeout(8000) });
+    return send(res, 200, live.ok ? await live.json() : { revision: null });
+  }
+
   if (path === '/_admin/api/config') {
     if (method === 'GET') return send(res, 200, readFileSync(CONFIG, 'utf8'));
     if (method === 'PUT') {
       const data = JSON.parse(await readBody(req));
       if (!data || typeof data !== 'object' || Array.isArray(data)) throw new Error('Config must be a JSON object');
+      if (Object.hasOwn(data, 'siteUrl')) {
+        try {
+          data.siteUrl = normalizeSiteUrl(data.siteUrl);
+        } catch {
+          return send(res, 400, { error: 'Enter a website address such as https://heartcache.xyz, or leave it blank.' });
+        }
+      }
       // Merge over what's on disk, so a save from an older /_admin tab (one that
       // doesn't know about newer settings) can't wipe those settings.
       let current = {};
@@ -87,7 +111,7 @@ async function handle(req, res, url) {
         current = JSON.parse(readFileSync(CONFIG, 'utf8'));
       } catch {}
       writeAtomic(CONFIG, `${JSON.stringify({ ...current, ...data }, null, 2)}\n`);
-      return send(res, 200, { ok: true });
+      return send(res, 200, { ok: true, siteUrl: data.siteUrl ?? current.siteUrl ?? '' });
     }
   }
 

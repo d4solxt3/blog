@@ -1,4 +1,5 @@
 // @ts-check
+import { normalizeSiteUrl } from './scripts/site-url.mjs';
 import { readFileSync } from 'node:fs';
 import { defineConfig } from 'astro/config';
 import mdx from '@astrojs/mdx';
@@ -9,7 +10,8 @@ import localAdmin from './plugins/admin-integration.mjs';
 
 // Everything you'd want to change lives in site.config.json.
 const site = JSON.parse(readFileSync(new URL('./site.config.json', import.meta.url), 'utf8'));
-const siteUrl = site.siteUrl ? new URL(site.siteUrl) : null;
+const address = normalizeSiteUrl(site.siteUrl);
+const siteUrl = address ? new URL(address) : null;
 
 export default defineConfig({
   // Your public address (siteUrl in site.config.json). Optional until you deploy.
