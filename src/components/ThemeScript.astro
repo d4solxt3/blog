@@ -28,8 +28,8 @@ const visualDefault = SITE.defaultVisualView;
         motion = localStorage.getItem('motion');
         visual = localStorage.getItem('visual-view');
       } catch (e) {}
-      // Front-page sidebar visual card (image / wireframe / ascii).
-      root.setAttribute('data-visual', visual === 'image' || visual === 'wireframe' || visual === 'ascii' ? visual : visualDefault);
+      // Front-page sidebar visual card (image / ascii).
+      root.setAttribute('data-visual', visual === 'image' || visual === 'ascii' ? visual : visualDefault);
       // Article contents: open on arrival (then post-page.ts tucks it away), or closed.
       var tocPref = null;
       try {

@@ -219,12 +219,6 @@
                     <input type="text" data-key="sidebarImageUrl" placeholder="(blank = a built-in dithered sky)" />
                   </div>
                   <label class="check"><input type="checkbox" data-key="sidebarImageTint" /> tint the sidebar picture to the theme (off = keep its full colours)</label>
-                  <div class="field"><span>Sidebar "wire" view: your own picture / GIF (optional)</span>
-                    <div class="drop-zone" id="wire-drop" tabindex="0">drop a wireframe .gif / .mp4 / image here, or <label class="drop-pick">choose a file<input type="file" id="wire-file" accept="image/png,image/jpeg,image/gif,image/webp,video/mp4,video/webm" hidden /></label></div>
-                    <input type="text" data-key="sidebarWireUrl" placeholder="(blank = the built-in rotating cube)" />
-                  </div>
-                  <label class="check"><input type="checkbox" data-key="sidebarWireTint" /> tint the wire picture to the theme (off = keep its own colours)</label>
-                  <label class="check"><input type="checkbox" data-key="sidebarWireInvert" /> it has light lines on a dark background (flip it so it sits on the card)</label>
                   <div class="field"><span>Sidebar "ascii" view</span>
                     <div class="side-ascii">
                       <textarea id="side-ascii" rows="14" spellcheck="false" wrap="off"></textarea>
@@ -236,7 +230,7 @@
                     <small>this is the drawing in public/images/frontpage-ascii.txt: ascii_art.exe above writes it too. type or paste any monospace art and save to heartcache.xyz; it's fitted to the card</small>
                   </div>
                   <label class="field"><span>Sidebar card starts on</span>
-                    <select data-key="defaultVisualView"><option value="image">image (the picture above)</option><option value="wireframe">wire (rotating wireframe cube)</option><option value="ascii">ascii (cube glyph)</option></select>
+                    <select data-key="defaultVisualView"><option value="image">image (the picture above)</option><option value="ascii">ascii (cube glyph)</option></select>
                   </label>
                   <label class="field"><span>Motion for new visitors</span>
                     <select data-key="motion"><option value="quiet">quiet: only page transitions move</option><option value="full">full: also the ticking clock, ticker, blinking cursor, HUD ring (the tab-title emoticons run in both)</option></select>
@@ -554,9 +548,6 @@
       $('#avatar-file').addEventListener('change', (e) => uploadAvatar(e.target.files[0]));
       dropInto($('#avatar-drop'), uploadAvatar);
       $('[data-key="profile.avatar"]').addEventListener('input', avatarThumb);
-      const uploadWire = (file) => uploadTo(file, 'sidebarWireUrl');
-      $('#wire-file').addEventListener('change', (e) => uploadWire(e.target.files[0]));
-      dropInto($('#wire-drop'), uploadWire);
       const sideAscii = $('#side-ascii');
       const previewSideAscii = () => ($('#side-ascii-preview').textContent = sideAscii.value.replace(/\s+$/, '') || '(empty: the built-in cube is used)');
       let asciiEdited = false;

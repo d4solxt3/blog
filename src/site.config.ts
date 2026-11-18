@@ -154,8 +154,8 @@ export const SITE = {
   /** Article contents panel: true = it opens with each post, then tucks itself away after ~1s
    *  (unless the reader is using it); false = it starts closed. Readers can reopen it. */
   defaultShowToc: r.defaultShowToc !== false,
-  /** Sidebar visual card: which view shows first ("image", "wireframe" or "ascii"); visitors can switch. */
-  defaultVisualView: (['image', 'wireframe', 'ascii'].includes(r.defaultVisualView) ? r.defaultVisualView : 'image') as 'image' | 'wireframe' | 'ascii',
+  /** Sidebar visual card: which view shows first ("image" or "ascii"); visitors can switch. */
+  defaultVisualView: (r.defaultVisualView === 'ascii' ? 'ascii' : 'image') as 'image' | 'ascii',
   /** Picture or GIF in the card's "image" view ("" = a built-in dithered sky). */
   sidebarImageUrl: str(r.sidebarImageUrl, ''),
   /** Tint the sidebar picture to the theme (off = full colour). */

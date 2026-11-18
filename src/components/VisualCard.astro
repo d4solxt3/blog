@@ -1,12 +1,9 @@
 ---
 /**
- * Sidebar visual card with three views, switched by [ image | wireframe | ascii ]
- * in its title bar:
+ * Sidebar visual card with two views, switched by [ image | ascii ] in its
+ * title bar:
  *   image     — sidebarImageUrl (a picture or GIF) on the matte, tinted to the
  *               theme unless sidebarImageTint is false; "" = a built-in dithered sky
- *   wireframe — an isometric wireframe cube inside an orbit ring (turns slowly
- *               in "full" motion, still in "quiet"), or your own picture / GIF
- *               (sidebarWireUrl; sidebarWireTint, sidebarWireInvert)
  *   ascii     — public/images/frontpage-ascii.txt (ascii_art.exe or the text
  *               box in /_admin), drawn sharp on a canvas and fitted to the
  *               square; the built-in cube glyph if there's no file
@@ -21,9 +18,8 @@ import { resolve } from 'node:path';
 import { SITE } from '../site.config';
 import cubeAscii from '../assets/cube-ascii.txt?raw';
 
-const views = ['image', 'wireframe', 'ascii'] as const;
+const views = ['image', 'ascii'] as const;
 const src = SITE.sidebarImageUrl;
-const wireSrc = SITE.sidebarWireUrl;
 // ascii view: the drawing in public/images/frontpage-ascii.txt (made with
 // ascii_art.exe or typed in /_admin), or the built-in cube if there's none.
 let fileArt = '';
@@ -35,22 +31,6 @@ const asciiCols = Math.max(1, ...ascii.split('\n').map((l) => l.length));
 const asciiRows = Math.max(1, ascii.split('\n').length);
 // Fit the whole drawing in the square: cells are 0.6 wide × 1 tall.
 const asciiWidth = `min(100cqw, calc(100cqh * ${((asciiCols * 0.6) / asciiRows).toFixed(4)}))`;
-
-// Isometric cube: rotate about Y by `turn`, tilt about X by atan(1/√2), project.
-const C = { x: 100, y: 98, s: 44 };
-const TILT = Math.atan(1 / Math.SQRT2);
-const V = [-1, 1].flatMap((x) => [-1, 1].flatMap((y) => [-1, 1].map((z) => [x, y, z])));
-const E: [number, number][] = [];
-V.forEach((a, i) => V.forEach((b, j) => j > i && a.filter((v, k) => v !== b[k]).length === 1 && E.push([i, j])));
-const project = (turn: number) =>
-  V.map(([x, y, z]) => {
-    const x1 = x * Math.cos(turn) + z * Math.sin(turn);
-    const z1 = -x * Math.sin(turn) + z * Math.cos(turn);
-    const y1 = y * Math.cos(TILT) - z1 * Math.sin(TILT);
-    return [C.x + x1 * C.s, C.y + y1 * C.s];
-  });
-const START = 0.42; // a little off the isometric axis so all 12 edges read
-const P = project(START);
 
 // Built-in dithered sky (used when sidebarImageUrl is empty).
 const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
@@ -65,7 +45,7 @@ const skyBands = [1, 1, 2, 2, 3, 4, 6, 8];
       {
         views.map((v) => (
           <button type="button" class="vv-btn bevel" data-vv={v} aria-pressed={String(v === SITE.defaultVisualView)}>
-            {v === 'wireframe' ? 'wire' : v}
+            {v}
           </button>
         ))
       }
@@ -92,35 +72,6 @@ const skyBands = [1, 1, 2, 2, 3, 4, 6, 8];
               <circle cx="128" cy="144" r="26" fill="url(#vs-12)" />
               <rect y="144" width="200" height="56" fill="url(#vs-1)" />
               <path d="M0 144.5H200" stroke="currentColor" fill="none" />
-            </svg>
-          )
-        }
-      </div>
-
-      <div class="vv vv--wireframe">
-        {
-          wireSrc ? (
-            <LoopMedia videoView="wireframe" src={wireSrc} class={['vv-img', SITE.sidebarWireTint && 'vv-img--tint', SITE.sidebarWireInvert && 'vv-img--invert'].filter(Boolean).join(' ')} />
-          ) : (
-        <svg class="vv-cube" viewBox="0 0 200 200" fill="none" aria-hidden="true" focusable="false" data-cube>
-              <g class="vc-reg" stroke-width="1.25">
-                {
-                  [
-                    [14, 14],
-                    [186, 14],
-                    [14, 186],
-                    [186, 186],
-                  ].map(([x, y]) => <path d={`M${x - 6} ${y}h12M${x} ${y - 6}v12`} />)
-                }
-              </g>
-              <ellipse class="vc-orbit" cx={C.x} cy={C.y} rx="84" ry="24" stroke-width="1.25" stroke-dasharray="2 4" />
-              <circle class="vc-node" cx={C.x + 84} cy={C.y} r="2.6" data-node />
-              <g class="vc-edges" stroke-width="1.25" stroke-linecap="round">
-                {E.map(([a, b]) => (
-                  <line x1={P[a][0].toFixed(2)} y1={P[a][1].toFixed(2)} x2={P[b][0].toFixed(2)} y2={P[b][1].toFixed(2)} />
-                ))}
-              </g>
-              <text class="vc-label" x="186" y="200" text-anchor="end">UNIT // 00</text>
             </svg>
           )
         }
@@ -160,7 +111,7 @@ const skyBands = [1, 1, 2, 2, 3, 4, 6, 8];
     color: var(--ink);
   }
 
-  /* A fixed square: every view (picture, wire, ascii) fits inside the same box,
+  /* A fixed square: both views (picture, ascii) fits inside the same box,
      so switching never moves the page. */
   .vv-mat {
     display: grid;
@@ -174,7 +125,7 @@ const skyBands = [1, 1, 2, 2, 3, 4, 6, 8];
     container-type: size;
   }
 
-  /* The three views share one grid cell; only the chosen one shows. */
+  /* The views share one grid cell; only the chosen one shows. */
   .vv {
     grid-area: 1 / 1;
     display: none;
@@ -186,7 +137,6 @@ const skyBands = [1, 1, 2, 2, 3, 4, 6, 8];
   }
 
   :global(:root[data-visual='image']) .vv--image,
-  :global(:root[data-visual='wireframe']) .vv--wireframe,
   :global(:root[data-visual='ascii']) .vv--ascii {
     display: grid;
     animation: vv-in 220ms var(--ease) both;
@@ -218,19 +168,6 @@ const skyBands = [1, 1, 2, 2, 3, 4, 6, 8];
     mix-blend-mode: normal;
   }
 
-  /* Light lines on a dark background (most wireframe GIFs): flip first. */
-  .vv-mat :global(.vv-img--invert) {
-    filter: invert(1);
-  }
-
-  .vv-mat :global(.vv-img--tint.vv-img--invert) {
-    filter: invert(1) grayscale(1) contrast(1.15);
-  }
-
-  :global(:root[data-theme='cyber']) .vv-mat :global(.vv-img--tint.vv-img--invert) {
-    filter: invert(1) url(#ink-navy);
-  }
-
   .vv-sky {
     display: block;
     width: min(100cqw, 100cqh);
@@ -239,32 +176,6 @@ const skyBands = [1, 1, 2, 2, 3, 4, 6, 8];
 
   .vv-sky path {
     stroke: var(--accent, currentColor);
-  }
-
-  /* ---- wireframe --------------------------------------------------------- */
-  .vv-cube {
-    display: block;
-    width: min(100cqw, 100cqh);
-    overflow: visible;
-  }
-
-  .vc-edges {
-    stroke: var(--art-ink, var(--ink));
-  }
-
-  .vc-orbit,
-  .vc-reg {
-    stroke: var(--accent, var(--ink));
-  }
-
-  .vc-node {
-    fill: var(--signal, var(--ink));
-  }
-
-  .vc-label {
-    font: 500 8px var(--font-mono);
-    letter-spacing: 0.08em;
-    fill: var(--muted);
   }
 
   /* ---- ascii ------------------------------------------------------------- */
@@ -334,65 +245,10 @@ const skyBands = [1, 1, 2, 2, 3, 4, 6, 8];
             localStorage.setItem('visual-view', b.dataset.vv!);
           } catch {}
           sync();
-          kick();
         },
         { signal },
       ),
     );
 
-    // Wireframe: the cube turns about its vertical axis (one turn a minute) and
-    // the node travels the orbit — only in "full" motion, while the view shows.
-    const svg = card.querySelector<SVGSVGElement>('[data-cube]');
-    const lines = Array.from(svg?.querySelectorAll('line') ?? []);
-    const node = svg?.querySelector<SVGCircleElement>('[data-node]');
-    const live = () => !!svg && root.dataset.motion === 'full' && root.dataset.visual === 'wireframe' && !reduced.matches && !document.hidden;
-    const C = { x: 100, y: 98, s: 44 };
-    const TILT = Math.atan(1 / Math.SQRT2);
-    const V = [-1, 1].flatMap((x) => [-1, 1].flatMap((y) => [-1, 1].map((z) => [x, y, z])));
-    const E: [number, number][] = [];
-    V.forEach((a, i) => V.forEach((b, j) => j > i && a.filter((v, k) => v !== b[k]).length === 1 && E.push([i, j])));
-    let raf = 0;
-    let last = 0;
-    let t = 0.42; // same starting turn as the server render
-    let prev = performance.now();
-    const frame = (now: number) => {
-      raf = 0;
-      if (!live()) return;
-      if (now - last > 40) {
-        t += ((now - prev) / 60000) * Math.PI * 2;
-        prev = now;
-        last = now;
-        const P = V.map(([x, y, z]) => {
-          const x1 = x * Math.cos(t) + z * Math.sin(t);
-          const z1 = -x * Math.sin(t) + z * Math.cos(t);
-          return [C.x + x1 * C.s, C.y + (y * Math.cos(TILT) - z1 * Math.sin(TILT)) * C.s];
-        });
-        E.forEach(([a, b], i) => {
-          const l = lines[i];
-          if (!l) return;
-          l.setAttribute('x1', P[a][0].toFixed(2));
-          l.setAttribute('y1', P[a][1].toFixed(2));
-          l.setAttribute('x2', P[b][0].toFixed(2));
-          l.setAttribute('y2', P[b][1].toFixed(2));
-        });
-        node?.setAttribute('cx', (C.x + 84 * Math.cos(t * 1.5)).toFixed(2));
-        node?.setAttribute('cy', (C.y + 24 * Math.sin(t * 1.5)).toFixed(2));
-      } else prev = prev || now;
-      raf = requestAnimationFrame(frame);
-    };
-    function kick() {
-      if (!raf && live()) {
-        prev = performance.now();
-        raf = requestAnimationFrame(frame);
-      }
-    }
-    const watch = new MutationObserver(kick);
-    watch.observe(root, { attributes: true, attributeFilter: ['data-motion'] });
-    document.addEventListener('visibilitychange', kick, { signal });
-    signal.addEventListener('abort', () => {
-      cancelAnimationFrame(raf);
-      watch.disconnect();
-    });
-    kick();
   });
 </script>
