@@ -320,9 +320,14 @@
         const ticket = ++watching;
         releaseStatus.textContent = 'Sent to GitHub. Waiting for Railway…';
         for (let attempt = 0; attempt < 90 && ticket === watching; attempt++) {
-          const live = await api('release').catch(() => ({}));
+          const live = await api('release?revision=' + encodeURIComponent(revision)).catch(() => ({}));
           if (ticket !== watching) return;
-          if (live.revision === revision) {
+          if (live.failed) {
+            sessionStorage.removeItem('editor-release');
+            releaseStatus.textContent = 'Saved to GitHub. Railway deployment ' + live.status.toLowerCase() + '. Check the build logs, then retry Save & publish.';
+            return;
+          }
+          if (live.live) {
             sessionStorage.removeItem('editor-release');
             releaseStatus.textContent = 'Published to heartcache.xyz.';
             return;

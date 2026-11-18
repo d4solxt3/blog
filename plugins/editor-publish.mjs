@@ -1,6 +1,6 @@
 import { execFile } from 'node:child_process';
 import { existsSync, lstatSync, readFileSync, realpathSync } from 'node:fs';
-import { resolve, sep } from 'node:path';
+import { dirname, join, resolve, sep } from 'node:path';
 import { promisify } from 'node:util';
 
 const run = promisify(execFile);
@@ -23,6 +23,46 @@ function publishFiles(file) {
   return [...paths];
 }
 
+const target = ['--service', 'web', '--environment', 'production'];
+const inProgress = new Set(['INITIALIZING', 'QUEUED', 'WAITING', 'BUILDING', 'DEPLOYING']);
+const failures = new Set(['FAILED', 'CRASHED', 'SKIPPED', 'REMOVED']);
+const deployInfo = new Map();
+
+async function railway(args) {
+  // npm run dev provides npm's JS entry point on Windows, macOS and Linux.
+  const npm = process.env.npm_execpath || join(dirname(process.execPath), 'node_modules/npm/bin/npm-cli.js');
+  const { stdout } = await run(process.execPath, [npm, 'exec', '--yes', '--package=@railway/cli@5.75.0', '--', 'railway', ...args, ...target, '--json'], {
+    cwd: root, windowsHide: true, timeout: 90_000, maxBuffer: 2_000_000,
+  });
+  return JSON.parse(stdout);
+}
+
+async function deployRevision(revision) {
+  const deployments = await railway(['deployment', 'list', '--limit', '8']);
+  const current = deployments[0];
+  let id = current?.id;
+  if (current?.meta?.commitHash !== revision || (!inProgress.has(current.status) && current.status !== 'SUCCESS')) {
+    const deployment = await railway(['redeploy', '--commit', revision, '--yes']);
+    id = deployment.id;
+  }
+  deployInfo.clear();
+  deployInfo.set(revision, { id, checked: 0, status: 'QUEUED' });
+}
+
+export async function releaseStatus(revision) {
+  const live = await fetch('https://heartcache.xyz/release.json?check=' + Date.now(), {
+    cache: 'no-store', signal: AbortSignal.timeout(8000),
+  }).then(response => response.ok ? response.json() : {}).catch(() => ({}));
+  if (live.revision === revision) return { live: true };
+  const entry = deployInfo.get(revision);
+  if (entry && Date.now() - entry.checked > 20_000) {
+    entry.checked = Date.now();
+    const deployments = await railway(['deployment', 'list', '--limit', '8']);
+    entry.status = deployments.find(d => d.id === entry.id)?.status ?? entry.status;
+  }
+  return { live: false, failed: failures.has(entry?.status), status: entry?.status };
+}
+
 let active = false;
 export async function publishFile(file) {
   if (active) throw new Error('A publish is already running. Try again when it finishes.');
@@ -43,7 +83,9 @@ export async function publishFile(file) {
       await git('commit', '--only', '-m', 'Publish from local editor: ' + file, '--', ...paths);
     }
     await git('push', 'origin', 'HEAD:refs/heads/master');
-    return await git('rev-parse', 'HEAD');
+    const revision = await git('rev-parse', 'HEAD');
+    await deployRevision(revision);
+    return revision;
   } finally {
     active = false;
   }

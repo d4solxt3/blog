@@ -6,7 +6,7 @@ import { join, resolve } from 'node:path';
 import { createPost, isRetiredLocally, POSTS_DIR } from '../scripts/post-template.mjs';
 import { ASCII_OUTPUT, writeAsciiFromImage } from '../scripts/ascii-lib.mjs';
 import { normalizeSiteUrl } from '../scripts/site-url.mjs';
-import { publishFile } from './editor-publish.mjs';
+import { publishFile, releaseStatus } from './editor-publish.mjs';
 import { renderPreview } from './preview.mjs';
 
 const ROOT = process.cwd();
@@ -88,8 +88,9 @@ async function handle(req, res, url) {
   }
 
   if (path === '/_admin/api/release' && method === 'GET') {
-    const live = await fetch('https://heartcache.xyz/release.json', { cache: 'no-store', signal: AbortSignal.timeout(8000) });
-    return send(res, 200, live.ok ? await live.json() : { revision: null });
+    const revision = url.searchParams.get('revision') ?? '';
+    if (!/^[0-9a-f]{40}$/.test(revision)) return send(res, 400, { error: 'Invalid revision.' });
+    return send(res, 200, await releaseStatus(revision));
   }
 
   if (path === '/_admin/api/config') {

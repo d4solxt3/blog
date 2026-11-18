@@ -33,7 +33,7 @@ While `npm run dev` is running, open **http://localhost:4321/_admin** in your br
 - **Avatar**: click *Choose File* under "Avatar image (about page)", pick a picture, then press **save settings**. It's copied into `public/images/` for you.
 - **[posts]**: pick a post on the left to edit it. The right-hand panel shows a live preview as you type. Press **save** (or `Ctrl + S`). **+ new post** creates a fresh draft.
 
-Use **Save & publish** to send the current settings or selected post and its referenced images to GitHub. Railway deploys the master branch. Keep the editor open to see when the release is live. A post marked `draft: true` stays hidden on the public site. **Save locally** keeps a change on this computer for preview.
+Use **Save & publish** to send the current settings or selected post and its referenced images to GitHub. The editor asks Railway to deploy that exact commit, using this computer’s existing GitHub and Railway sign-ins. Keep the editor open to see when the release is live. A post marked `draft: true` stays hidden on the public site. **Save locally** keeps a change on this computer for preview.
 
 ---
 
