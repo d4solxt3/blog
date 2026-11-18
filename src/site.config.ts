@@ -77,39 +77,8 @@ function bannerMode(v: unknown): BannerMode {
  * width "half" (main only): two half boxes in a row sit side by side.
  * props.title renames any box. Each type's own props are listed in WIDGET_TYPES.
  */
-import { WIDGET_TYPES, legacyWidgets, type Widget, type WidgetArea, type WidgetType } from './lib/widget-types';
-export { WIDGET_TYPES, legacyWidgets, MEDIA_SRC, type Widget, type WidgetArea, type WidgetType } from './lib/widget-types';
-
-function widgets(v: unknown): Widget[] {
-  if (!Array.isArray(v)) return legacyWidgets();
-  const seen = new Set<string>();
-  const out: (Widget & { i: number; order: number })[] = [];
-  v.forEach((x: any, i: number) => {
-    if (!x || typeof x !== 'object' || !(x.type in WIDGET_TYPES)) {
-      if (import.meta.env?.DEV && x) console.warn(`[widgets] skipped unknown widget type: ${String(x?.type)}`);
-      return;
-    }
-    const type = x.type as WidgetType;
-    let id = String(x.id ?? type).toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-+|-+$/g, '') || type;
-    for (let n = 2; seen.has(id); n++) id = `${String(x.id ?? type)}-${n}`.toLowerCase().replace(/[^a-z0-9-]+/g, '-');
-    seen.add(id);
-    const pinned = type === 'about' || type === 'feed';
-    const area: WidgetArea = pinned ? 'main' : x.area === 'main' ? 'main' : 'side';
-    out.push({
-      id,
-      type,
-      area,
-      width: area === 'main' && x.width === 'half' ? 'half' : 'full',
-      enabled: pinned || x.enabled !== false,
-      props: x.props && typeof x.props === 'object' && !Array.isArray(x.props) ? x.props : {},
-      i,
-      order: Number.isFinite(Number(x.order)) ? Number(x.order) : i,
-    });
-  });
-  // about and the writing table can be moved but never lost.
-  for (const t of ['about', 'feed'] as const) if (!out.some((w) => w.type === t)) out.push({ ...legacyWidgets().find((w) => w.type === t)!, i: -1, order: t === 'about' ? -2 : -1 });
-  return out.sort((a, b) => a.order - b.order || a.i - b.i).map(({ i, order, ...w }) => w);
-}
+import { normalizeWidgets } from './lib/widget-types';
+export { WIDGET_TYPES, legacyWidgets, normalizeWidgets, MEDIA_SRC, isPinned, type Widget, type WidgetArea, type WidgetType, type WidgetPage } from './lib/widget-types';
 
 /** 88×31 buttons for the sidebar rack. look: heart | rss | hud | code | plain; image: your own 88×31 GIF/PNG in /images/. */
 export type Badge = { label: string; sub: string; href: string; look: 'heart' | 'rss' | 'hud' | 'code' | 'plain'; image: string };
@@ -180,7 +149,9 @@ export const SITE = {
   /** The 88×31 button rack at the foot of the sidebar (home + about). [] hides it. */
   badges: badges(r.badges),
   /** Front-page boxes, in order (see WIDGET_TYPES above). */
-  widgets: widgets(r.widgets),
+  widgets: normalizeWidgets(r.widgets, 'home'),
+  /** About-page boxes, in order ("aboutWidgets"; same format as "widgets"). */
+  aboutWidgets: normalizeWidgets(r.aboutWidgets, 'about'),
   /** Slim dithered strip under the nav on the hub pages. image "" = the built-in horizon. */
   banner: {
     show: r.banner?.show !== false,

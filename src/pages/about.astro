@@ -1,311 +1,51 @@
 ---
 export const prerender = false;
-/** Personal profile. Everything comes from site.config.json (authorName, authorHandle, profile). */
+/**
+ * Personal profile, built from boxes like the home page: site.config.json →
+ * "aboutWidgets" (edit them in /_admin → [pages]); with no key you get the
+ * classic about page.
+ */
 import BaseLayout from '../layouts/BaseLayout.astro';
-import Badges from '../components/Badges.astro';
-import InkImage from '../components/InkImage.astro';
+import WidgetGrid from '../components/widgets/WidgetGrid.astro';
 import { SITE } from '../site.config';
-import { getPostsByDate, postUrl, formatDate } from '../utils/posts';
+import { getPostsByDate } from '../utils/posts';
 
-const p = SITE.profile;
 const posts = await getPostsByDate();
-const recent = posts.slice(0, 5);
-const currently = [
-  ['into', p.currently.into],
-  ['reading', p.currently.reading],
-  ['building', p.currently.building],
-].filter(([, v]) => v);
 ---
 
 <BaseLayout title="About" description={`About @${SITE.authorHandle}`}>
   <h1 class="sr-only">About @{SITE.authorHandle}</h1>
-
-  <div class="portal about">
-    <aside class="portal-side" aria-label="Profile">
-      <section class="panel panel--primary about-avatar" aria-label="Avatar">
-        <div class="panel-bar">
-          <h2 class="panel-title">@{SITE.authorHandle}</h2>
-        </div>
-        <div class="portrait-frame avatar">
-          <InkImage src={p.avatar} alt={`Avatar of @${SITE.authorHandle}`} loading="eager" />
-        </div>
-      </section>
-
-      <section class="panel about-profile" aria-labelledby="profile-h">
-        <div class="panel-bar"><h2 class="panel-title" id="profile-h">profile</h2></div>
-        <div class="panel-body">
-          <dl class="kv">
-            {SITE.authorName && (<><dt>name</dt><dd>{SITE.authorName}</dd></>)}
-            <dt>handle</dt>
-            <dd>@{SITE.authorHandle}</dd>
-            <dt>status</dt>
-            <dd><span class:list={['lamp', { 'lamp--off': p.status !== 'online' }]} aria-hidden="true"></span>{p.status}</dd>
-            {p.timezone && (<><dt>tz</dt><dd>{p.timezone}</dd></>)}
-            {p.joined && (<><dt>since</dt><dd>{p.joined}</dd></>)}
-            <dt>posts</dt>
-            <dd>{posts.length}</dd>
-          </dl>
-        </div>
-      </section>
-
-      {
-        p.links.length > 0 && (
-          <section class="panel" aria-labelledby="links-h">
-            <div class="panel-bar">
-              <h2 class="panel-title" id="links-h">elsewhere</h2>
-            </div>
-            <div class="panel-body">
-              <ul class="px-list">
-                {p.links.map((l) => (
-                  <li>
-                    <a href={l.url}>{l.label}</a>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </section>
-        )
-      }
-
-      {
-        p.interests.length > 0 && (
-          <section class="panel" aria-labelledby="interests-h">
-            <div class="panel-bar">
-              <h2 class="panel-title" id="interests-h">interests</h2>
-            </div>
-            <div class="panel-body">
-              <ul class="px-list">
-                {p.interests.map((i) => (
-                  <li>{i}</li>
-                ))}
-              </ul>
-            </div>
-          </section>
-        )
-      }
-      <Badges id="about-buttons" />
-    </aside>
-
-    <div class="portal-main">
-      <section class="panel panel--primary about-hello" aria-labelledby="hello-h">
-        <div class="panel-bar"><h2 class="panel-title" id="hello-h">hello</h2></div>
-        <div class="panel-body bio">
-          {p.bio.map((para) => <p>{para}</p>)}
-        </div>
-      </section>
-
-      {
-        (currently.length > 0 || SITE.todo.length > 0) && (
-          <div class="portal-split">
-            {currently.length > 0 && (
-              <section class="panel" aria-labelledby="now-h">
-                <div class="panel-bar">
-                  <h2 class="panel-title" id="now-h">currently</h2>
-                </div>
-                <div class="panel-body">
-                  <dl class="kv">
-                    {currently.map(([k, v]) => (
-                      <>
-                        <dt>{k}</dt>
-                        <dd>{v}</dd>
-                      </>
-                    ))}
-                  </dl>
-                </div>
-              </section>
-            )}
-            {SITE.todo.length > 0 && (
-              <section class="panel" aria-labelledby="todo-h">
-                <div class="panel-bar">
-                  <h2 class="panel-title" id="todo-h">checklist</h2>
-                  <span>
-                    {SITE.todo.filter((t) => t.done).length}/{SITE.todo.length}
-                  </span>
-                </div>
-                <div class="panel-body">
-                  <ul class="check-list check-list--mini">
-                    {SITE.todo.map((t) => (
-                      <li>
-                        <span class="box" aria-hidden="true">
-                          {t.done ? '[x]' : '[ ]'}
-                        </span>
-                        <span class:list={{ done: t.done }}><span class="sr-only">{t.done ? 'Done: ' : 'To do: '}</span>{t.text}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </section>
-            )}
-          </div>
-        )
-      }
-
-      {
-        p.progress.length > 0 && (
-          <section class="panel" aria-labelledby="progress-h">
-            <div class="panel-bar">
-              <h2 class="panel-title" id="progress-h">progress</h2>
-            </div>
-            <ul class="panel-body progress">
-              {p.progress.map((g) => (
-                <li>
-                  <span class="pl">{g.label}</span>
-                  <span class="bar" style={`--p: ${g.percent}%`} aria-hidden="true">
-                    <i />
-                  </span>
-                  <span class="pp">{g.percent}%</span>
-                </li>
-              ))}
-            </ul>
-          </section>
-        )
-      }
-
-      {
-        recent.length > 0 && (
-          <section class="panel panel--primary" aria-labelledby="recent-h">
-            <div class="panel-bar">
-              <h2 class="panel-title" id="recent-h">recently written</h2>
-              <a href="/archive/">all {posts.length}</a>
-            </div>
-            <ul class="panel-body recent">
-              {recent.map((post) => (
-                <li>
-                  <span class="d">{formatDate(post.data.date)}</span>
-                  <a href={postUrl(post)}>{post.data.title}</a>
-                </li>
-              ))}
-            </ul>
-          </section>
-        )
-      }
-    </div>
-  </div>
+  <WidgetGrid page="about" posts={posts} class="about" sideLabel="Profile" />
 </BaseLayout>
 
 <style>
-  .avatar :global(img) {
-    max-width: 150px;
-  }
-
-  /* Phones: one column — the hello first, then the portrait and profile
+  /* Phones: one column: the hello first, then the portrait and profile
      together, then everything else in its usual order. */
   @media (max-width: 699px) {
-    .about {
+    :global(.about) {
       display: flex;
       flex-direction: column;
     }
 
-    .about .portal-side,
-    .about .portal-main {
+    :global(.about .portal-side),
+    :global(.about .portal-main) {
       display: contents;
     }
 
-    .about :is(.panel, .portal-split) {
+    :global(.about :is(.panel, .portal-split)) {
       order: 5;
     }
 
-    .about .about-hello {
+    :global(.about [data-widget='hello']) {
       order: 1;
     }
 
-    .about .about-avatar {
+    :global(.about [data-widget='avatar']) {
       order: 2;
     }
 
-    .about .about-profile {
+    :global(.about [data-widget='profile']) {
       order: 3;
     }
-  }
-
-  .bio p {
-    margin: 0;
-    font-size: 13px;
-    line-height: 1.6;
-    color: var(--ink-2);
-  }
-
-  .bio p + p {
-    margin-top: 6px;
-  }
-
-  .progress,
-  .recent {
-    margin: 0;
-    list-style: none;
-    font-family: var(--font-mono);
-    font-size: 11px;
-    line-height: 1.5;
-  }
-
-  .progress li {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) 8rem 2.2rem;
-    align-items: center;
-    gap: 6px;
-    padding: 2px 0;
-  }
-
-  .pl {
-    overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis;
-  }
-
-  /* [██████░░░░] — a recessed track with a crisp ink fill, ten segments. */
-  .bar {
-    position: relative;
-    height: 10px;
-    border: 1px solid var(--border-hairline);
-    background: var(--surface-recessed);
-    box-shadow: inset 1px 1px 0 var(--bevel-shadow);
-  }
-
-  .bar i {
-    position: absolute;
-    inset: 1px auto 1px 1px;
-    width: calc(var(--p) - 2px);
-    max-width: calc(100% - 2px);
-    background: var(--ink);
-  }
-
-  .bar::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: repeating-linear-gradient(90deg, transparent 0 calc(10% - 1px), var(--surface-recessed) calc(10% - 1px) 10%);
-  }
-
-  .pp {
-    text-align: right;
-    color: var(--muted);
-  }
-
-  .recent li {
-    display: flex;
-    gap: 10px;
-    padding: 2px 0;
-  }
-
-  .recent li + li {
-    border-top: 1px dotted var(--rule);
-  }
-
-  .recent .d {
-    flex: none;
-    color: var(--muted);
-  }
-
-  .recent a {
-    min-width: 0;
-    overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis;
-    font-family: var(--font-head);
-    font-size: 12.5px;
-  }
-
-  .panel-bar a {
-    color: var(--muted);
   }
 </style>

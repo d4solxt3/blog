@@ -1,0 +1,62 @@
+---
+/**
+ * A page built from widgets: the main column and the 245px sidebar, each a
+ * list of boxes (neighbouring "half" boxes in the main column pair up).
+ * Used by the home page ("widgets") and the about page ("aboutWidgets").
+ *
+ * Dev only: /_admin's page editor sends its unsaved list to
+ * /_admin/api/widget-draft and previews the page with ?widget-preview, so
+ * edits show live before anything is saved.
+ */
+import Widget from './Widget.astro';
+import { widgetHasContent } from './data';
+import { SITE, normalizeWidgets, type Widget as W, type WidgetPage } from '../../site.config';
+import type { Post } from '../../utils/posts';
+import '../../styles/widgets.css';
+
+interface Props {
+  page: WidgetPage;
+  posts: Post[];
+  class?: string;
+  sideLabel?: string;
+}
+const { page, posts, class: cls, sideLabel = 'About the author' } = Astro.props;
+
+const draft = import.meta.env.DEV && Astro.url.searchParams.has('widget-preview') ? (globalThis as any).__widgetDraft?.[page] : undefined;
+const list = draft ? normalizeWidgets(draft, page) : page === 'about' ? SITE.aboutWidgets : SITE.widgets;
+const shown = list.filter((w) => w.enabled && widgetHasContent(w));
+
+function rows(area: 'main' | 'side') {
+  const out: W[][] = [];
+  for (const w of shown.filter((x) => x.area === area)) {
+    const last = out[out.length - 1];
+    if (w.width === 'half' && last && last.length === 1 && last[0].width === 'half') last.push(w);
+    else out.push([w]);
+  }
+  return out;
+}
+const main = rows('main');
+const side = rows('side');
+---
+
+<div class:list={['portal', 'wpage', cls]}>
+  <div class="portal-main">
+    {
+      main.map((row) =>
+        row[0].width === 'half' ? (
+          <div class="portal-split">
+            {row.map((w) => (
+              <Widget w={w} posts={posts} />
+            ))}
+          </div>
+        ) : (
+          <Widget w={row[0]} posts={posts} />
+        ),
+      )
+    }
+  </div>
+
+  <aside class="portal-side" aria-label={sideLabel}>
+    {side.map((row) => row.map((w) => <Widget w={w} posts={posts} />))}
+  </aside>
+</div>

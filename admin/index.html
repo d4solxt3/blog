@@ -79,6 +79,9 @@
       .wg { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 1rem; align-items: start; }
       .wg-preview { grid-column: 1 / -1; }
       .wg .win-bar { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; }
+      .wg-pages { display: inline-flex; gap: 2px; }
+      .wg-page { min-width: 4.5rem; height: 22px; padding: 0 0.5rem; font: 600 0.6875rem/1 var(--font-mono); }
+      @media (pointer: coarse), (max-width: 560px) { .wg-page { height: 36px; } }
       .wg-bar-tools { display: flex; gap: 0.4rem; align-items: center; }
       .wg-bar-tools select { padding: 0.15rem 0.3rem; border: 1px solid var(--rule); background: var(--surface); font: 0.6875rem var(--font-mono); color: var(--ink); }
       .wg-bar-tools .btn { padding: 0.15rem 0.5rem; font-size: 0.6875rem; }
@@ -140,7 +143,7 @@
         <header class="topbar" style="height: 40px; display: flex; align-items: center; justify-content: space-between; padding: 0 16px; border-bottom: 1px solid var(--rule)">
           <div class="tabs" role="tablist">
             <button class="tab" role="tab" aria-selected="true" data-tab="settings">[site settings]</button>
-            <button class="tab" role="tab" aria-selected="false" data-tab="widgets">[front page]</button>
+            <button class="tab" role="tab" aria-selected="false" data-tab="widgets">[pages]</button>
             <button class="tab" role="tab" aria-selected="false" data-tab="posts">[posts]</button>
             <a class="tab" href="/_admin/versions">[versions]</a>
           </div>
@@ -313,9 +316,9 @@
 
           <!-- ============================ FRONT PAGE WIDGETS ============================ -->
           <section id="tab-widgets" role="tabpanel" hidden>
-            <p class="intro">&gt; arrange the boxes on the front page: drag them (or use ↑ ↓), move them between the columns, switch them off, or add new ones. <b>save locally</b> writes site.config.json on this computer only; it does not publish.</p>
+            <p class="intro">&gt; arrange the boxes on the home and about pages: drag them (or use ↑ ↓), move them between the columns, switch them off, or add new ones. click a box to edit it. the preview updates as you go; <b>save locally</b> writes site.config.json on this computer only; it does not publish.</p>
             <div class="wg">
-              <section class="win wg-board"><div class="win-bar"><span class="win-title">widgets.cfg</span><span class="wg-bar-tools"><select id="wg-add-type" aria-label="Widget type to add"></select><button class="btn ghost" id="wg-add" type="button">[ + add ]</button></span></div>
+              <section class="win wg-board"><div class="win-bar"><span class="wg-pages" role="group" aria-label="Page to edit"><button type="button" class="bevel wg-page" data-wg-page="home" aria-pressed="true">home</button><button type="button" class="bevel wg-page" data-wg-page="about" aria-pressed="false">about</button></span><span class="wg-bar-tools"><select id="wg-add-type" aria-label="Widget type to add"></select><button class="btn ghost" id="wg-add" type="button">[ + add ]</button></span></div>
                 <div class="wg-cols">
                   <div class="wg-col" data-area="side"><p class="wg-col-h">sidebar <small>245px</small></p><ol class="wg-list" data-list="side"></ol></div>
                   <div class="wg-col" data-area="main"><p class="wg-col-h">main column</p><ol class="wg-list" data-list="main"></ol></div>
@@ -324,7 +327,7 @@
               <section class="win wg-props"><div class="win-bar"><span class="win-title" id="wg-props-title">properties</span></div>
                 <div class="win-body fields" id="wg-props"><p class="empty-state">pick a box on the left to edit it.</p></div>
               </section>
-              <section class="win wg-preview"><div class="win-bar"><span class="win-title">front_page.preview — localhost</span><span class="wg-bar-tools"><button class="btn ghost" id="wg-reload" type="button">[ reload ]</button></span></div>
+              <section class="win wg-preview"><div class="win-bar"><span class="win-title" id="wg-preview-title">front_page.preview</span><span class="wg-bar-tools"><button class="btn ghost" id="wg-reload" type="button">[ reload ]</button></span></div>
                 <div class="wg-frame"><iframe id="wg-frame" title="Front page preview (this computer)" src="about:blank" tabindex="-1"></iframe></div>
               </section>
             </div>
@@ -637,6 +640,7 @@
         const next = structuredClone(config);
         // The front-page boxes are saved by their own tab; never resend a stale copy.
         delete next.widgets;
+        delete next.aboutWidgets;
         document.querySelectorAll('#settings [data-key]').forEach((el) => setPath(next, el.dataset.key, fromField(el)));
         if (asciiEdited) {
           const art = sideAscii.value;
@@ -756,7 +760,7 @@
       window.addEventListener('beforeunload', (e) => { if (dirty) { e.preventDefault(); e.returnValue = ''; } });
 
       if (location.hash === '#posts') document.querySelector('[data-tab="posts"]').click();
-      if (location.hash === '#front-page') document.querySelector('[data-tab="widgets"]').click();
+      if (location.hash === '#front-page' || location.hash === '#pages') document.querySelector('[data-tab="widgets"]').click();
       loadSettings().catch((err) => ($('#settings-status').textContent = `> could not load settings: ${err.message}`));
     </script>
   </body>

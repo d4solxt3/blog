@@ -143,5 +143,72 @@
       "categoryId": "",
       "useCustomTheme": true
     }
-  }
+  },
+  "widgets": [
+    {
+      "id": "about",
+      "type": "about",
+      "area": "main",
+      "enabled": true,
+      "props": {}
+    },
+    {
+      "id": "feed",
+      "type": "feed",
+      "area": "main",
+      "enabled": true,
+      "props": {}
+    },
+    {
+      "id": "updates",
+      "type": "updates",
+      "area": "main",
+      "width": "half",
+      "enabled": true,
+      "props": {}
+    },
+    {
+      "id": "now",
+      "type": "now",
+      "area": "main",
+      "width": "half",
+      "enabled": true,
+      "props": {}
+    },
+    {
+      "id": "buttons",
+      "type": "badges",
+      "area": "side",
+      "enabled": true,
+      "props": {}
+    },
+    {
+      "id": "info",
+      "type": "info",
+      "area": "side",
+      "enabled": true,
+      "props": {}
+    },
+    {
+      "id": "todo",
+      "type": "todo",
+      "area": "side",
+      "enabled": true,
+      "props": {}
+    },
+    {
+      "id": "note",
+      "type": "note",
+      "area": "side",
+      "enabled": true,
+      "props": {}
+    },
+    {
+      "id": "visual",
+      "type": "visual",
+      "area": "side",
+      "enabled": true,
+      "props": {}
+    }
+  ]
 }

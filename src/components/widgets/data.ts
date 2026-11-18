@@ -25,6 +25,24 @@ export function widgetData(w: Widget) {
   switch (w.type) {
     case 'about':
       return { text: text(p.text, SITE.intro) };
+    case 'hello': {
+      const own = text(p.text);
+      return { paras: own ? own.split(/\n\s*\n/).map((x) => x.trim()).filter(Boolean) : prof.bio };
+    }
+    case 'interests':
+      return { items: arr<string>(p.list, prof.interests).map((x) => String(x ?? '').trim()).filter(Boolean) };
+    case 'currently':
+      return {
+        rows: [
+          ['into', prof.currently.into],
+          ['reading', prof.currently.reading],
+          ['building', prof.currently.building],
+        ].filter(([, v]) => v),
+      };
+    case 'recent': {
+      const max = Number(p.max);
+      return { max: Number.isFinite(max) && max > 0 ? Math.min(30, Math.round(max)) : 5 };
+    }
     case 'updates': {
       const items = arr<{ date: string; text: string }>(p.items, SITE.updates).filter((u) => u && u.text);
       const max = Number(p.max);
@@ -99,6 +117,12 @@ export function widgetHasContent(w: Widget): boolean {
       return d.paras.length > 0;
     case 'badges':
       return SITE.badges.length > 0;
+    case 'hello':
+      return d.paras.length > 0;
+    case 'interests':
+      return d.items.length > 0;
+    case 'currently':
+      return d.rows.length > 0;
     case 'audio':
       return !!d.src || (import.meta.env.DEV && !!d.problem);
     case 'media':

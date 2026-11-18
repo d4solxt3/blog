@@ -2,107 +2,18 @@
 export const prerender = false;
 /**
  * Front page: a compact portal of boxes ("widgets"). The order, sidebar/main
- * placement and contents come from site.config.json → "widgets" (edit it in
- * /_admin → widgets); with no "widgets" key you get the classic layout.
+ * placement and contents come from site.config.json → "widgets" (edit them in
+ * /_admin → [pages]); with no "widgets" key you get the classic layout.
  */
 import BaseLayout from '../layouts/BaseLayout.astro';
-import Widget from '../components/widgets/Widget.astro';
-import { widgetHasContent } from '../components/widgets/data';
-import { SITE, type Widget as W } from '../site.config';
+import WidgetGrid from '../components/widgets/WidgetGrid.astro';
+import { SITE } from '../site.config';
 import { getPosts } from '../utils/posts';
-import '../styles/widgets.css';
 
 const posts = await getPosts();
-const shown = SITE.widgets.filter((w) => w.enabled && widgetHasContent(w));
-
-/** One area's widgets, with neighbouring "half" boxes grouped into pairs. */
-function rows(area: 'main' | 'side') {
-  const out: W[][] = [];
-  for (const w of shown.filter((x) => x.area === area)) {
-    const last = out[out.length - 1];
-    if (w.width === 'half' && last && last.length === 1 && last[0].width === 'half') last.push(w);
-    else out.push([w]);
-  }
-  return out;
-}
-const main = rows('main');
-const side = rows('side');
 ---
 
 <BaseLayout>
   <h1 class="sr-only">{SITE.name}</h1>
-
-  <div class="portal home">
-    <div class="portal-main">
-      {
-        main.map((row) =>
-          row[0].width === 'half' ? (
-            <div class="portal-split">
-              {row.map((w) => (
-                <Widget w={w} posts={posts} />
-              ))}
-            </div>
-          ) : (
-            <Widget w={row[0]} posts={posts} />
-          ),
-        )
-      }
-    </div>
-
-    <aside class="portal-side" aria-label="About the author">
-      {side.map((row) => row.map((w) => <Widget w={w} posts={posts} />))}
-    </aside>
-  </div>
+  <WidgetGrid page="home" posts={posts} class="home" />
 </BaseLayout>
-
-<script>
-  import { onPage } from '../scripts/lifecycle';
-
-  const SHADE = (key: string) => `shade:${key}`;
-
-  onPage((signal) => {
-    // [ _ ] window shades: roll a panel up into its title bar (remembered for this visit).
-    document.querySelectorAll<HTMLElement>('[data-shade]').forEach((panel) => {
-      const key = panel.dataset.shade!;
-      const btn = panel.querySelector<HTMLButtonElement>('[data-shade-toggle]');
-      const name = panel.querySelector('.panel-title')?.textContent?.trim() ?? key;
-      const set = (rolled: boolean) => {
-        panel.classList.toggle('is-rolled', rolled);
-        btn?.setAttribute('aria-expanded', String(!rolled));
-        btn?.setAttribute('aria-label', `${rolled ? 'Roll down' : 'Roll up'} ${name}`);
-        btn?.setAttribute('title', rolled ? 'Roll down' : 'Roll up');
-        if (btn) btn.textContent = rolled ? '▭' : '_';
-      };
-      let rolled = false;
-      try {
-        rolled = sessionStorage.getItem(SHADE(key)) === '1';
-      } catch {}
-      // Restore without animating.
-      panel.querySelector<HTMLElement>('.shade')?.style.setProperty('transition', 'none');
-      set(rolled);
-      requestAnimationFrame(() => panel.querySelector<HTMLElement>('.shade')?.style.removeProperty('transition'));
-      btn?.addEventListener(
-        'click',
-        () => {
-          rolled = !panel.classList.contains('is-rolled');
-          set(rolled);
-          try {
-            sessionStorage.setItem(SHADE(key), rolled ? '1' : '0');
-          } catch {}
-        },
-        { signal },
-      );
-      // Like a real window: double-click the title bar to roll it up or down.
-      panel.querySelector<HTMLElement>('.panel-bar')?.addEventListener(
-        'dblclick',
-        (e) => {
-          if ((e.target as Element).closest('a, button, input, select, textarea')) return;
-          window.getSelection()?.removeAllRanges();
-          btn?.click();
-        },
-        { signal },
-      );
-    });
-  });
-</script>
-

@@ -43,3 +43,54 @@ const hid = `${id}-h`;
     )
   }
 </section>
+
+<script>
+  import { onPage } from '../../scripts/lifecycle';
+
+  const SHADE = (key: string) => `shade:${key}`;
+
+  onPage((signal) => {
+    // [ _ ] window shades: roll a panel up into its title bar (remembered for this visit).
+    document.querySelectorAll<HTMLElement>('[data-shade]').forEach((panel) => {
+      const key = panel.dataset.shade!;
+      const btn = panel.querySelector<HTMLButtonElement>('[data-shade-toggle]');
+      const name = panel.querySelector('.panel-title')?.textContent?.trim() ?? key;
+      const set = (rolled: boolean) => {
+        panel.classList.toggle('is-rolled', rolled);
+        btn?.setAttribute('aria-expanded', String(!rolled));
+        btn?.setAttribute('aria-label', `${rolled ? 'Roll down' : 'Roll up'} ${name}`);
+        btn?.setAttribute('title', rolled ? 'Roll down' : 'Roll up');
+        if (btn) btn.textContent = rolled ? '▭' : '_';
+      };
+      let rolled = false;
+      try {
+        rolled = sessionStorage.getItem(SHADE(key)) === '1';
+      } catch {}
+      // Restore without animating.
+      panel.querySelector<HTMLElement>('.shade')?.style.setProperty('transition', 'none');
+      set(rolled);
+      requestAnimationFrame(() => panel.querySelector<HTMLElement>('.shade')?.style.removeProperty('transition'));
+      btn?.addEventListener(
+        'click',
+        () => {
+          rolled = !panel.classList.contains('is-rolled');
+          set(rolled);
+          try {
+            sessionStorage.setItem(SHADE(key), rolled ? '1' : '0');
+          } catch {}
+        },
+        { signal },
+      );
+      // Like a real window: double-click the title bar to roll it up or down.
+      panel.querySelector<HTMLElement>('.panel-bar')?.addEventListener(
+        'dblclick',
+        (e) => {
+          if ((e.target as Element).closest('a, button, input, select, textarea')) return;
+          window.getSelection()?.removeAllRanges();
+          btn?.click();
+        },
+        { signal },
+      );
+    });
+  });
+</script>

@@ -121,6 +121,15 @@ async function handle(req, res, url) {
     }
   }
 
+  // Unsaved page layouts from the [pages] editor, kept in memory only, so the
+  // preview (?widget-preview) shows edits live. Nothing is written to disk.
+  if (path === '/_admin/api/widget-draft' && method === 'PUT') {
+    const { page, widgets } = JSON.parse(await readBody(req));
+    if (!['home', 'about'].includes(page) || !Array.isArray(widgets) || widgets.length > 60) return send(res, 400, { error: 'Expected { page: "home" | "about", widgets: [...] }' });
+    globalThis.__widgetDraft = { ...(globalThis.__widgetDraft ?? {}), [page]: widgets };
+    return send(res, 200, { ok: true });
+  }
+
   if (path === '/_admin/api/posts' && method === 'GET') return send(res, 200, listPosts());
 
   if (path === '/_admin/api/post') {

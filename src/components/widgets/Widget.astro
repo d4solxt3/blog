@@ -9,7 +9,8 @@ import LoopMedia from '../LoopMedia.astro';
 import Badges from '../Badges.astro';
 import Audio from './Audio.astro';
 import { SITE, type Widget } from '../../site.config';
-import type { Post } from '../../utils/posts';
+import InkImage from '../InkImage.astro';
+import { formatDate, postUrl, type Post } from '../../utils/posts';
 import { widgetData, widgetTitle } from './data';
 
 interface Props {
@@ -37,6 +38,116 @@ const dotDate = (s: string) => String(s).replace(/-/g, '.');
 }
 
 {w.type === 'feed' && <PostFeed posts={posts} label={title} />}
+
+{
+  w.type === 'hello' && (
+    <Panel id={w.id} title={title} primary shade={false} type="hello">
+      <div class="panel-body bio">
+        {d.paras.map((para: string) => (
+          <p>{para}</p>
+        ))}
+      </div>
+    </Panel>
+  )
+}
+
+{
+  w.type === 'avatar' && (
+    <Panel id={w.id} title={w.props.title ? title : `@${SITE.authorHandle}`} primary shade={false} type="avatar">
+      <div class="portrait-frame w-avatar">
+        <InkImage src={p.avatar} alt={`Avatar of @${SITE.authorHandle}`} loading="eager" />
+      </div>
+    </Panel>
+  )
+}
+
+{
+  w.type === 'profile' && (
+    <Panel id={w.id} title={title} shade={false} type="profile">
+      <div class="panel-body">
+        <dl class="kv">
+          {SITE.authorName && (
+            <>
+              <dt>name</dt>
+              <dd>{SITE.authorName}</dd>
+            </>
+          )}
+          <dt>handle</dt>
+          <dd>@{SITE.authorHandle}</dd>
+          <dt>status</dt>
+          <dd>
+            <span class:list={['lamp', { 'lamp--off': p.status !== 'online' }]} aria-hidden="true" />
+            {p.status}
+          </dd>
+          {p.timezone && (
+            <>
+              <dt>tz</dt>
+              <dd>{p.timezone}</dd>
+            </>
+          )}
+          {p.joined && (
+            <>
+              <dt>since</dt>
+              <dd>{p.joined}</dd>
+            </>
+          )}
+          <dt>posts</dt>
+          <dd>{posts.length}</dd>
+        </dl>
+      </div>
+    </Panel>
+  )
+}
+
+{
+  w.type === 'currently' && (
+    <Panel id={w.id} title={title} type="currently">
+      <div class="panel-body">
+        <dl class="kv">
+          {d.rows.map(([k, v]: string[]) => (
+            <>
+              <dt>{k}</dt>
+              <dd>{v}</dd>
+            </>
+          ))}
+        </dl>
+      </div>
+    </Panel>
+  )
+}
+
+{
+  w.type === 'interests' && (
+    <Panel id={w.id} title={title} type="interests">
+      <div class="panel-body">
+        <ul class="px-list">
+          {d.items.map((i: string) => (
+            <li>{i}</li>
+          ))}
+        </ul>
+      </div>
+    </Panel>
+  )
+}
+
+{
+  w.type === 'recent' && posts.length > 0 && (
+    <Panel id={w.id} title={title} primary shade={false} type="recent">
+      <a slot="tools" class="w-recent-all" href="/archive/">all {posts.length}</a>
+      <ul class="panel-body w-recent">
+        {[...posts]
+          .sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf())
+          .slice(0, d.max)
+          .map((post) => (
+            <li>
+              <span class="d">{formatDate(post.data.date)}</span>
+              <a href={postUrl(post)}>{post.data.title}</a>
+            </li>
+          ))}
+      </ul>
+    </Panel>
+  )
+}
 
 {w.type === 'visual' && <VisualCard />}
 
