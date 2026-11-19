@@ -88,7 +88,7 @@ const slideIn = {
 ---
 
 <article class="post">
-  <header class="container post-head">
+  <header class:list={['container', 'post-head', { 'is-solo': toc.length === 0 }]}>
     <div class="head-top">
       <p class="crumb">
         <a href={backHref} data-back-to-list={backHref === '/archive/' ? '' : undefined}>{backLabel}</a>
@@ -125,7 +125,7 @@ const slideIn = {
     </p>
   </header>
 
-  <div class="container post-grid">
+  <div class:list={['container', 'post-grid', { 'is-solo': toc.length === 0 }]}>
     <div class="post-main">
       {series && <SeriesNav series={series} position="top" />}
       {toc.length > 0 && <Toc headings={toc} variant="drawer" />}
@@ -337,6 +337,24 @@ const slideIn = {
     }
 
     :global(:root[data-toc='hidden']) .post-head {
+      max-width: var(--col-wide, 80ch);
+    }
+
+    /* No contents at all (no headings): the same centred ~80ch column as
+       when the contents is closed, instead of leaving an empty rail. */
+    .post-grid.is-solo:not(:has(.qt-drawer:not([hidden]))) {
+      grid-template-columns: minmax(0, var(--col-wide, 80ch));
+    }
+
+    .post-grid.is-solo:not(:has(.qt-drawer:not([hidden]))) .post-main :global(.prose) {
+      max-width: var(--col-wide, 80ch);
+    }
+
+    .post-grid.is-solo:not(:has(.qt-drawer:not([hidden]))) .post-side {
+      display: none;
+    }
+
+    .post-head.is-solo {
       max-width: var(--col-wide, 80ch);
     }
 

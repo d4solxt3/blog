@@ -1279,7 +1279,9 @@ main {
 }
 
 .display-title {
-  max-width: 30ch;
+  /* As wide as the header allows: most titles stay on one line; long ones
+     still wrap into balanced lines. */
+  max-width: 100%;
   margin: 0.9rem 0 0;
   font-family: var(--font-head);
   font-size: clamp(1.375rem, 1.2rem + 0.8vw, 1.75rem);
