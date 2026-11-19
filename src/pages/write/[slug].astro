@@ -75,6 +75,9 @@ const json = JSON.stringify(data).replace(/</g, '\\u003c');
             <button type="button" data-act="focus" aria-pressed="false" title="Ctrl/Cmd + \">
               <span class="br" aria-hidden="true">[ </span>focus<span class="br" aria-hidden="true"> ]</span>
             </button>
+            <button type="button" data-act="view" data-view-href={`/write/${slug}/view`} title="Save, then open the post as readers will see it (new tab)">
+              <span class="br" aria-hidden="true">[ </span>view as published ↗<span class="br" aria-hidden="true"> ]</span>
+            </button>
             <button type="button" data-act="publish" class="sb-publish">
               <span class="br" aria-hidden="true">[ </span>publish<span class="br" aria-hidden="true"> ]</span>
             </button>

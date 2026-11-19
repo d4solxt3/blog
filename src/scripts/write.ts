@@ -442,6 +442,23 @@ export function initWriter(signal: AbortSignal) {
   on(window, 'pagehide', flush);
   on(document, 'astro:before-preparation', flush);
 
+  // [ view as published ↗ ]: save what's typed, then show the post in the
+  // real article layout in its own tab (one tab, refreshed on each click).
+  // The tab is opened right away, inside the click, so pop-up blockers allow it.
+  const viewBtn = root.querySelector<HTMLButtonElement>('[data-act="view"]');
+  if (viewBtn)
+    on(viewBtn, 'click', async () => {
+      const href = viewBtn.dataset.viewHref!;
+      const tab = window.open('', `heartcache-preview-${slug}`);
+      try {
+        await save();
+        // A save already in flight: wait for it to land.
+        for (let i = 0; i < 40 && saving; i++) await new Promise((r) => setTimeout(r, 100));
+      } catch {}
+      if (tab) tab.location.href = href;
+      else window.location.href = href;
+    });
+
   // ---- textarea helpers ---------------------------------------------------------
   const nativeSizing = typeof CSS !== 'undefined' && CSS.supports?.('field-sizing', 'content');
   function autosize() {

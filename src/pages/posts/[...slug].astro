@@ -3,26 +3,13 @@ import 'katex/dist/katex.min.css';
 import { render } from 'astro:content';
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import ProgressBar from '../../components/ProgressBar.astro';
-import Toc from '../../components/Toc.astro';
+import PostArticle from '../../components/PostArticle.astro';
 import Callout from '../../components/Callout.astro';
 import Details from '../../components/Details.astro';
 import Chart from '../../components/Chart.astro';
 import Figure from '../../components/Figure.astro';
-import PostFooter from '../../components/PostFooter.astro';
-import Comments from '../../components/Comments.astro';
-import FontToggle from '../../components/FontToggle.astro';
-import SeriesNav from '../../components/SeriesNav.astro';
-import QuoteDrawer from '../../components/QuoteDrawer.astro';
 import { SITE } from '../../site.config';
-import {
-  getPostsByDate,
-  formatDate,
-  isoDate,
-  entryCode,
-  readingTime,
-  seriesOf,
-  tagSlug,
-} from '../../utils/posts';
+import { getPostsByDate, entryCode, readingTime, seriesOf } from '../../utils/posts';
 
 export const prerender = false;
 const posts = await getPostsByDate();
@@ -39,308 +26,29 @@ const series = seriesOf(post, posts);
 const { title, subtitle, description, date, updated, tags, tldr, draft, font } = post.data;
 const { Content, headings } = await render(post);
 const toc = headings.filter((h) => (h.depth === 2 || h.depth === 3) && h.slug !== 'footnote-label');
-const minutes = readingTime(post.body);
-const code = entryCode(index);
 const annotations = SITE.inlineAnnotations && post.data.annotations !== false;
-
-// Reader reveal while the frame widens: the prose fades in, the contents
-// column slides in from the right (translateX 14px → 0, 220ms).
-const fadeIn = {
-  forwards: {
-    old: { name: 'hud-fade-out', duration: '120ms', easing: 'linear', fillMode: 'both' },
-    new: { name: 'rise-in', duration: '260ms', delay: '90ms', easing: 'cubic-bezier(0.19, 1, 0.22, 1)', fillMode: 'both' },
-  },
-  backwards: {
-    old: { name: 'hud-fade-out', duration: '120ms', easing: 'linear', fillMode: 'both' },
-    new: { name: 'rise-in', duration: '260ms', delay: '90ms', easing: 'cubic-bezier(0.19, 1, 0.22, 1)', fillMode: 'both' },
-  },
-};
-const slideIn = {
-  forwards: {
-    old: { name: 'hud-fade-out', duration: '100ms', easing: 'linear', fillMode: 'both' },
-    new: { name: 'slide-in-right', duration: '220ms', delay: '100ms', easing: 'cubic-bezier(0.19, 1, 0.22, 1)', fillMode: 'both' },
-  },
-  backwards: {
-    old: { name: 'hud-fade-out', duration: '100ms', easing: 'linear', fillMode: 'both' },
-    new: { name: 'slide-in-right', duration: '220ms', delay: '100ms', easing: 'cubic-bezier(0.19, 1, 0.22, 1)', fillMode: 'both' },
-  },
-};
 ---
 
 <BaseLayout title={title} description={description} type="article" font={font} frame="article">
   <ProgressBar slot="before-frame" />
-
-  <article class="post">
-    <header class="container post-head">
-      <div class="head-top">
-        <p class="crumb">
-          <a href="/archive/" data-back-to-list>← writing</a>
-          <span class="sep" aria-hidden="true">/</span>
-          <span>entry {code}</span>
-          {draft && <span class="pixel pixel--dashed">draft</span>}
-        </p>
-        <span class="head-tools">
-          {toc.length > 0 && (
-            <button type="button" class="toc-show bevel" data-toc-toggle="shown" aria-label="Show contents">
-              contents +
-            </button>
-          )}
-          <FontToggle />
-        </span>
-      </div>
-      {draft && <p class="draft-banner">draft — only visible while running npm run dev. set "draft: false" to publish.</p>}
-      <h1 class="display-title" transition:name={`post-title-${post.id}`}>{title}</h1>
-      {subtitle && <p class="display-subtitle">{subtitle}</p>}
-      <p class="meta-line post-meta">
-        <time datetime={isoDate(date)}>{formatDate(date)}</time>
-        <span class="sep" aria-hidden="true">·</span>
-        <span>{minutes} min read</span>
-        {
-          updated && (
-            <>
-              <span class="sep" aria-hidden="true">·</span>
-              <span>updated {formatDate(updated)}</span>
-            </>
-          )
-        }
-        {tags.length > 0 && <span class="sep" aria-hidden="true">·</span>}
-        {tags.map((tag) => <a href={`/archive/?tag=${encodeURIComponent(tagSlug(tag))}`}>#{tag}</a>)}
-      </p>
-    </header>
-
-    <div class="container post-grid">
-      <div class="post-main">
-        {series && <SeriesNav series={series} position="top" />}
-        {toc.length > 0 && <Toc headings={toc} variant="drawer" />}
-
-        <div class="prose" data-post-body transition:name="post-body" transition:animate={fadeIn}>
-          {
-            tldr && (
-              <Callout variant="tldr" label="tl;dr">
-                {Array.isArray(tldr) ? (
-                  <ul>
-                    {tldr.map((line) => (
-                      <li>{line}</li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p>{tldr}</p>
-                )}
-              </Callout>
-            )
-          }
-          <Content components={{ Callout, Details, Chart, Figure }} />
-        </div>
-
-        {series && <SeriesNav series={series} position="bottom" />}
-        <PostFooter code={code} older={older} newer={newer} />
-        <Comments post={post.id} annotations={annotations} />
-      </div>
-
-      <!-- Right column, inside the frame: sticky contents + the quote-reply panel. -->
-      <aside class="post-side" aria-label="Contents and quote replies" transition:name="post-side" transition:animate={slideIn}>
-        {toc.length > 0 && <Toc headings={toc} variant="sidebar" />}
-        {annotations && <QuoteDrawer />}
-      </aside>
-    </div>
-  </article>
+  <PostArticle
+    id={post.id}
+    title={title}
+    subtitle={subtitle}
+    date={date}
+    updated={updated}
+    tags={tags}
+    tldr={tldr}
+    minutes={readingTime(post.body)}
+    code={entryCode(index)}
+    toc={toc}
+    series={series}
+    older={older}
+    newer={newer}
+    annotations={annotations}
+    badge={draft ? 'draft' : undefined}
+    notice={draft ? 'draft — only visible while running npm run dev. set "draft: false" to publish.' : undefined}
+  >
+    <Content components={{ Callout, Details, Chart, Figure }} />
+  </PostArticle>
 </BaseLayout>
-
-<style>
-  .post-head {
-    position: relative;
-    overflow: hidden;
-    padding-top: clamp(0.9rem, 2.5vw, 1.4rem);
-    padding-bottom: clamp(0.8rem, 2vw, 1.1rem);
-  }
-
-  /* On arrival a 1px scan line sweeps down across the header once. */
-  .post-head::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(var(--ink), var(--ink)) top / 100% 1px no-repeat;
-    opacity: 0;
-    pointer-events: none;
-    animation: scan-sweep 420ms var(--snap) 80ms both;
-  }
-
-  @keyframes scan-sweep {
-    from {
-      opacity: 0.55;
-      transform: translateY(0);
-    }
-    to {
-      opacity: 0;
-      transform: translateY(100%);
-    }
-  }
-
-  .post-head :global(.display-title) {
-    margin-top: 0.55rem;
-  }
-
-  .head-top {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.6rem 1rem;
-  }
-
-  .crumb {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    gap: 0.5rem;
-    margin: 0;
-    font-family: var(--font-mono);
-    font-size: 0.6875rem;
-    color: var(--muted);
-  }
-
-  .crumb a {
-    color: var(--ink);
-    text-decoration: underline;
-    text-decoration-color: var(--rule);
-    text-underline-offset: 0.3em;
-    transition: text-decoration-color var(--fast) var(--ease);
-  }
-
-  .crumb a:hover {
-    text-decoration-color: var(--ink);
-  }
-
-  .crumb .sep {
-    color: var(--faint);
-  }
-
-  /* The divider draws itself left to right on arrival (240ms). */
-  .post-meta {
-    position: relative;
-    margin-top: 0.6rem;
-    padding-top: 0.5rem;
-  }
-
-  .post-meta::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    border-top: 1px dotted var(--muted);
-    transform-origin: left;
-    animation: rule-draw 240ms var(--snap) 120ms both;
-  }
-
-  @keyframes toc-show-in {
-    from {
-      opacity: 0;
-    }
-  }
-
-  .draft-banner {
-    margin: 0.8rem 0 0;
-    padding: 0.35rem 0.55rem;
-    border: 1px dashed var(--line);
-    font-family: var(--font-mono);
-    font-size: 0.6875rem;
-  }
-
-  .post-main {
-    min-width: 0;
-  }
-
-  /* The post body can take focus when a quote thread closes; no ring around
-     the whole article for that. */
-  .prose[tabindex='-1']:focus {
-    outline: none;
-  }
-
-  /* Single column on narrow screens (contents drawer + bottom-sheet replies). */
-  .post-grid {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .head-tools {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-  }
-
-  /* "contents +" only shows while the contents panel is hidden (wide screens). */
-  .toc-show {
-    display: none;
-    min-height: 22px;
-    padding: 0 8px;
-    font: 0.6875rem/1 var(--font-mono);
-  }
-
-  /* Wide article frame: the 65ch reading column and a 230px contents rail,
-     32px apart, centred together in the frame (no dead void between them).
-     The header lines up with the same group. A quote thread widens the rail. */
-  @media (min-width: 1060px) {
-    .post-grid {
-      --rail: 230px;
-      grid-template-columns: minmax(0, var(--col, 65ch)) var(--rail);
-      column-gap: 32px;
-      justify-content: center;
-    }
-
-    .post-grid:has(.qt-drawer:not([hidden])) {
-      --rail: clamp(16rem, 24vw, 20rem);
-    }
-
-    .post-head {
-      box-sizing: content-box;
-      max-width: calc(var(--col, 65ch) + 32px + 230px);
-      margin-inline: auto;
-    }
-
-    /* Contents hidden: the text widens to ~80ch, centred; [ contents + ] brings it back. */
-    :global(:root[data-toc='hidden']) .toc-show {
-      display: inline-flex;
-      align-items: center;
-    }
-
-    :global(:root[data-toc='hidden']) .post-side :global(.toc-sidebar) {
-      display: none;
-    }
-
-    :global(:root[data-toc='hidden']) .post-grid:not(:has(.qt-drawer:not([hidden]))) {
-      grid-template-columns: minmax(0, var(--col-wide, 80ch));
-    }
-
-    :global(:root[data-toc='hidden']) .post-grid:not(:has(.qt-drawer:not([hidden]))) .post-main :global(.prose) {
-      max-width: var(--col-wide, 80ch);
-    }
-
-    :global(:root[data-toc='hidden']) .post-grid:not(:has(.qt-drawer:not([hidden]))) .post-side {
-      display: none;
-    }
-
-    :global(:root[data-toc='hidden']) .post-head {
-      max-width: var(--col-wide, 80ch);
-    }
-
-    /* "contents +" eases in as the column leaves. */
-    @media (prefers-reduced-motion: no-preference) {
-      :global(:root[data-toc='hidden']) .toc-show {
-        animation: toc-show-in 260ms var(--ease, ease-out) both;
-      }
-    }
-
-    /* While a quote thread is open it takes the contents' place. */
-    .post-side:has(.qt-drawer:not([hidden])) :global(.toc-sidebar) {
-      display: none;
-    }
-  }
-</style>
-
-<script>
-  import { onPage } from '../../scripts/lifecycle';
-  import { initPostPage } from '../../scripts/post-page';
-
-  onPage((signal) => initPostPage(signal));
-</script>

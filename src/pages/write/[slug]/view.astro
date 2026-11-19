@@ -1,0 +1,75 @@
+---
+/**
+ * The studio's "view as published": the post exactly as readers will see it
+ * (the real article layout, contents rail, reading font, theme), rendered
+ * from the latest saved draft, before it's published. Owner only, never
+ * indexed. Comments and the previous/next footer are left out.
+ */
+import 'katex/dist/katex.min.css';
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import ProgressBar from '../../../components/ProgressBar.astro';
+import PostArticle from '../../../components/PostArticle.astro';
+import { renderPreview } from '../../../../plugins/preview.mjs';
+import { isOwner, DEV } from '../../../lib/auth';
+import { parsePost, readDraft, readMedia, readPublished, SLUG } from '../../../lib/content';
+import { entryCode, getPostsByDate, readingTime } from '../../../utils/posts';
+
+export const prerender = false;
+const slug = Astro.params.slug ?? '';
+if (!isOwner(Astro.request)) return Astro.redirect(`/?auth=1&next=/write/${SLUG.test(slug) ? slug : ''}`);
+if (!SLUG.test(slug)) return Astro.redirect('/write/');
+
+const draft = readDraft(slug);
+const pub = draft ? null : await readPublished(slug).catch(() => null);
+const doc = draft ?? (pub ? parsePost(slug, pub.ext, pub.source) : null);
+if (!doc) return Astro.redirect('/write/');
+const f = doc.fields;
+
+let html = await renderPreview(doc.body);
+// On the live site, images uploaded since the last deploy are served from the server's disk.
+if (!DEV) {
+  html = html.replace(/(src=")\/images\/posts\/([a-z0-9-]+)\/([a-z0-9][a-z0-9-]*\.(?:png|jpg|gif|webp|svg))"/g, (m: string, pre: string, s: string, file: string) =>
+    s === slug && readMedia(s, file) ? `${pre}/api/media/${s}/${file}"` : m,
+  );
+}
+
+// Contents: the h2 / h3 headings the pipeline gave ids to.
+const strip = (s: string) => s.replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").trim();
+const toc = [...html.matchAll(/<h([23])\s[^>]*id="([^"]+)"[^>]*>([\s\S]*?)<\/h\1>/g)]
+  .map((m) => ({ depth: Number(m[1]), slug: m[2], text: strip(m[3]) }))
+  .filter((h) => h.slug !== 'footnote-label' && h.text);
+
+// Its entry number: where it sits now if published, otherwise the next one.
+const posts = await getPostsByDate();
+const at = posts.findIndex((p) => p.id === slug);
+const code = entryCode(at >= 0 ? posts.length - at : posts.length + 1);
+const date = new Date(`${f.date || new Date().toISOString().slice(0, 10)}T00:00:00Z`);
+const tldr = doc.extra.tldr as string | string[] | undefined;
+const saved = draft?.savedAt ? new Date(draft.savedAt) : null;
+const savedLabel = saved ? saved.toISOString().slice(11, 16) + ' UTC' : '';
+const notice = `preview: ${draft ? `your draft as saved${savedLabel ? ` at ${savedLabel}` : ''}` : 'the published version'}, shown exactly as readers will see it. only you can see this page${f.draft ? '; "draft" is still on, so publishing keeps it hidden' : ''}.`;
+---
+
+<BaseLayout title={`Preview: ${f.title || slug}`} description={f.description} type="article" font={f.font || undefined} frame="article">
+  <meta slot="head" name="robots" content="noindex, nofollow" />
+  <ProgressBar slot="before-frame" />
+  <PostArticle
+    id={`preview-${slug}`}
+    title={f.title || slug}
+    subtitle={f.subtitle || undefined}
+    date={date}
+    tags={f.tags}
+    tldr={tldr}
+    minutes={readingTime(doc.body)}
+    code={code}
+    toc={toc}
+    badge="preview"
+    notice={notice}
+    footer={false}
+    comments={false}
+    backHref={`/write/${slug}`}
+    backLabel="← back to the studio"
+  >
+    <Fragment set:html={html} />
+  </PostArticle>
+</BaseLayout>
