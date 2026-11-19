@@ -22,6 +22,10 @@ const corrections = new Map(Object.entries({
   woudl: 'would', writting: 'writing', wrold: 'world', yuo: 'you',
 }));
 
+export function studioSpellingLanguage(language: string) {
+  return /^en(?:-|$)/i.test(language) ? 'en-GB' : language;
+}
+
 export function preferredSpelling(word: string) {
   const fixed = corrections.get(word.toLowerCase());
   return fixed && (/^[A-Z]/.test(word) ? fixed[0].toUpperCase() + fixed.slice(1) : fixed);

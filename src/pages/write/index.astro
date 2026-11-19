@@ -2,7 +2,9 @@
 /** Writing studio home: start a post, or pick one to edit. Owner only. */
 import '../../styles/write.css';
 import BaseLayout from '../../layouts/BaseLayout.astro';
+import { studioSpellingLanguage } from '../../scripts/spelling-words';
 import { isOwner } from '../../lib/auth';
+import { SITE } from '../../site.config';
 import { listPosts, MODE, postVersion, PUBLISHING } from '../../lib/content';
 
 export const prerender = false;
@@ -24,7 +26,7 @@ const modeLabel =
       <div class="panel-body">
         <form class="studio-form" data-new>
           <label class="sr-only" for="new-title">Title</label>
-          <input id="new-title" name="title" type="text" placeholder="title of the new post" maxlength="300" autocomplete="off" required />
+          <input id="new-title" lang={studioSpellingLanguage(SITE.lang)} name="title" type="text" placeholder="title of the new post" maxlength="300" autocomplete="off" required />
           <button type="submit" class="cm-submit">[ start writing ]</button>
           <span class="status" data-status aria-live="polite"></span>
         </form>
