@@ -979,6 +979,22 @@
   color: var(--muted);
 }
 
+.w-autocorrect {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3em;
+  cursor: pointer;
+}
+.w-autocorrect input { margin: 0; accent-color: var(--ink); }
+.w-spelling-hint {
+  color: var(--ink);
+  font: inherit;
+  text-decoration: underline dotted;
+  text-underline-offset: 0.22em;
+  cursor: pointer;
+}
+.w-autocorrect[hidden], .w-spelling-hint[hidden] { display: none; }
+
 .w-pane-title {
   color: var(--ink);
   font-weight: 600;

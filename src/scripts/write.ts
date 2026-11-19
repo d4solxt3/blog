@@ -14,6 +14,7 @@
 
 import { waitForLocalRelease } from './local-release';
 import { initPreviews } from './previews';
+import { initSpelling } from './studio-spelling';
 
 type Fields = {
   title: string;
@@ -935,6 +936,10 @@ export function initWriter(signal: AbortSignal) {
   const footEl = makePop('w-foot');
   footEl.innerHTML = '<label for="w-foot-in">footnote</label><input id="w-foot-in" type="text" autocomplete="off" placeholder="type the note, then enter" />';
   const footInput = footEl.querySelector('input')!;
+  footInput.setAttribute('data-spelling', '');
+  footInput.setAttribute('autocorrect', 'off');
+  footInput.spellcheck = true;
+  initSpelling(root, signal);
   let footAt = 0;
 
   function openFootnote() {

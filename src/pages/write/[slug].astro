@@ -101,6 +101,7 @@ const json = JSON.stringify(data).replace(/</g, '\\u003c');
             <dt>split view</dt><dd>drag the divider (← → keys too; double-click for 50 / 50); double-click the preview to jump to that line</dd>
             <dt data-mod>ctrl+\</dt><dd>focus mode</dd>
             <dt data-mod>ctrl+s</dt><dd>save now</dd>
+            <dt>spelling</dt><dd>Right-click an underlined word for spelling suggestions. Autocorrect fixes common English typos as you finish a word; use undo to restore your spelling.</dd>
             <dt>paste / drop</dt><dd>add an image or gif</dd>
             <dt>/chart</dt><dd>chart from CSV, JSON or a Markdown table, with a live preview</dd>
             <dt>/diagram</dt><dd>boxes and arrows: <code>A[Input] -&gt; B[Output]</code></dd>
@@ -133,7 +134,7 @@ const json = JSON.stringify(data).replace(/</g, '\\u003c');
         <div class="meta" id="meta" data-meta hidden>
           <label class="wide">
             description (front page &amp; search engines)
-            <textarea data-f="description" rows="2" maxlength="1000"></textarea>
+            <textarea data-spelling spellcheck="true" autocorrect="off" data-f="description" rows="2" maxlength="1000"></textarea>
           </label>
           <div class="wide meta-group">
             <label>
@@ -187,21 +188,23 @@ const json = JSON.stringify(data).replace(/</g, '\\u003c');
           <section class="w-pane w-pane--source" aria-label="Source">
             <div class="w-pane-sticky">
               <div class="w-pane-bar">
-                <span class="w-pane-title">source <span class="w-pane-dim">//</span> markdown</span>
+                <span class="w-pane-title" data-source-label>source <span class="w-pane-dim">//</span> markdown</span>
+                <button type="button" class="w-spelling-hint" data-spelling-hint hidden></button>
+                <label class="w-autocorrect" title="Fix common English typos when you finish a word"><input type="checkbox" data-autocorrect checked /> autocorrect</label>
                 <span class="w-pane-meta"><span data-count></span> <span class="w-pane-dim" aria-hidden="true">·</span> <span class="w-pane-status" data-pane-status>saved</span></span>
               </div>
               <div class="w-ribbon-slot" data-ribbon-slot></div>
             </div>
           <div class="canvas">
-            <input class="w-title" data-f="title" type="text" placeholder="Title" aria-label="Title" autocomplete="off" />
-            <textarea class="w-subtitle" data-f="subtitle" rows="1" placeholder="Subtitle (optional)" aria-label="Subtitle" autocomplete="off"></textarea>
+            <input class="w-title" data-spelling spellcheck="true" autocorrect="off" data-f="title" type="text" placeholder="Title" aria-label="Title" autocomplete="off" />
+            <textarea class="w-subtitle" data-spelling spellcheck="true" autocorrect="off" data-f="subtitle" rows="1" placeholder="Subtitle (optional)" aria-label="Subtitle" autocomplete="off"></textarea>
             <div class="w-editor" data-wrap>
             <textarea
               class="w-body"
               data-body
               aria-label="Post body (Markdown)"
               placeholder="Start writing. Type / at the start of a line for blocks, [[ to link a post. Paste or drop images."
-              spellcheck="true"></textarea>
+              data-spelling spellcheck="true" autocorrect="off"></textarea>
             <div class="w-gutter" data-gutter aria-hidden="true"></div>
             <div class="w-drop" data-drop hidden>
               drop images or gifs to upload
