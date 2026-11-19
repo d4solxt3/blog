@@ -62,7 +62,7 @@
       "text": "site is up :)"
     }
   ],
-  "notice": "best viewed at any width. these are my messy thoughts, don't take too serious.",
+  "notice": "these are just some messy thoughts, don't take them too seriously (usually)",
   "todo": [
     {
       "text": "finding qwen's jspace",
@@ -87,8 +87,8 @@
     "joined": "2026.10",
     "currently": {
       "into": "natural language autoencoders",
-      "reading": "the elements of typographic style",
-      "building": "this site, slowly"
+      "reading": "the nerd reich",
+      "building": "natural language autoencoders"
     },
     "bio": [
       "hi. this is a personal notebook for things i find interesting: longer notes on what I am learning, mostly machine learning and interpretability.",
@@ -160,6 +160,14 @@
       "props": {}
     },
     {
+      "id": "now",
+      "type": "now",
+      "area": "main",
+      "width": "half",
+      "enabled": true,
+      "props": {}
+    },
+    {
       "id": "updates",
       "type": "updates",
       "area": "main",
@@ -168,10 +176,9 @@
       "props": {}
     },
     {
-      "id": "now",
-      "type": "now",
+      "id": "calendar",
+      "type": "calendar",
       "area": "main",
-      "width": "half",
       "enabled": true,
       "props": {}
     },
@@ -207,6 +214,98 @@
       "id": "buttons",
       "type": "badges",
       "area": "side",
+      "enabled": true,
+      "props": {}
+    }
+  ],
+  "aboutWidgets": [
+    {
+      "id": "avatar",
+      "type": "avatar",
+      "area": "side",
+      "enabled": true,
+      "props": {}
+    },
+    {
+      "id": "profile",
+      "type": "profile",
+      "area": "side",
+      "enabled": true,
+      "props": {}
+    },
+    {
+      "id": "elsewhere",
+      "type": "links",
+      "area": "side",
+      "enabled": true,
+      "props": {
+        "title": "elsewhere",
+        "items": [
+          {
+            "label": "github",
+            "url": "https://github.com/"
+          },
+          {
+            "label": "email",
+            "url": "mailto:heartwr3nched@gmail.com"
+          },
+          {
+            "label": "rss",
+            "url": "/rss.xml"
+          }
+        ]
+      }
+    },
+    {
+      "id": "interests",
+      "type": "interests",
+      "area": "side",
+      "enabled": true,
+      "props": {}
+    },
+    {
+      "id": "about-buttons",
+      "type": "badges",
+      "area": "side",
+      "enabled": true,
+      "props": {}
+    },
+    {
+      "id": "hello",
+      "type": "hello",
+      "area": "main",
+      "enabled": true,
+      "props": {}
+    },
+    {
+      "id": "currently",
+      "type": "currently",
+      "area": "main",
+      "width": "half",
+      "enabled": true,
+      "props": {}
+    },
+    {
+      "id": "checklist",
+      "type": "todo",
+      "area": "main",
+      "width": "half",
+      "enabled": true,
+      "props": {
+        "title": "checklist"
+      }
+    },
+    {
+      "id": "progress",
+      "type": "progress",
+      "area": "main",
+      "enabled": true,
+      "props": {}
+    },
+    {
+      "id": "recent",
+      "type": "recent",
+      "area": "main",
       "enabled": true,
       "props": {}
     }
