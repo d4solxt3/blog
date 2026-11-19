@@ -31,6 +31,7 @@
     "rehype-katex": "^7.0.1",
     "remark-math": "^6.0.0",
     "shiki": "^4.6.0",
+    "typo-js": "2.0.0",
     "unist-util-visit": "^5.2.0",
     "yaml": "^2.9.1"
   },

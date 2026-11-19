@@ -205,6 +205,7 @@ export function initWriter(signal: AbortSignal) {
     autosize();
     queueGutter();
     renderPicks();
+    refreshSpelling?.();
   }
 
   // ---- existing tags & series ------------------------------------------------------
@@ -956,7 +957,7 @@ export function initWriter(signal: AbortSignal) {
   footInput.setAttribute('data-spelling', '');
   footInput.setAttribute('autocorrect', 'off');
   footInput.spellcheck = true;
-  initSpelling(root, signal);
+  const refreshSpelling = initSpelling(root, signal);
   let footAt = 0;
 
   function openFootnote() {
@@ -1001,7 +1002,9 @@ export function initWriter(signal: AbortSignal) {
       else backToText();
     }
   });
-  on(footInput, 'blur', () => window.setTimeout(() => document.activeElement !== footInput && (footEl.hidden = true), 150));
+  on(footInput, 'blur', () => window.setTimeout(() => {
+    if (document.activeElement !== footInput && !document.activeElement?.closest('.spell-menu')) footEl.hidden = true;
+  }, 150));
 
   // ---- chart dialog: fields + data on the left, the real renderer's output on the right ----
   const chartDlg = q<HTMLDialogElement>('[data-chart]');

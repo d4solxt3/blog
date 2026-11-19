@@ -1,60 +1,8 @@
-// Only substitute familiar misspellings. The browser dictionary supplies the wider
-// set of underlines and right-click suggestions for the user's writing language.
-const corrections = new Map(Object.entries({
-  abotu: 'about', accomodate: 'accommodate', acheive: 'achieve', adn: 'and',
-  adress: 'address', agian: 'again', almsot: 'almost', alwasy: 'always',
-  aparently: 'apparently', argumetn: 'argument', becasue: 'because',
-  becuase: 'because', beleive: 'believe', bteween: 'between', chnage: 'change',
-  comming: 'coming', commited: 'committed', concious: 'conscious',
-  definately: 'definitely', definetely: 'definitely', definitley: 'definitely',
-  diffrent: 'different', enviroment: 'environment', esle: 'else',
-  excercise: 'exercise', exmaple: 'example', experiance: 'experience',
-  firts: 'first', freind: 'friend', fucntion: 'function', goverment: 'government',
-  grammer: 'grammar', hte: 'the', jsut: 'just', knwo: 'know', langauge: 'language',
-  lenght: 'length', liek: 'like', lnik: 'link', mispelled: 'misspelled',
-  neccessary: 'necessary', necesary: 'necessary', occassion: 'occasion',
-  occured: 'occurred', ocurred: 'occurred', peice: 'piece', poeple: 'people',
-  probaly: 'probably', publsih: 'publish', reciept: 'receipt', recieve: 'receive',
-  recieved: 'received', recieving: 'receiving', refered: 'referred',
-  remeber: 'remember', responsiblity: 'responsibility', rythym: 'rhythm',
-  seperate: 'separate', similiar: 'similar', somethign: 'something', taht: 'that',
-  teh: 'the', thier: 'their', thign: 'thing', thoguht: 'thought', tiem: 'time',
-  tommorow: 'tomorrow', tomorow: 'tomorrow', tounge: 'tongue', truely: 'truly',
-  untill: 'until', ususally: 'usually', wierd: 'weird', wiht: 'with',
-  woudl: 'would', writting: 'writing', wrold: 'world', yuo: 'you',
-}));
+import { preferredSpelling, spellingWords } from './spelling-words';
+import { initSpellMarks } from './studio-spell-marks';
 
 type WritingField = HTMLInputElement | HTMLTextAreaElement;
 const preference = 'studio:autocorrect';
-
-// Run this check only when the word matches the small correction dictionary.
-// In ambiguous markup, keeping exactly what the author typed is the safe default.
-function inProse(text: string, start: number) {
-  const before = text.slice(0, start);
-  const line = before.slice(before.lastIndexOf('\n') + 1);
-  if (/^(?: {4}|\t|\s*\[[^\]]*\]:|\s*(?:import|export)\s)/.test(line)) return false;
-  if (/^---\r?\n/.test(before) && !/\n(?:---|\.\.\.)\r?\n/.test(before)) return false;
-  let openFence = '';
-  const fences = /^(?:(?: {0,3}>[ \t]?)*)(?: {0,3}(?:[-+*]|\d+[.)])\s+)?[ \t]*(`{3,}|~{3,})([^\n]*)/gm;
-  for (const fence of before.matchAll(fences)) {
-    if (!openFence) openFence = fence[1];
-    else if (fence[1].startsWith(openFence) && !fence[2].trim()) openFence = '';
-  }
-  if (openFence || before.lastIndexOf('<!--') > before.lastIndexOf('-->')) return false;
-  if ((before.match(/(?<!\\)\$\$/g)?.length ?? 0) % 2) return false;
-  // Check the current paragraph for multiline inline code, wiki-links, MDX,
-  // math and link destinations. Ignore completed spans so prose after them works.
-  const paragraph = before.slice(before.lastIndexOf('\n\n') + 1);
-  const openers = /(?<!\\)(`+|\$+|\[\[|\]\(|\{|<(?=[A-Za-z/]))/g;
-  const closing: Record<string, string> = { '[[': ']]', '](': ')', '{': '}', '<': '>' };
-  for (let m; (m = openers.exec(paragraph));) {
-    const delimiter = closing[m[0]] ?? m[0];
-    const end = paragraph.indexOf(delimiter, openers.lastIndex);
-    if (end < 0) return false;
-    openers.lastIndex = end + delimiter.length;
-  }
-  return true;
-}
 
 function suggestion(field: WritingField) {
   const end = field.selectionStart;
@@ -65,17 +13,24 @@ function suggestion(field: WritingField) {
   if (!match || /[\p{L}\p{N}_/@#'’\-]/u.test(value.charAt(end))) return;
   const word = match[1];
   if (!/^[A-Z]?[a-z]+$/.test(word)) return;
-  const next = corrections.get(word.toLowerCase());
+  const next = preferredSpelling(word);
   const start = end - word.length;
-  if (!next || (field.hasAttribute('data-body') && !inProse(value, start))) return;
-  return { start, end, word, replacement: /^[A-Z]/.test(word) ? next[0].toUpperCase() + next.slice(1) : next };
+  if (!next) return;
+  if (field.hasAttribute('data-body')) {
+    let prose = false;
+    for (const token of spellingWords(value.slice(0, end), true)) {
+      if (token.start === start && token.word === word) { prose = true; break; }
+    }
+    if (!prose) return;
+  }
+  return { start, end, word, replacement: next };
 }
 
 export function initSpelling(root: HTMLElement, signal: AbortSignal) {
   const toggle = root.querySelector<HTMLInputElement>('[data-autocorrect]')!;
   const hint = root.querySelector<HTMLButtonElement>('[data-spelling-hint]')!;
   const label = root.querySelector<HTMLElement>('[data-source-label]')!;
-  // Native underlines follow the browser's dictionary for all languages.
+  // For other languages keep the browser’s own dictionary and context menu.
   if (!/^en(?:-|$)/i.test(document.documentElement.lang || 'en')) {
     toggle.closest('label')!.hidden = true;
     return;
@@ -104,7 +59,12 @@ export function initSpelling(root: HTMLElement, signal: AbortSignal) {
     try {
       // A native insertion gives this correction an undo step and sends the same
       // input event used by the studio for backup, autosave and live preview.
-      return document.execCommand('insertText', false, item.replacement + ending);
+      const text = item.replacement + ending;
+      if (!document.execCommand('insertText', false, text)) {
+        field.setRangeText(text, item.start, item.end, 'end');
+        field.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertReplacementText', data: text }));
+      }
+      return true;
     } finally {
       replacing = false;
       if (field.selectionStart !== field.selectionEnd) field.setSelectionRange(item.end, item.end);
@@ -138,4 +98,7 @@ export function initSpelling(root: HTMLElement, signal: AbortSignal) {
       if (item && insert(field, item, ending)) input.preventDefault();
     }, { signal });
   }
+  return initSpellMarks(root, signal, (field, item, replacement) => {
+    insert(field, { ...item, end: item.start + item.word.length, replacement }, '');
+  });
 }
