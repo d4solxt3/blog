@@ -1699,3 +1699,95 @@
   font-size: 0.95em;
   color: var(--ink);
 }
+
+/* ---- Image scaling in the preview (scripts/image-scale.ts) ------------------
+   Hover or focus a picture: presets top-right, a corner grip bottom-right. */
+.w-preview figure.figure {
+  position: relative;
+}
+
+.w-scale {
+  position: absolute;
+  inset: 0 0 var(--cap-h, 0px) 0; /* the picture's box, not its caption */
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 120ms var(--ease, ease-out);
+}
+
+.w-preview figure.figure:hover > .w-scale,
+.w-preview figure.figure:focus-within > .w-scale,
+.w-preview figure.figure.is-scaling > .w-scale {
+  opacity: 1;
+}
+
+.w-scale-bar {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--line);
+  background: var(--surface-main);
+  box-shadow: 2px 2px 0 var(--bevel-shadow);
+  pointer-events: auto;
+}
+
+.w-scale-bar button {
+  min-width: 34px;
+  height: 20px;
+  padding: 0 4px;
+  font: 600 10px/1 var(--font-mono);
+}
+
+.w-scale-read {
+  position: absolute;
+  left: 6px;
+  top: 6px;
+  padding: 1px 5px;
+  border: 1px solid var(--line);
+  background: var(--surface-main);
+  font: 600 10px/1.5 var(--font-mono);
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.w-scale-grip {
+  position: absolute;
+  right: -6px;
+  bottom: -6px;
+  width: 14px;
+  height: 14px;
+  padding: 0;
+  border: 1px solid var(--line);
+  background:
+    linear-gradient(135deg, transparent 0 45%, var(--ink) 45% 55%, transparent 55% 70%, var(--ink) 70% 80%, transparent 80%),
+    var(--surface-main);
+  cursor: ew-resize;
+  pointer-events: auto;
+  touch-action: none;
+}
+
+.w-scale-grip:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* While dragging, the picture shows its edges and a dotted guide. */
+.w-preview figure.figure.is-scaling img {
+  outline: 1px dotted var(--accent);
+  outline-offset: 2px;
+}
+
+@media (pointer: coarse) {
+  .w-scale-bar button {
+    min-width: 40px;
+    height: 36px;
+  }
+
+  .w-scale-grip {
+    width: 28px;
+    height: 28px;
+    right: -10px;
+  }
+}

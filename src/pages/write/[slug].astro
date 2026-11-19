@@ -312,6 +312,10 @@ const json = JSON.stringify(data).replace(/</g, '\\u003c');
 <script>
   import { onPage } from '../../scripts/lifecycle';
   import { initWriter } from '../../scripts/write';
+  import { initImageScale } from '../../scripts/image-scale';
 
-  onPage((signal) => initWriter(signal));
+  onPage((signal) => {
+    initWriter(signal);
+    initImageScale(signal);
+  });
 </script>

@@ -745,6 +745,90 @@
   mix-blend-mode: normal;
 }
 
+/* ---- Scaled images: ![alt](src "caption {w=60%}") → a narrower, centred figure. */
+.prose .figure--sized {
+  margin-inline: auto;
+}
+
+.prose .fig-w-10 {
+  width: 10%;
+}
+
+.prose .fig-w-15 {
+  width: 15%;
+}
+
+.prose .fig-w-20 {
+  width: 20%;
+}
+
+.prose .fig-w-25 {
+  width: 25%;
+}
+
+.prose .fig-w-30 {
+  width: 30%;
+}
+
+.prose .fig-w-35 {
+  width: 35%;
+}
+
+.prose .fig-w-40 {
+  width: 40%;
+}
+
+.prose .fig-w-45 {
+  width: 45%;
+}
+
+.prose .fig-w-50 {
+  width: 50%;
+}
+
+.prose .fig-w-55 {
+  width: 55%;
+}
+
+.prose .fig-w-60 {
+  width: 60%;
+}
+
+.prose .fig-w-65 {
+  width: 65%;
+}
+
+.prose .fig-w-70 {
+  width: 70%;
+}
+
+.prose .fig-w-75 {
+  width: 75%;
+}
+
+.prose .fig-w-80 {
+  width: 80%;
+}
+
+.prose .fig-w-85 {
+  width: 85%;
+}
+
+.prose .fig-w-90 {
+  width: 90%;
+}
+
+.prose .fig-w-95 {
+  width: 95%;
+}
+
+/* Phones: small scales would be tiny, so nothing goes below 60%. */
+@media (max-width: 560px) {
+  .prose .fig-w-10, .prose .fig-w-15, .prose .fig-w-20, .prose .fig-w-25, .prose .fig-w-30, .prose .fig-w-35, .prose .fig-w-40, .prose .fig-w-45, .prose .fig-w-50, .prose .fig-w-55 {
+    width: 60%;
+  }
+}
+
 /* ---- Figure groups: <Figure cols="2"> / ```figure — side-by-side comparisons ---- */
 .prose .figure-grid {
   display: grid;
