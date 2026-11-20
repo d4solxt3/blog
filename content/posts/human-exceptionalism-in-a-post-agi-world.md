@@ -1,5 +1,5 @@
 ---
-title: Human Exceptionalism in a Post-AGI World
+title: Let's Stop Maximising Productivity
 description: Can we co-exist with benevolent superintelligent machines? Or will people fade into obscurity.
 date: 2026-11-18
 tags: [ AI, Philosophy, Personal Life ]
