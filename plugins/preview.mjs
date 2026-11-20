@@ -114,6 +114,13 @@ export async function renderStudioPreview(src) {
   return offsetsToLines(code, mapped, String(src));
 }
 
+/** Render a snapshot body for the public article and its table of contents. */
+export async function renderLiveArticle(body, ext) {
+  const md = await getProcessor();
+  const { code, metadata } = await md.render(ext === 'mdx' ? mdxToPreview(body) : body);
+  return { html: code, headings: metadata.headings };
+}
+
 /** @param {string} src Markdown/MDX source. @returns {Promise<string>} */
 export async function renderPreview(src) {
   const md = await getProcessor();

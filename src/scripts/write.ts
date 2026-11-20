@@ -339,7 +339,7 @@ export function initWriter(signal: AbortSignal) {
     publishBtn.title = data.mode === 'off' ? 'Check the publishing connection in settings' : draft
       ? 'Saves the post with draft: true (hidden on the live site)'
       : data.mode === 'github'
-        ? 'Commits to GitHub; live after Railway rebuilds'
+        ? 'Publishes this version on heartcache.xyz'
         : 'Deploys the post to heartcache.xyz';
   }
 
@@ -1813,19 +1813,6 @@ export function initWriter(signal: AbortSignal) {
   }
 
   // ---- publish ---------------------------------------------------------------------------------
-  function watchLive() {
-    let tries = 0;
-    const tick = async () => {
-      if (signal.aborted || ++tries > 36) return;
-      const live = await fetch(`/posts/${slug}/`, { method: 'HEAD', cache: 'no-store' })
-        .then((r) => r.ok)
-        .catch(() => false);
-      if (live) say(`the post page now loads on the live site ✓ <a href="/posts/${slug}/">view post</a>`);
-      else window.setTimeout(tick, 10_000);
-    };
-    window.setTimeout(tick, 15_000);
-  }
-
   async function publishNow() {
     const f = collect();
     if (!f.title.trim()) {
@@ -1847,7 +1834,7 @@ export function initWriter(signal: AbortSignal) {
         ? `Commit "${f.title}" to GitHub as a draft? It stays hidden on the live site.`
         : `Save "${f.title}" to content/posts as a draft?`
       : live
-        ? `Publish "${f.title}"? It goes live after Railway rebuilds the site (about 1–2 minutes).`
+        ? `Publish "${f.title}"? This makes the current version public on heartcache.xyz.`
         : `Publish "${f.title}" to heartcache.xyz?`;
     if (!window.confirm(question)) return;
     clearTimeout(timer);
@@ -1858,7 +1845,7 @@ export function initWriter(signal: AbortSignal) {
       const sent = snapshot();
       const headers: Record<string, string> = {};
       if (data.mode === 'local' && !f.draft) headers['X-Editor-Action'] = 'publish';
-      const { result } = await api('/api/write/post', 'POST', { slug, ext, extra, fields: f, body }, headers);
+      const { result } = await api('/api/write/post', 'POST', { slug, ext, extra, fields: f, body, basis }, headers);
       basis = result.sha;
       ext = String(result.path).endsWith('.mdx') ? 'mdx' : 'md';
       publishedDoc = { fields: f, body };
@@ -1882,9 +1869,7 @@ export function initWriter(signal: AbortSignal) {
       } else if (f.draft) {
         say(`committed ${esc(result.commit)} as a draft. it stays hidden on the live site.`);
       } else {
-        // Only the commit is known here; the rebuild happens on Railway's side.
-        say(`committed ${esc(result.commit)} to github. railway rebuilds the site from it, so the change appears once that finishes (usually a minute or two).`);
-        if (result.created) watchLive();
+        say('published on heartcache.xyz · <a href="/posts/' + slug + '/">view live post</a>');
       }
     } catch (err) {
       const e = err as Error & { field?: string };

@@ -100,7 +100,8 @@ export const POST: APIRoute = async ({ request, url, clientAddress }) => {
   }
   try {
     return await editPost(doc.slug, async () => {
-      const result = await publish(doc);
+      const expectedSha = typeof body!.basis === 'string' || body!.basis === null ? body!.basis as string | null : undefined;
+      const result = await publish(doc, { expectedSha });
       if (import.meta.env.DEV && deployLocal) {
         const { publishFile } = await import('../../../../plugins/editor-publish.mjs');
         result.commit = await publishFile(result.path);
@@ -110,7 +111,7 @@ export const POST: APIRoute = async ({ request, url, clientAddress }) => {
     });
   } catch (err) {
     const status = (err as { status?: number }).status;
-    return json({ error: err instanceof Error ? err.message : 'Could not publish.' }, status === 503 || status === 410 ? status : 502);
+    return json({ error: err instanceof Error ? err.message : 'Could not publish.' }, status === 503 || status === 410 || status === 409 ? status : 502);
   }
 };
 

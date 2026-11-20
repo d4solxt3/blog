@@ -1,16 +1,54 @@
 import { getCollection, type CollectionEntry } from 'astro:content';
 import { isRetiredLocally } from '../../scripts/post-template.mjs';
 import { retiredOnServer } from '../lib/retired-posts';
+import { livePosts, type LivePost } from '../lib/live-posts';
 import { SITE } from '../site.config';
 
-export type Post = CollectionEntry<'posts'>;
+type BuiltPost = CollectionEntry<'posts'>;
+export type Post =
+  | (BuiltPost & { live?: never })
+  | (Pick<BuiltPost, 'id' | 'data'> & { body: string; live: LivePost });
 
-/** Published posts: pinned first, then newest. Drafts appear in `npm run dev` only. */
+function livePostData({ fields, extra }: LivePost['doc']): BuiltPost['data'] {
+  const { tldr, annotations, updated } = extra;
+  const updatedDate = typeof updated === 'string' || typeof updated === 'number' || updated instanceof Date
+    ? new Date(updated)
+    : undefined;
+
+  return {
+    ...fields,
+    subtitle: fields.subtitle || undefined,
+    date: new Date(fields.date),
+    updated: updatedDate && Number.isFinite(updatedDate.valueOf()) ? updatedDate : undefined,
+    series: fields.series || undefined,
+    seriesOrder: fields.seriesOrder ?? undefined,
+    font: fields.font || undefined,
+    tldr: typeof tldr === 'string' || (Array.isArray(tldr) && tldr.every((line) => typeof line === 'string'))
+      ? tldr
+      : undefined,
+    annotations: annotations !== false,
+  };
+}
+
+/** Published posts: pinned first, then newest. Built drafts also appear in dev. */
 export async function getPosts(): Promise<Post[]> {
   const posts = await getCollection('posts', ({ data }) => import.meta.env.DEV || !data.draft);
   const conflict = posts.find((post) => isRetiredLocally(post.id));
   if (conflict) throw new Error(`The address "${conflict.id}" is retired. Rename the new Markdown file to give it its own discussion.`);
-  return posts.filter((post) => !retiredOnServer(post.id)).sort((a, b) => Number(b.data.pinned) - Number(a.data.pinned) || b.data.date.valueOf() - a.data.date.valueOf());
+
+  const merged = new Map<string, Post>(posts.map((post) => [post.id, post]));
+  for (const live of livePosts()) {
+    const { doc } = live;
+    if (doc.fields.draft || isRetiredLocally(doc.slug)) {
+      merged.delete(doc.slug);
+      continue;
+    }
+    merged.set(doc.slug, { id: doc.slug, body: doc.body, data: livePostData(doc), live });
+  }
+
+  return [...merged.values()]
+    .filter((post) => !retiredOnServer(post.id))
+    .sort((a, b) => Number(b.data.pinned) - Number(a.data.pinned) || b.data.date.valueOf() - a.data.date.valueOf());
 }
 
 /** Same posts, strictly newest first (used for entry numbers and prev/next). */

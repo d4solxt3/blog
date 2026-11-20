@@ -1,6 +1,6 @@
 ---
 import 'katex/dist/katex.min.css';
-import { render } from 'astro:content';
+import { getEntry, render } from 'astro:content';
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import ProgressBar from '../../components/ProgressBar.astro';
 import PostArticle from '../../components/PostArticle.astro';
@@ -16,7 +16,9 @@ const posts = await getPostsByDate();
 const position = posts.findIndex((entry) => entry.id === Astro.params.slug);
 if (position < 0) {
   const page = await Astro.rewrite('/404');
-  return new Response(page.body, { status: 404, headers: page.headers });
+  const headers = new Headers(page.headers);
+  headers.set('Cache-Control', 'no-store');
+  return new Response(page.body, { status: 404, headers });
 }
 const post = posts[position];
 const index = posts.length - position;
@@ -24,7 +26,14 @@ const newer = posts[position - 1] ?? null;
 const older = posts[position + 1] ?? null;
 const series = seriesOf(post, posts);
 const { title, subtitle, description, date, updated, tags, tldr, draft, font } = post.data;
-const { Content, headings } = await render(post);
+// A visibility or metadata change can reuse an existing fully compiled MDX body.
+const shipped = post.live?.doc.ext === 'mdx' ? await getEntry('posts', post.id) : null;
+const compiled = post.live
+  ? shipped && shipped.body?.trim() === post.body.trim() ? await render(shipped) : null
+  : await render(post);
+const headings = compiled?.headings ?? post.live?.headings ?? [];
+const Content = compiled?.Content;
+if (post.live) Astro.response.headers.set('Cache-Control', 'no-store');
 const toc = headings.filter((h) => (h.depth === 2 || h.depth === 3) && h.slug !== 'footnote-label');
 const annotations = SITE.inlineAnnotations && post.data.annotations !== false;
 ---
@@ -49,6 +58,8 @@ const annotations = SITE.inlineAnnotations && post.data.annotations !== false;
     badge={draft ? 'draft' : undefined}
     notice={draft ? 'draft — only visible while running npm run dev. set "draft: false" to publish.' : undefined}
   >
-    <Content components={{ Callout, Details, Chart, Figure }} />
+    {Content
+      ? <Content components={{ Callout, Details, Chart, Figure }} />
+      : post.live && <Fragment set:html={post.live.html} />}
   </PostArticle>
 </BaseLayout>

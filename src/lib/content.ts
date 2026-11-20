@@ -6,12 +6,14 @@
  * - Publishing writes content/posts/<slug>.md(x):
  *     · `npm run dev`: straight to the file on your computer;
  *     · live site: one commit to your GitHub repo (post + its new images),
- *       which makes Railway rebuild the site. Needs GITHUB_TOKEN.
+ *       plus a rendered copy on the site’s persistent disk. Needs GITHUB_TOKEN.
  * - Pasted/dropped images go to public/images/posts/<slug>/ locally, or to
  *   <data dir>/media/posts/<slug>/ on the live site until they're published.
  */
 import { execFile } from 'node:child_process';
-import { createHash } from 'node:crypto';
+import { getLivePost, livePosts, stageLivePost } from './live-posts';
+import { blobSha, POSTS_DIR, readPostFile, SLUG, type Published } from './post-source';
+export { blobSha, POSTS_DIR, SLUG } from './post-source';
 import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import YAML from 'yaml';
@@ -21,10 +23,10 @@ import { retiredOnServer, retireOnServer } from './retired-posts';
 import { DATA_DIR, DEV } from './auth';
 
 const ROOT = process.cwd();
-export const POSTS_DIR = resolve(ROOT, 'content/posts');
+
 const DRAFTS_DIR = join(DATA_DIR, 'drafts');
 export const MEDIA_DIR = DEV ? resolve(ROOT, 'public/images/posts') : join(DATA_DIR, 'media/posts');
-export const SLUG = /^[a-z0-9][a-z0-9-]{0,79}$/;
+
 const POST_FILE = /^([a-z0-9][a-z0-9-]*)\.(md|mdx)$/;
 
 const cfg = (raw as Record<string, any>).publishing ?? {};
@@ -58,12 +60,6 @@ export const today = () => {
   const d = new Date();
   const p = (n: number) => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
-};
-
-/** Same hash GitHub uses for file contents, so local and GitHub versions compare. */
-export const blobSha = (content: Buffer | string) => {
-  const buf = typeof content === 'string' ? Buffer.from(content, 'utf8') : content;
-  return createHash('sha1').update(`blob ${buf.length}\0`).update(buf).digest('hex');
 };
 
 const asDate = (v: unknown) =>
@@ -163,24 +159,11 @@ export async function isRetired(slug: string, ref = PUBLISHING.branch): Promise<
   return MODE === 'github' ? !!(await repoFile(retiredPath(slug), ref)) : isRetiredLocally(slug);
 }
 
-type Published = { ext: 'md' | 'mdx'; source: string; sha: string };
-
-function readPostFile(slug: string): Published | null {
-  for (const ext of ['md', 'mdx'] as const) {
-    const file = join(POSTS_DIR, `${slug}.${ext}`);
-    if (existsSync(file)) {
-      const source = readFileSync(file, 'utf8');
-      return { ext, source, sha: blobSha(source) };
-    }
-  }
-  return null;
-}
-
-export async function readPublished(slug: string): Promise<Published | null> {
+export async function readPublished(slug: string, ref = PUBLISHING.branch): Promise<Published | null> {
   if (retiredOnServer(slug)) return null;
   if (MODE !== 'github') return readPostFile(slug);
   for (const ext of ['md', 'mdx'] as const) {
-    const data = await repoFile(`content/posts/${slug}.${ext}`, PUBLISHING.branch);
+    const data = await repoFile(`content/posts/${slug}.${ext}`, ref);
     if (data) return { ext, source: Buffer.from(data.content, 'base64').toString('utf8'), sha: data.sha };
   }
   return null;
@@ -193,7 +176,9 @@ export async function readForEditing(slug: string) {
     return { published: await readPublished(slug), tokenRejected: false };
   } catch (error) {
     if ((error as { status?: number }).status !== 401) throw error;
-    return { published: retiredOnServer(slug) ? null : readPostFile(slug), tokenRejected: true };
+    const live = getLivePost(slug);
+    const published = live ? { ext: live.doc.ext, source: live.source, sha: live.sha } : readPostFile(slug);
+    return { published: retiredOnServer(slug) ? null : published, tokenRejected: true };
   }
 }
 
@@ -271,8 +256,9 @@ export async function removePost(slug: string, version: string) {
       ], `Delete ${name} and reserve its address`);
     }
   }
+  if (pub && MODE === 'github') retireOnServer(slug);
   deleteDraft(slug);
-  return { rebuild: !!pub && MODE === 'github' };
+  return { rebuild: false };
 }
 
 export const postVersion = (sha: string | null, savedAt: number | null) => `"${sha ?? 'draft'}:${savedAt ?? 0}"`;
@@ -290,6 +276,10 @@ export function listPosts(): Listing[] {
       const doc = parsePost(m[1], m[2] as 'md' | 'mdx', source);
       out.set(m[1], { publishedSha: blobSha(source), slug: m[1], title: doc.fields.title || m[1], date: doc.fields.date, draft: doc.fields.draft, unsaved: false, savedAt: null });
     }
+  }
+  for (const { doc, sha } of livePosts()) {
+    const { title, date, draft } = doc.fields;
+    out.set(doc.slug, { publishedSha: sha, slug: doc.slug, title, date, draft, unsaved: false, savedAt: null });
   }
   if (existsSync(DRAFTS_DIR)) {
     for (const file of readdirSync(DRAFTS_DIR)) {
@@ -326,6 +316,7 @@ export function metaIndex(): MetaIndex {
       if (m && !file.startsWith('_') && !retiredOnServer(m[1])) docs.set(m[1], parsePost(m[1], m[2] as 'md' | 'mdx', readFileSync(join(POSTS_DIR, file), 'utf8')).fields);
     }
   }
+  for (const { doc } of livePosts()) docs.set(doc.slug, doc.fields);
   if (existsSync(DRAFTS_DIR)) {
     for (const file of readdirSync(DRAFTS_DIR)) {
       const d = readDraft(file.replace(/\.json$/, ''));
@@ -569,7 +560,39 @@ async function commitTree(parent: string, changes: TreeChange[], message: string
   return commit.sha;
 }
 
-export async function publish(doc: Doc): Promise<PublishResult> {
+/** Publish the saved version the owner reviewed in the studio list. */
+export async function publishSaved(slug: string, version: string) {
+  if (MODE !== 'github') throw Object.assign(new Error('Open the editor to check your publishing connection.'), { status: 503 });
+  const file = await readPublished(slug);
+  const draft = readDraft(slug);
+  if (!file && !draft) throw Object.assign(new Error('This draft no longer exists.'), { status: 404 });
+  const sha = file?.sha ?? null;
+  if (postVersion(sha, draft?.savedAt ?? null) !== version || (draft && draft.basis !== sha)) {
+    throw Object.assign(new Error('This draft changed. Open it in the editor and review the latest version.'), { status: 409 });
+  }
+  const doc = draft ?? parsePost(slug, file!.ext, file!.source);
+  if (!doc.fields.title.trim() || !doc.body.trim() || !doc.fields.description.trim()) {
+    throw Object.assign(new Error('Open the draft and add a title, description and post text before publishing.'), { status: 422 });
+  }
+
+  let source: string | undefined;
+  if (!draft && file) {
+    // Keep existing YAML and Markdown byte-for-byte when only visibility changes.
+    const front = file.source.match(/^(---\r?\n)([\s\S]*?)\r?\n---(?:\r?\n|$)/);
+    const node = front && YAML.parseDocument(front[2]).get('draft', true);
+    if (front && YAML.isScalar(node) && node.value === true && node.range) {
+      const start = front[1].length;
+      source = file.source.slice(0, start + node.range[0]) + 'false' + file.source.slice(start + node.range[1]);
+    } else if (!doc.fields.draft) {
+      source = file.source;
+    }
+  }
+  const result = await publish({ ...doc, fields: { ...doc.fields, draft: false } }, { expectedSha: sha, source });
+  deleteDraft(slug);
+  return { url: '/posts/' + slug + '/', version: postVersion(result.sha, null) };
+}
+
+export async function publish(doc: Doc, options: { expectedSha?: string | null; source?: string } = {}): Promise<PublishResult> {
   if (MODE === 'off') {
     throw Object.assign(new Error('Publishing from the live site needs GITHUB_TOKEN. See CUSTOMIZING.md → "Writing on the live site".'), {
       status: 503,
@@ -577,11 +600,14 @@ export async function publish(doc: Doc): Promise<PublishResult> {
   }
   const parent = MODE === 'github' ? await branchHead() : '';
   if (await isRetired(doc.slug, parent)) throw Object.assign(new Error('This address is retired. Start a post with a new address.'), { status: 410 });
-  const existing = await readPublished(doc.slug);
+  const existing = await readPublished(doc.slug, parent);
+  if (options.expectedSha !== undefined && options.expectedSha !== (existing?.sha ?? null)) {
+    throw Object.assign(new Error('The post changed. Open the latest version before publishing.'), { status: 409 });
+  }
   if (!existing && !readDraft(doc.slug)) throw Object.assign(new Error('This post was deleted. Start a new draft to keep writing.'), { status: 410 });
   const ext = existing?.ext ?? doc.ext;
   const path = `content/posts/${doc.slug}.${ext}`;
-  const source = serializePost(doc);
+  const source = options.source ?? serializePost(doc);
 
   if (MODE === 'local') {
     mkdirSync(POSTS_DIR, { recursive: true });
@@ -589,18 +615,30 @@ export async function publish(doc: Doc): Promise<PublishResult> {
     return { mode: 'local', path, created: !existing, sha: blobSha(source) };
   }
 
-  // One commit: the post plus every image it links to from its media folder.
-  const files: { path: string; content: Buffer }[] = [{ path, content: Buffer.from(source, 'utf8') }];
-  for (const { file, media } of referencedMedia(doc.slug, doc.body)) {
-    files.push({ path: `public/images/posts/${doc.slug}/${file}`, content: media!.buf });
+  const media = referencedMedia(doc.slug, doc.body);
+  const { renderLiveArticle } = await import('../../plugins/preview.mjs');
+  const rendered = doc.fields.draft ? { html: '', headings: [] } : await renderLiveArticle(doc.body, ext);
+  const sha = blobSha(source);
+  const staged = stageLivePost({
+    doc: parsePost(doc.slug, ext, source), source, sha, ...rendered, media: media.map(m => m.file),
+  }, existing?.sha ?? null);
+  try {
+    let commit = parent;
+    if (existing?.sha !== sha || media.length) {
+      const files = [{ path, content: Buffer.from(source, 'utf8') },
+        ...media.map(m => ({ path: 'public/images/posts/' + doc.slug + '/' + m.file, content: m.media!.buf }))];
+      const tree = await Promise.all(files.map(async f => {
+        const blob = await github('/git/blobs', {
+          method: 'POST', body: JSON.stringify({ content: f.content.toString('base64'), encoding: 'base64' }),
+        });
+        return { path: f.path, mode: '100644', type: 'blob', sha: blob.sha };
+      }));
+      const verb = existing ? 'Update' : 'Publish';
+      commit = await commitTree(parent, tree, verb + ' "' + doc.fields.title.trim() + '" from the writing studio');
+    }
+    staged.activate();
+    return { mode: 'github', commit: commit.slice(0, 7), path, created: !existing, sha };
+  } finally {
+    staged.discard();
   }
-  const tree = await Promise.all(
-    files.map(async (f) => {
-      const blob = await github('/git/blobs', { method: 'POST', body: JSON.stringify({ content: f.content.toString('base64'), encoding: 'base64' }) });
-      return { path: f.path, mode: '100644', type: 'blob', sha: blob.sha };
-    }),
-  );
-  const verb = existing ? 'Update' : 'Publish';
-  const commit = await commitTree(parent, tree, `${verb} "${doc.fields.title.trim()}" from the writing studio`);
-  return { mode: 'github', commit: commit.slice(0, 7), path, created: !existing, sha: blobSha(source) };
 }

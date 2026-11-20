@@ -5,7 +5,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
 import { studioSpellingLanguage } from '../../scripts/spelling-words';
 import { isOwner } from '../../lib/auth';
 import { SITE } from '../../site.config';
-import { listPosts, MODE, postVersion, PUBLISHING } from '../../lib/content';
+import { listPosts, MODE, postVersion } from '../../lib/content';
 
 export const prerender = false;
 if (!isOwner(Astro.request)) return Astro.redirect('/?auth=1&next=/write/');
@@ -13,7 +13,7 @@ if (!isOwner(Astro.request)) return Astro.redirect('/?auth=1&next=/write/');
 const posts = listPosts();
 const dot = (d: string) => d.replace(/-/g, '.');
 const modeLabel =
-  MODE === 'local' ? 'publishes to heartcache.xyz' : MODE === 'github' ? `commits to ${PUBLISHING.repo} (${PUBLISHING.branch})` : 'off: add GITHUB_TOKEN to publish';
+  MODE === 'off' ? 'off: add GITHUB_TOKEN to publish' : 'publishes to heartcache.xyz';
 ---
 
 <BaseLayout title="Write" description="Writing studio." banner={false}>
@@ -48,24 +48,31 @@ const modeLabel =
             <span class="flags">
               {p.unsaved ? 'unpublished changes' : p.draft ? 'draft' : 'live'}
             </span>
-            <button type="button" class="studio-delete" data-delete={p.slug}
-              aria-haspopup="dialog" aria-controls="delete-post-dialog" data-version={postVersion(p.publishedSha, p.savedAt)}
-              data-file={p.publishedSha ? 'yes' : 'no'} aria-label={`Delete ${p.title}`}>delete</button>
+            <div class="studio-row-actions">
+              {MODE === 'github' && (
+                <button type="button" class="studio-publish" data-publish={p.slug}
+                  data-pending={p.draft || p.unsaved ? 'yes' : 'no'} hidden={!p.draft && !p.unsaved}
+                  aria-haspopup="dialog" aria-controls="post-action-dialog" aria-label={`Publish ${p.title}`}>publish</button>
+              )}
+              <button type="button" class="studio-delete" data-delete={p.slug}
+                aria-haspopup="dialog" aria-controls="post-action-dialog" data-version={postVersion(p.publishedSha, p.savedAt)}
+                data-file={p.publishedSha ? 'yes' : 'no'} aria-label={`Delete ${p.title}`}>delete</button>
+            </div>
           </li>
         ))}
       </ol>
       <p class="panel-body studio-note" data-no-posts hidden={!!posts.length}>nothing yet. start a post above.</p>
-      <p class="studio-note delete-result" role="status" data-delete-result></p>
+      <p class="studio-note studio-result" role="status" data-post-result></p>
     </section>
 
-    <dialog class="win studio-confirm" id="delete-post-dialog" aria-labelledby="delete-heading" aria-describedby="delete-title delete-detail">
-      <div class="win-bar"><h2 class="win-title" id="delete-heading">delete post?</h2></div>
+    <dialog class="win studio-confirm" id="post-action-dialog" aria-labelledby="post-action-heading" aria-describedby="post-action-title post-action-detail">
+      <div class="win-bar"><h2 class="win-title" id="post-action-heading">delete post?</h2></div>
       <div class="studio-confirm-body">
-        <p class="studio-confirm-title" id="delete-title"></p>
-        <p id="delete-detail"></p>
+        <p class="studio-confirm-title" id="post-action-title"></p>
+        <p id="post-action-detail"></p>
         <form method="dialog" class="studio-confirm-actions">
           <button type="submit" class="cm-submit" value="cancel" autofocus>cancel</button>
-          <button type="submit" class="cm-submit" value="delete" data-confirm-delete>delete post</button>
+          <button type="submit" class="cm-submit" value="confirm" data-confirm-action>delete post</button>
         </form>
       </div>
     </dialog>
@@ -84,27 +91,67 @@ const modeLabel =
     const form = document.querySelector<HTMLFormElement>('[data-new]');
     if (!form) return;
     const list = document.querySelector<HTMLOListElement>('[data-post-list]')!;
-    const result = document.querySelector<HTMLElement>('[data-delete-result]')!;
-    const dialog = document.querySelector<HTMLDialogElement>('#delete-post-dialog')!;
-    const heading = dialog.querySelector<HTMLElement>('#delete-heading')!;
-    const dialogTitle = dialog.querySelector<HTMLElement>('#delete-title')!;
-    const detail = dialog.querySelector<HTMLElement>('#delete-detail')!;
-    const confirmButton = dialog.querySelector<HTMLButtonElement>('[data-confirm-delete]')!;
+    const result = document.querySelector<HTMLElement>('[data-post-result]')!;
+    const dialog = document.querySelector<HTMLDialogElement>('#post-action-dialog')!;
+    const heading = dialog.querySelector<HTMLElement>('#post-action-heading')!;
+    const dialogTitle = dialog.querySelector<HTMLElement>('#post-action-title')!;
+    const detail = dialog.querySelector<HTMLElement>('#post-action-detail')!;
+    const confirmButton = dialog.querySelector<HTMLButtonElement>('[data-confirm-action]')!;
     const count = document.querySelector<HTMLElement>('[data-post-count]')!;
     const empty = document.querySelector<HTMLElement>('[data-no-posts]')!;
     let selected: HTMLButtonElement | null = null;
 
+    function hasUnsyncedDraft(slug: string) {
+      try {
+        const snapshot = JSON.parse(localStorage.getItem(`write:${slug}`) ?? 'null');
+        return !!snapshot && !snapshot.synced;
+      } catch {
+        return false;
+      }
+    }
+
+    function updatePublishButtons() {
+      for (const button of list.querySelectorAll<HTMLButtonElement>('button[data-publish]')) {
+        button.hidden = button.dataset.pending !== 'yes' && !hasUnsyncedDraft(button.dataset.publish!);
+      }
+    }
+
+    function showResult(message: string, link?: HTMLAnchorElement) {
+      result.textContent = message;
+      if (link) result.append(' ', link);
+    }
+
+    function openEditorFirst(editor: HTMLAnchorElement) {
+      const link = document.createElement('a');
+      link.href = editor.href;
+      link.textContent = 'Open editor';
+      showResult('This browser has unsynced changes. Open the editor and save them before publishing.', link);
+      link.focus();
+    }
+
+    updatePublishButtons();
+    window.addEventListener('storage', updatePublishButtons, { signal });
+
     list.addEventListener('click', (event) => {
-      const button = (event.target as Element).closest<HTMLButtonElement>('button[data-delete]');
+      const button = (event.target as Element).closest<HTMLButtonElement>('button[data-delete], button[data-publish]');
       if (!button || button.disabled || selected) return;
+      const publishing = button.hasAttribute('data-publish');
+      const editor = button.closest('li')!.querySelector<HTMLAnchorElement>('a.t')!;
+      if (publishing && hasUnsyncedDraft(button.dataset.publish!)) {
+        openEditorFirst(editor);
+        return;
+      }
       selected = button;
       const hasFile = button.dataset.file === 'yes';
-      heading.textContent = hasFile ? 'delete post?' : 'delete draft?';
-      confirmButton.textContent = hasFile ? 'delete post' : 'delete draft';
-      dialogTitle.textContent = button.closest('li')!.querySelector('a')!.textContent!.trim();
-      detail.textContent = hasFile
-        ? 'This removes the post from this site and deletes its saved draft. Its address stays reserved for the original discussion.'
-        : 'This permanently removes this saved draft from the studio.';
+      const action = publishing ? 'publish post' : hasFile ? 'delete post' : 'delete draft';
+      heading.textContent = `${action}?`;
+      confirmButton.textContent = action;
+      dialogTitle.textContent = editor.textContent!.trim();
+      detail.textContent = publishing
+        ? 'Publish the saved version to heartcache.xyz now? It will go live immediately.'
+        : hasFile
+          ? 'This removes the post from this site and deletes its saved draft. Its address stays reserved for the original discussion.'
+          : 'This permanently removes this saved draft from the studio.';
       // Escape leaves the return value as-is, including after a previous confirmation.
       dialog.returnValue = 'cancel';
       dialog.showModal();
@@ -114,33 +161,77 @@ const modeLabel =
       const button = selected;
       selected = null;
       if (!button || !button.isConnected) return;
-      if (dialog.returnValue !== 'delete') {
+      if (dialog.returnValue !== 'confirm') {
         button.focus();
         return;
       }
-      const title = dialogTitle.textContent!;
       const row = button.closest('li')!;
-      const slug = button.dataset.delete!;
-      button.disabled = true;
-      result.textContent = `Deleting “${title}”…`;
+      const editor = row.querySelector<HTMLAnchorElement>('a.t')!;
+      const deleteButton = row.querySelector<HTMLButtonElement>('button[data-delete]')!;
+      const publishButton = row.querySelector<HTMLButtonElement>('button[data-publish]');
+      const publishing = button === publishButton;
+      const slug = deleteButton.dataset.delete!;
+      const title = editor.textContent!.trim();
+      if (publishing && hasUnsyncedDraft(slug)) {
+        openEditorFirst(editor);
+        return;
+      }
+      const verb = publishing ? 'publish' : 'delete';
+      const fallback = `Could not ${verb} “${title}”.`;
+      deleteButton.disabled = true;
+      if (publishButton) publishButton.disabled = true;
+      showResult(`${publishing ? 'Publishing' : 'Deleting'} “${title}”…`);
+      let focusTarget: HTMLElement | null = button;
       try {
+        const headers = new Headers({ 'If-Match': deleteButton.dataset.version! });
+        if (publishing) {
+          headers.set('Content-Type', 'application/json');
+          headers.set('X-Editor-Action', 'publish');
+        }
         const response = await fetch(`/api/write/posts?slug=${encodeURIComponent(slug)}`, {
-          method: 'DELETE', headers: { 'If-Match': button.dataset.version! },
+          method: publishing ? 'POST' : 'DELETE',
+          headers, body: publishing ? '{}' : undefined,
         });
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.error || 'Could not delete the post.');
-        try { localStorage.removeItem(`write:${slug}`); } catch {}
-        const focusTarget = row.nextElementSibling ?? row.previousElementSibling;
-        row.remove();
-        count.textContent = String(list.children.length);
-        empty.hidden = list.children.length > 0;
-        result.textContent = `Deleted “${title}”.${data.rebuild ? ' The public site updates after the next deployment.' : ''}`;
-        if (!signal.aborted && !dialog.open && document.activeElement === document.body) {
-          (focusTarget?.querySelector('a') ?? form.querySelector('input'))?.focus();
+        const data = await response.json().catch(() => null);
+        if (!response.ok) {
+          const message = typeof data?.error === 'string' && data.error ? data.error : fallback;
+          const refresh = publishing && [400, 404, 409, 410, 412, 428].includes(response.status);
+          throw new Error(refresh ? `${message} Refresh the studio and review the post before trying again.` : message);
+        }
+        if (publishing) {
+          const url = typeof data?.url === 'string' && data.url
+            ? URL.parse(data.url, window.location.origin)
+            : null;
+          if (!url || ![window.location.origin, 'https://heartcache.xyz'].includes(url.origin)
+            || typeof data?.version !== 'string' || !data.version.trim()) {
+            throw new Error('The publish response could not be verified. Refresh the studio before trying again.');
+          }
+          deleteButton.dataset.version = data.version;
+          deleteButton.dataset.file = 'yes';
+          publishButton.dataset.pending = 'no';
+          const hasLocalChanges = hasUnsyncedDraft(slug);
+          publishButton.hidden = !hasLocalChanges;
+          row.querySelector('.flags')!.textContent = hasLocalChanges ? 'live · unsynced changes' : 'live';
+          const link = document.createElement('a');
+          link.href = url.href;
+          link.textContent = 'View public article';
+          showResult(`Published “${title}”.`, link);
+          focusTarget = link;
+        } else {
+          try { localStorage.removeItem(`write:${slug}`); } catch {}
+          const neighbor = row.nextElementSibling ?? row.previousElementSibling;
+          row.remove();
+          count.textContent = String(list.children.length);
+          empty.hidden = list.children.length > 0;
+          showResult(`Deleted “${title}”.${data?.rebuild ? ' The public site updates after the next deployment.' : ''}`);
+          focusTarget = neighbor?.querySelector('a') ?? form.querySelector('input');
         }
       } catch (error) {
-        result.textContent = error instanceof Error ? error.message : 'Could not delete the post.';
-        button.disabled = false;
+        showResult(error instanceof Error && error.message !== 'Failed to fetch' ? error.message : fallback);
+      } finally {
+        deleteButton.disabled = false;
+        if (publishButton) publishButton.disabled = false;
+        if (!signal.aborted && !dialog.open && document.activeElement === document.body) focusTarget?.focus();
       }
     }, { signal });
 

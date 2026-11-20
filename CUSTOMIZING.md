@@ -218,7 +218,7 @@ The repo and branch it commits to are set under `"publishing"` in `site.config.j
 
 **How it works**
 - Drafts save on their own: every keystroke is kept in your browser, and the server saves a copy 2.5 seconds after you stop typing. If the page crashes, it offers to **restore** the unsaved draft.
-- **[ publish ]** commits the post (and any images it uses) to GitHub in one commit. Railway rebuilds, and the post is live in about 1–2 minutes. With the status set to **draft**, the button says **[ commit draft ]** and the post stays hidden.
+- **[ publish ]** commits the post (and any images it uses) to GitHub in one commit. The live studio serves the post immediately from its persistent volume. You can also choose **publish** beside a saved draft on the studio home page. With the status set to **draft**, the button says **[ commit draft ]** and the post stays hidden.
 - After publishing from the site, run `git pull` before editing on your computer, so you have the new post.
 
 **Writing**
