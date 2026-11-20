@@ -515,6 +515,28 @@ export function deleteMedia(slug: string, file: string): boolean {
 
 export type PublishResult = { mode: 'local' | 'github'; commit?: string; path: string; created: boolean; sha: string };
 
+/**
+ * A read-only check that live publishing will work: the token is present,
+ * can see the repo, may write to it, and the branch exists. Never returns
+ * or logs the token itself.
+ */
+export async function checkPublishing(): Promise<{ ok: boolean; message: string; head?: string }> {
+  if (DEV) return { ok: true, message: 'on your computer, publishing goes through the local editor (no token needed).' };
+  if (!PUBLISHING.repo) return { ok: false, message: 'no repo set: add "publishing": { "repo": "owner/name" } to site.config.json.' };
+  if (!PUBLISHING.token) return { ok: false, message: 'no GITHUB_TOKEN on the server yet: add it in Railway → web → Variables.' };
+  try {
+    const repo = await github('');
+    if (!repo?.permissions?.push) return { ok: false, message: `the token can read ${PUBLISHING.repo} but not write to it: give it Contents → Read and write.` };
+    const head = await branchHead();
+    return { ok: true, message: `ready: commits go to ${PUBLISHING.repo} on "${PUBLISHING.branch}".`, head: head.slice(0, 7) };
+  } catch (err) {
+    const status = (err as { status?: number }).status;
+    if (status === 401) return { ok: false, message: 'GitHub rejected the token (expired or mistyped): make a new one and replace GITHUB_TOKEN.' };
+    if (status === 404) return { ok: false, message: `the token can't see ${PUBLISHING.repo}, or branch "${PUBLISHING.branch}" doesn't exist: check the token's repository access.` };
+    return { ok: false, message: err instanceof Error ? err.message : 'could not reach GitHub.' };
+  }
+}
+
 async function branchHead(): Promise<string> {
   const ref = await github(`/git/ref/heads/${encodeURIComponent(PUBLISHING.branch)}`);
   return ref.object.sha;

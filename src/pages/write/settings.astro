@@ -69,6 +69,10 @@ const sourceLabel =
             </p>
           )
         }
+        <p class="pub-check">
+          <button type="button" class="bevel" data-pub-check>[ test connection ]</button>
+          <span class="studio-note" data-pub-result role="status" aria-live="polite">checks GitHub without publishing anything</span>
+        </p>
       </div>
     </section>
 
@@ -90,6 +94,33 @@ const sourceLabel =
   import { navigate } from 'astro:transitions/client';
   import { onPage } from '../../scripts/lifecycle';
   import { forgetOwner } from '../../scripts/owner-ui';
+
+  // [ test connection ]: a read-only GitHub check of the publishing setup.
+  onPage((signal) => {
+    const btn = document.querySelector<HTMLButtonElement>('[data-pub-check]');
+    const out = document.querySelector<HTMLElement>('[data-pub-result]');
+    if (!btn || !out) return;
+    btn.addEventListener(
+      'click',
+      async () => {
+        btn.disabled = true;
+        out.textContent = 'checking…';
+        try {
+          const res = await fetch('/api/write/publishing', { headers: { accept: 'application/json' }, cache: 'no-store' });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) throw new Error(data.error ?? 'could not check.');
+          out.textContent = `${data.ok ? '✓' : '×'} ${data.message}${data.head ? ` (branch at ${data.head})` : ''}`;
+          out.dataset.state = data.ok ? 'ok' : 'error';
+        } catch (err) {
+          out.textContent = `× ${err instanceof Error ? err.message : 'could not check.'}`;
+          out.dataset.state = 'error';
+        } finally {
+          btn.disabled = false;
+        }
+      },
+      { signal },
+    );
+  });
 
   onPage((signal) => {
     const form = document.querySelector<HTMLFormElement>('[data-password]');
