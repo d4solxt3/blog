@@ -1,8 +1,8 @@
 ---
 title: Let's Stop Maximising Productivity
-description: Can we co-exist with benevolent superintelligent machines? Or will people fade into obscurity.
+description: can we co-exist with benevolent superintelligent machines? or will people fade into obscurity?
 date: 2026-11-18
-tags: [ AI, Philosophy, Personal Life ]
+tags: [ ai, philosophy, personal li ]
 series: Living Through the Singularity
 seriesOrder: 1
 draft: false
