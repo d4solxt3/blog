@@ -10,6 +10,8 @@ draft: false
 
 ## The Future of AI and Mathematics
 
+EDIT: The Riemann Hypothesis may have well been proven on the day I published this post (just later on). Both exciting and quite scary news, since the models are getting extremely capable without much thought of the consequences!
+
 I started my degree in mathematics this year, mostly for the fun of the subject and without much idea of what I really wanted to do after university. On the second day of university, OpenAI released [722 papers](https://openai.com/index/sharing-ai-progress-in-mathematics/) on many important open problems in Mathematics, including the Quasi-Riemann Hypothesis, a sub-problem of the larger Riemann Hypothesis that got me interested in pure mathematics in the first place. 
 
 I think I was able to internalise this pretty quickly, and because I didn't have a huge amount of interest in going into academia, I was fairly quickly able to accept that I will never be better than AI at maths, which still, was fairly soul crushing (since it is a skill I had prided myself on for most my life).  I don't believe many of my friends outside of maths have undergone this realisation, and it's entirely plausible that they won't given significant government regulation in the near-future (which seems somewhat plausible at this point). 
