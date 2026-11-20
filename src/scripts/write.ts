@@ -1864,12 +1864,12 @@ export function initWriter(signal: AbortSignal) {
         } else {
           say('Waiting for heartcache.xyz to serve this revision…');
           await waitForLocalRelease(result.commit, signal);
-          say('Published on heartcache.xyz · <a href="https://heartcache.xyz/posts/' + slug + '/">view live post</a>');
+          say('Published on heartcache.xyz · <a href="https://heartcache.xyz' + esc(result.url) + '">view live post</a>');
         }
       } else if (f.draft) {
         say(`committed ${esc(result.commit)} as a draft. it stays hidden on the live site.`);
       } else {
-        say('published on heartcache.xyz · <a href="/posts/' + slug + '/">view live post</a>');
+        say('published on heartcache.xyz · <a href="' + esc(result.url) + '">view live post</a>');
       }
     } catch (err) {
       const e = err as Error & { field?: string };

@@ -8,12 +8,16 @@ import Callout from '../../components/Callout.astro';
 import Details from '../../components/Details.astro';
 import Chart from '../../components/Chart.astro';
 import Figure from '../../components/Figure.astro';
+import { addressOwner } from '../../lib/post-addresses';
+import { postUrl } from '../../utils/posts';
 import { SITE } from '../../site.config';
 import { getPostsByDate, entryCode, readingTime, seriesOf } from '../../utils/posts';
 
 export const prerender = false;
 const posts = await getPostsByDate();
-const position = posts.findIndex((entry) => entry.id === Astro.params.slug);
+const address = Astro.params.slug ?? '';
+const owner = addressOwner(address);
+const position = posts.findIndex(entry => entry.id === owner);
 if (position < 0) {
   const page = await Astro.rewrite('/404');
   const headers = new Headers(page.headers);
@@ -21,6 +25,11 @@ if (position < 0) {
   return new Response(page.body, { status: 404, headers });
 }
 const post = posts[position];
+if (post.publicAddress !== address) {
+  return new Response(null, { status: 302, headers: {
+    Location: postUrl(post) + Astro.url.search, 'Cache-Control': 'no-store',
+  } });
+}
 const index = posts.length - position;
 const newer = posts[position - 1] ?? null;
 const older = posts[position + 1] ?? null;

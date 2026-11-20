@@ -2,6 +2,7 @@
 import type { APIRoute } from 'astro';
 import { slugify } from '../../../../scripts/post-template.mjs';
 import { isOwner, json, ownerOnly } from '../../../lib/auth';
+import { addressOwner } from '../../../lib/post-addresses';
 import { editPost, isRetired, newDoc, readDraft, readPublished, saveDraft } from '../../../lib/content';
 
 export const prerender = false;
@@ -16,7 +17,7 @@ export const POST: APIRoute = async ({ request }) => {
     for (let n = 1; ; n++) {
       const slug = n === 1 ? base : `${base.slice(0, 74)}-${n}`;
       const created = await editPost(slug, async () => {
-        if (readDraft(slug) || (await readPublished(slug)) || (await isRetired(slug))) return false;
+        if (addressOwner(slug) || readDraft(slug) || (await readPublished(slug)) || (await isRetired(slug))) return false;
         saveDraft({ ...newDoc(slug, title), basis: null });
         return true;
       });

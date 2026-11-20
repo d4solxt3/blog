@@ -4,10 +4,12 @@ import { retiredOnServer } from '../lib/retired-posts';
 import { livePosts, type LivePost } from '../lib/live-posts';
 import { SITE } from '../site.config';
 
+import { assignAddresses } from '../lib/post-addresses';
+
 type BuiltPost = CollectionEntry<'posts'>;
-export type Post =
+export type Post = { publicAddress?: string } & (
   | (BuiltPost & { live?: never })
-  | (Pick<BuiltPost, 'id' | 'data'> & { body: string; live: LivePost });
+  | (Pick<BuiltPost, 'id' | 'data'> & { body: string; live: LivePost }));
 
 function livePostData({ fields, extra }: LivePost['doc']): BuiltPost['data'] {
   const { tldr, annotations, updated } = extra;
@@ -46,8 +48,9 @@ export async function getPosts(): Promise<Post[]> {
     merged.set(doc.slug, { id: doc.slug, body: doc.body, data: livePostData(doc), live });
   }
 
-  return [...merged.values()]
-    .filter((post) => !retiredOnServer(post.id))
+  const visible = [...merged.values()].filter(post => !retiredOnServer(post.id));
+  const addresses = assignAddresses(visible.map(p => ({ id: p.id, title: p.data.title })));
+  return visible.map(p => ({ ...p, publicAddress: addresses.get(p.id) }))
     .sort((a, b) => Number(b.data.pinned) - Number(a.data.pinned) || b.data.date.valueOf() - a.data.date.valueOf());
 }
 
@@ -56,7 +59,7 @@ export async function getPostsByDate(): Promise<Post[]> {
   return (await getPosts()).sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf());
 }
 
-export const postUrl = (post: Post) => `/posts/${post.id}/`;
+export const postUrl = (post: Post) => `/posts/${post.publicAddress ?? post.id}/`;
 
 /** 2026-11-17 -> "2026.11.17" (UTC, so frontmatter dates never shift a day). */
 export function formatDate(date: Date): string {

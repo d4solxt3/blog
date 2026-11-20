@@ -14,7 +14,7 @@ const DEV = import.meta.env.DEV;
 const VERIFIED = 'owner-verified';
 
 const hasHint = () => DEV || document.cookie.split(/;\s*/).includes('residual_owner=1');
-const postSlug = () => location.pathname.match(/^\/posts\/([a-z0-9-]+)\/?$/)?.[1] ?? null;
+const postSlug = () => location.pathname.startsWith('/posts/') ? document.querySelector<HTMLElement>('[data-article-id]')?.dataset.articleId ?? null : null;
 const safeNext = (n: string | null) => (n && /^\/write(\/[a-z0-9-]*)*\/?$/.test(n) ? n : '/write/');
 
 let pending: Promise<boolean> | null = null;

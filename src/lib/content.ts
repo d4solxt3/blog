@@ -11,6 +11,7 @@
  *   <data dir>/media/posts/<slug>/ on the live site until they're published.
  */
 import { execFile } from 'node:child_process';
+import { publishedUrl } from './post-addresses';
 import { getLivePost, livePosts, stageLivePost } from './live-posts';
 import { blobSha, POSTS_DIR, readPostFile, SLUG, type Published } from './post-source';
 export { blobSha, POSTS_DIR, SLUG } from './post-source';
@@ -518,7 +519,7 @@ export function deleteMedia(slug: string, file: string): boolean {
 
 // ---- publishing -----------------------------------------------------------
 
-export type PublishResult = { mode: 'local' | 'github'; commit?: string; path: string; created: boolean; sha: string };
+export type PublishResult = { mode: 'local' | 'github'; commit?: string; url?: string; path: string; created: boolean; sha: string };
 
 /**
  * A read-only check that live publishing will work: the token is present,
@@ -589,7 +590,7 @@ export async function publishSaved(slug: string, version: string) {
   }
   const result = await publish({ ...doc, fields: { ...doc.fields, draft: false } }, { expectedSha: sha, source });
   deleteDraft(slug);
-  return { url: '/posts/' + slug + '/', version: postVersion(result.sha, null) };
+  return { url: result.url, version: postVersion(result.sha, null) };
 }
 
 export async function publish(doc: Doc, options: { expectedSha?: string | null; source?: string } = {}): Promise<PublishResult> {
@@ -608,11 +609,16 @@ export async function publish(doc: Doc, options: { expectedSha?: string | null; 
   const ext = existing?.ext ?? doc.ext;
   const path = `content/posts/${doc.slug}.${ext}`;
   const source = options.source ?? serializePost(doc);
+  if (existing) {
+    const prior = parsePost(doc.slug, existing.ext, existing.source);
+    if (!prior.fields.draft) publishedUrl(doc.slug, prior.fields.title);
+  }
+  const publicLink = () => doc.fields.draft ? undefined : publishedUrl(doc.slug, doc.fields.title);
 
   if (MODE === 'local') {
     mkdirSync(POSTS_DIR, { recursive: true });
     writeAtomic(join(ROOT, path), source);
-    return { mode: 'local', path, created: !existing, sha: blobSha(source) };
+    return { mode: 'local', url: publicLink(), path, created: !existing, sha: blobSha(source) };
   }
 
   const media = referencedMedia(doc.slug, doc.body);
@@ -637,7 +643,7 @@ export async function publish(doc: Doc, options: { expectedSha?: string | null; 
       commit = await commitTree(parent, tree, verb + ' "' + doc.fields.title.trim() + '" from the writing studio');
     }
     staged.activate();
-    return { mode: 'github', commit: commit.slice(0, 7), path, created: !existing, sha };
+    return { mode: 'github', url: publicLink(), commit: commit.slice(0, 7), path, created: !existing, sha };
   } finally {
     staged.discard();
   }
