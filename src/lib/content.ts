@@ -165,22 +165,36 @@ export async function isRetired(slug: string, ref = PUBLISHING.branch): Promise<
 
 type Published = { ext: 'md' | 'mdx'; source: string; sha: string };
 
-/** The current published file for a slug: GitHub on the live site, the local file otherwise. */
-export async function readPublished(slug: string): Promise<Published | null> {
-  if (retiredOnServer(slug)) return null;
+function readPostFile(slug: string): Published | null {
   for (const ext of ['md', 'mdx'] as const) {
-    if (MODE === 'github') {
-      const data = await repoFile(`content/posts/${slug}.${ext}`, PUBLISHING.branch);
-      if (data) return { ext, source: Buffer.from(data.content, 'base64').toString('utf8'), sha: data.sha };
-    } else {
-      const file = join(POSTS_DIR, `${slug}.${ext}`);
-      if (existsSync(file)) {
-        const source = readFileSync(file, 'utf8');
-        return { ext, source, sha: blobSha(source) };
-      }
+    const file = join(POSTS_DIR, `${slug}.${ext}`);
+    if (existsSync(file)) {
+      const source = readFileSync(file, 'utf8');
+      return { ext, source, sha: blobSha(source) };
     }
   }
   return null;
+}
+
+export async function readPublished(slug: string): Promise<Published | null> {
+  if (retiredOnServer(slug)) return null;
+  if (MODE !== 'github') return readPostFile(slug);
+  for (const ext of ['md', 'mdx'] as const) {
+    const data = await repoFile(`content/posts/${slug}.${ext}`, PUBLISHING.branch);
+    if (data) return { ext, source: Buffer.from(data.content, 'base64').toString('utf8'), sha: data.sha };
+  }
+  return null;
+}
+
+/** An owner can edit the deployed source during a credentials failure. Writes to GitHub
+ * still use readPublished and require a current repository read. */
+export async function readForEditing(slug: string) {
+  try {
+    return { published: await readPublished(slug), tokenRejected: false };
+  } catch (error) {
+    if ((error as { status?: number }).status !== 401) throw error;
+    return { published: retiredOnServer(slug) ? null : readPostFile(slug), tokenRejected: true };
+  }
 }
 
 // ---- drafts ---------------------------------------------------------------

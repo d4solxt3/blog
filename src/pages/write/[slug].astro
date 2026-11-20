@@ -6,7 +6,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
 import { SITE } from '../../site.config';
 import { studioSpellingLanguage } from '../../scripts/spelling-words';
 import { isOwner } from '../../lib/auth';
-import { listPosts, metaIndex, MODE, parsePost, readDraft, readPublished, SLUG } from '../../lib/content';
+import { listPosts, metaIndex, MODE, parsePost, readDraft, readForEditing, SLUG } from '../../lib/content';
 
 export const prerender = false;
 const slug = Astro.params.slug ?? '';
@@ -14,10 +14,13 @@ if (!isOwner(Astro.request)) return Astro.redirect(`/?auth=1&next=/write/${SLUG.
 if (!SLUG.test(slug)) return Astro.redirect('/write/');
 
 let error = '';
+let tokenRejected = false;
 let published = null;
 let draft = null;
 try {
-  const pub = await readPublished(slug);
+  const result = await readForEditing(slug);
+  const pub = result.published;
+  tokenRejected = result.tokenRejected;
   published = pub ? { doc: parsePost(slug, pub.ext, pub.source), sha: pub.sha } : null;
   draft = readDraft(slug);
 } catch (err) {
@@ -29,7 +32,7 @@ const current = draft ?? published?.doc;
 const title = current?.fields.title || slug;
 const data = {
   slug,
-  mode: MODE,
+  mode: tokenRejected ? 'off' : MODE,
   published,
   draft,
   siteFont: SITE.defaultFont,
@@ -52,6 +55,7 @@ const json = JSON.stringify(data).replace(/</g, '\\u003c');
       <div class="studio" data-studio lang={studioSpellingLanguage(SITE.lang)}>
         <script type="application/json" data-studio-data set:html={json} />
 
+        {tokenRejected && <p class="studio-banner">GitHub rejected the publishing token. You can keep writing and saving drafts. <a href="/write/settings/">Publishing settings</a></p>}
         <div class="studio-bar">
           <a href="/write/">← studio</a>
           <span class="sb-slug">{slug}</span>

@@ -336,7 +336,7 @@ export function initWriter(signal: AbortSignal) {
     const draft = collect().draft;
     const label = draft ? (data.mode === 'local' ? 'save file' : 'commit draft') : 'publish';
     publishBtn.innerHTML = `<span class="br" aria-hidden="true">[ </span>${label}<span class="br" aria-hidden="true"> ]</span>`;
-    publishBtn.title = draft
+    publishBtn.title = data.mode === 'off' ? 'Check the publishing connection in settings' : draft
       ? 'Saves the post with draft: true (hidden on the live site)'
       : data.mode === 'github'
         ? 'Commits to GitHub; live after Railway rebuilds'
@@ -1838,7 +1838,7 @@ export function initWriter(signal: AbortSignal) {
       return field<HTMLTextAreaElement>('description').focus();
     }
     if (data.mode === 'off') {
-      say('publishing from the live site needs a GITHUB_TOKEN on your host. your draft is saved. <a href="/write/settings/">settings</a>');
+      say('publishing needs a working GitHub token. <a href="/write/settings/">check the connection</a>');
       return;
     }
     const live = data.mode === 'github';

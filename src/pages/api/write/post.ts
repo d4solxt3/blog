@@ -14,7 +14,7 @@ import {
   parsePost,
   publish,
   readDraft,
-  readPublished,
+  readForEditing,
   saveDraft,
   SLUG,
   type Doc,
@@ -60,10 +60,10 @@ export const GET: APIRoute = async ({ request, url }) => {
   const slug = url.searchParams.get('slug') ?? '';
   if (!SLUG.test(slug)) return json({ error: 'Bad slug.' }, 400);
   try {
-    const pub = await readPublished(slug);
+    const { published: pub, tokenRejected } = await readForEditing(slug);
     const draft = readDraft(slug);
     if (!pub && !draft) return json({ error: 'No post with that name.' }, 404);
-    return json({ mode: MODE, published: pub ? { doc: parsePost(slug, pub.ext, pub.source), sha: pub.sha } : null, draft });
+    return json({ mode: tokenRejected ? 'off' : MODE, published: pub ? { doc: parsePost(slug, pub.ext, pub.source), sha: pub.sha } : null, draft });
   } catch (err) {
     return json({ error: err instanceof Error ? err.message : 'Could not load the post.' }, 502);
   }
@@ -77,7 +77,7 @@ export const PUT: APIRoute = async ({ request }) => {
   const basis = typeof body!.basis === 'string' ? body!.basis : null;
   try {
     return await editPost(doc.slug, async () => {
-      if (!readDraft(doc.slug) && !(await readPublished(doc.slug))) return json({ error: 'This post was deleted.' }, 410);
+      if (!readDraft(doc.slug) && !(await readForEditing(doc.slug)).published) return json({ error: 'This post was deleted.' }, 410);
       return json({ savedAt: saveDraft({ ...doc, basis }) });
     });
   } catch {

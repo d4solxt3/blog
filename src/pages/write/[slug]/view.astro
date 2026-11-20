@@ -11,7 +11,7 @@ import ProgressBar from '../../../components/ProgressBar.astro';
 import PostArticle from '../../../components/PostArticle.astro';
 import { renderPreview } from '../../../../plugins/preview.mjs';
 import { isOwner, DEV } from '../../../lib/auth';
-import { parsePost, readDraft, readMedia, readPublished, SLUG } from '../../../lib/content';
+import { parsePost, readDraft, readMedia, readForEditing, SLUG } from '../../../lib/content';
 import { entryCode, getPostsByDate, readingTime } from '../../../utils/posts';
 
 export const prerender = false;
@@ -20,7 +20,7 @@ if (!isOwner(Astro.request)) return Astro.redirect(`/?auth=1&next=/write/${SLUG.
 if (!SLUG.test(slug)) return Astro.redirect('/write/');
 
 const draft = readDraft(slug);
-const pub = draft ? null : await readPublished(slug).catch(() => null);
+const pub = draft ? null : await readForEditing(slug).then(result => result.published).catch(() => null);
 const doc = draft ?? (pub ? parsePost(slug, pub.ext, pub.source) : null);
 if (!doc) return Astro.redirect('/write/');
 const f = doc.fields;
