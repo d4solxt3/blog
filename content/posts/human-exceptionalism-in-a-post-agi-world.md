@@ -5,7 +5,7 @@ date: 2026-11-18
 tags: [ AI, Philosophy, Personal Life ]
 series: Living Through the Singularity
 seriesOrder: 1
-draft: true
+draft: false
 ---
 
 ## The Future of AI and Mathematics
