@@ -5,7 +5,7 @@ date: 2026-11-22
 tags: [ maths, ai, philosophy ]
 series: Living Through the Singularity
 seriesOrder: 2
-draft: true
+draft: false
 ---
 
 The Riemann Hypothesis is the holy grail of Mathematics, it is a problem that inspires people (including myself to some degree) to pursue higher mathematics. It connects the irregular spacing of the prime numbers to the zeroes of a continuous, complex function. In the eyes of many, the most beautiful in all mathematics is the zeta function, due to its magnitude of importance in spite of its utter simplicity, a notion tied to the ethos of pure mathematics. 
