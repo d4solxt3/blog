@@ -13,6 +13,7 @@ import Comments from './Comments.astro';
 import FontToggle from './FontToggle.astro';
 import SeriesNav from './SeriesNav.astro';
 import QuoteDrawer from './QuoteDrawer.astro';
+import '../styles/zeta-trace.css'; // ```zeta figures in the post body
 import { formatDate, isoDate, tagSlug, type Post, type SeriesInfo } from '../utils/posts';
 
 type Heading = { depth: number; slug: string; text: string };
@@ -375,6 +376,7 @@ const slideIn = {
 <script>
   import { onPage } from '../scripts/lifecycle';
   import { initPostPage } from '../scripts/post-page';
+  import '../scripts/zeta-trace'; // animates ```zeta figures in the post body
 
   onPage((signal) => initPostPage(signal));
 </script>

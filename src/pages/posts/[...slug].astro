@@ -1,6 +1,5 @@
 ---
 import 'katex/dist/katex.min.css';
-import '../../styles/zeta-trace.css';
 import { getEntry, render } from 'astro:content';
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import ProgressBar from '../../components/ProgressBar.astro';
@@ -74,8 +73,3 @@ const annotations = SITE.inlineAnnotations && post.data.annotations !== false;
       : post.live && <Fragment set:html={post.live.html} />}
   </PostArticle>
 </BaseLayout>
-
-<script>
-  // ```zeta figures in any post (also posts published live from the studio)
-  import '../../scripts/zeta-trace';
-</script>
