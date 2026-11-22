@@ -86,7 +86,10 @@ function mdxToPreviewMapped(src) {
       const variant = attrs.match(/variant="([^"]*)"/)?.[1] ?? 'note';
       return `<aside class="callout callout--${variant}"><p class="callout-label">[ ${label} ]</p><div class="callout-body">\n`;
     })
-    .replace(/<\/Callout>/g, () => '\n</div></aside>');
+    .replace(/<\/Callout>/g, () => '\n</div></aside>')
+    // The live animation needs the real page; the preview shows where it goes.
+    .replace(/<ZetaTrace\b[^>]*\/>/g, () =>
+      '\n\n<aside class="callout callout--note"><p class="callout-label">[ ZetaTrace ]</p><div class="callout-body">\n\nlive ζ(½ + it) animation: it plays on the published post\n\n</div></aside>\n\n');
 }
 
 export function mdxToPreview(src) {

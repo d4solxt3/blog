@@ -8,6 +8,7 @@ import Callout from '../../components/Callout.astro';
 import Details from '../../components/Details.astro';
 import Chart from '../../components/Chart.astro';
 import Figure from '../../components/Figure.astro';
+import ZetaTrace from '../../components/ZetaTrace.astro';
 import { addressOwner } from '../../lib/post-addresses';
 import { postUrl } from '../../utils/posts';
 import { SITE } from '../../site.config';
@@ -68,7 +69,7 @@ const annotations = SITE.inlineAnnotations && post.data.annotations !== false;
     notice={draft ? 'draft — only visible while running npm run dev. set "draft: false" to publish.' : undefined}
   >
     {Content
-      ? <Content components={{ Callout, Details, Chart, Figure }} />
+      ? <Content components={{ Callout, Details, Chart, Figure, ZetaTrace }} />
       : post.live && <Fragment set:html={post.live.html} />}
   </PostArticle>
 </BaseLayout>
