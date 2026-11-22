@@ -896,6 +896,16 @@ export function initWriter(signal: AbortSignal) {
       run: (via) => blockInsert(`\`\`\`diagram\ndirection: right\ncaption: ${SEL_START}What this shows${SEL_END}\nA[Input] -> B[Process] -> C[Output]\n\`\`\`\n`, via),
     },
     {
+      id: 'zeta',
+      label: 'zeta animation',
+      icon: 'ζ',
+      keys: 'zeta riemann animation critical line zeros primes',
+      ribbon: 'more',
+      slash: true,
+      // the fence works in .md and .mdx alike (plugins/remark-zeta.mjs)
+      run: (via) => blockInsert(`\`\`\`zeta\ncaption: ${SEL_START}every pass through the origin is a nontrivial zero${SEL_END}\n\`\`\`\n`, via),
+    },
+    {
       id: 'figure',
       label: 'figure (images side by side)',
       icon: 'figure',

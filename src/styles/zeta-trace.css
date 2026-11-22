@@ -1,0 +1,156 @@
+/* The ζ(½ + it) animation (markup: plugins/zeta-trace.mjs, script:
+   src/scripts/zeta-trace.ts). The window reuses the site's .panel styles;
+   everything here only uses theme variables, so paper and cyber both work. */
+
+.zt {
+  margin: 1.75rem 0;
+  container-type: inline-size;
+}
+
+.zt-win {
+  overflow: hidden;
+}
+
+.zt-stage {
+  --zt-dot: color-mix(in srgb, var(--dot) 65%, transparent);
+  position: relative;
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 1px 1px, var(--zt-dot) 1px, transparent 1.2px) 0 0 / 14px 14px,
+    var(--surface-main);
+  font-family: var(--font-mono);
+  color: var(--ink);
+}
+
+.zt-canvas {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.zt-heading {
+  position: absolute;
+  top: 16px;
+  left: 18px;
+  pointer-events: none;
+}
+
+.zt-big {
+  font-size: 22px;
+  font-weight: 600;
+  line-height: 1.15;
+}
+
+.zt-sub {
+  margin-top: 5px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.zt-zeros {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 150px;
+}
+
+.zt-rows {
+  padding: 6px 10px 8px;
+  font-size: 11px;
+  line-height: 16px;
+  white-space: pre;
+}
+
+.zt-row {
+  color: var(--faint);
+}
+
+.zt-row.is-on {
+  color: var(--ink);
+}
+
+.zt-hud {
+  position: absolute;
+  left: 18px;
+  bottom: 12px;
+  font-size: 11px;
+  line-height: 1.6;
+  white-space: pre;
+  pointer-events: none;
+}
+
+.zt-meta {
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+
+.zt-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 19px;
+  padding: 0 8px;
+  border-top: 1px solid var(--line);
+  background: linear-gradient(var(--strip-top), var(--strip-bottom));
+  font: 11px/1.2 var(--font-mono);
+  color: var(--ink);
+  white-space: pre;
+}
+
+.zt-progress {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.zt-track {
+  box-sizing: border-box;
+  width: 96px;
+  height: 8px;
+  padding: 1px;
+  border: 1px solid var(--line);
+}
+
+.zt-fill {
+  display: block;
+  width: 0;
+  height: 100%;
+  background: var(--ink);
+}
+
+/* Narrow screens: squarer stage, the zeros box shrinks to its title bar. */
+@container (max-width: 540px) {
+  .zt-stage {
+    aspect-ratio: 1 / 1;
+  }
+  .zt-heading {
+    top: 12px;
+    left: 12px;
+  }
+  .zt-big {
+    font-size: 18px;
+  }
+  .zt-sub {
+    display: none;
+  }
+  .zt-zeros {
+    top: 12px;
+    right: 12px;
+    width: auto;
+  }
+  .zt-zeros .panel-bar {
+    border-bottom: 0;
+  }
+  .zt-rows {
+    display: none;
+  }
+  .zt-hud {
+    left: 12px;
+    bottom: 10px;
+  }
+}

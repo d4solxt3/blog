@@ -122,6 +122,7 @@ Only `title`, `description` and `date` are required.
 | `<details><summary>Title</summary>` … `</details>` | A collapsible section (leave blank lines inside it) |
 | `![A caption](/images/picture.png)` | A picture with a caption underneath |
 | Three backticks plus a language name, e.g. ```` ```python ```` | A code block with a copy button |
+| ```` ```zeta ```` on one line, `caption: Your caption` on the next, then ```` ``` ```` | A live animation of the Riemann zeta function on the critical line, drawn in your site's colours (it follows the paper / cyber switch). Optional extra lines: `tMax: 80` traces further (15–100, default 50) and `title: my_title` renames its window. In the studio it's **more ▾ → zeta animation** |
 
 Put images for posts in `public/images/` and refer to them as `/images/name.png`.
 

@@ -87,9 +87,15 @@ function mdxToPreviewMapped(src) {
       return `<aside class="callout callout--${variant}"><p class="callout-label">[ ${label} ]</p><div class="callout-body">\n`;
     })
     .replace(/<\/Callout>/g, () => '\n</div></aside>')
-    // The live animation needs the real page; the preview shows where it goes.
-    .replace(/<ZetaTrace\b[^>]*\/>/g, () =>
-      '\n\n<aside class="callout callout--note"><p class="callout-label">[ ZetaTrace ]</p><div class="callout-body">\n\nlive ζ(½ + it) animation: it plays on the published post\n\n</div></aside>\n\n');
+    // <ZetaTrace … /> → the equivalent ```zeta fence (remark-zeta renders both the same).
+    .replace(/<ZetaTrace\b((?:[^>{]|\{[^{}]*\})*?)\/>/g, (_, attrs) => {
+      let p = {};
+      try {
+        p = jsxAttrs(attrs);
+      } catch {}
+      const lines = ['tMax', 'caption', 'title'].filter((k) => p[k] !== undefined && p[k] !== true).map((k) => `${k}: ${JSON.stringify(p[k])}`);
+      return `\n\n\`\`\`zeta\n${lines.join('\n')}\n\`\`\`\n\n`;
+    });
 }
 
 export function mdxToPreview(src) {
