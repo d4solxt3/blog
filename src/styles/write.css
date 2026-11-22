@@ -2827,6 +2827,76 @@
 .w-latex-outline :focus-visible,
 .w-latex-bibmacros :focus-visible,
 .w-diag-panel :focus-visible,
+/* arXiv ID → BibTeX fetch bar & export.exe venue/zip controls */
+.w-bm-arxiv {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.w-bm-arxiv-in {
+  flex: 1 1 15rem;
+  min-width: 0;
+  padding: 4px 7px;
+  border: 1px solid var(--border-hairline, var(--rule));
+  background: var(--surface-recessed, var(--wash));
+  font: 11.5px var(--font-mono);
+  color: var(--ink);
+}
+
+.w-bm-arxiv-status {
+  font: 11px var(--font-mono);
+  color: var(--muted);
+}
+
+.w-tex-opts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+  font: 11px var(--font-mono);
+  color: var(--muted);
+}
+
+.w-tex-opts label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.w-tex-opts .w-tex-affil {
+  flex: 1 1 16rem;
+}
+
+.w-tex-opts select,
+.w-tex-opts input {
+  padding: 3px 6px;
+  border: 1px solid var(--border-hairline, var(--rule));
+  background: var(--surface-recessed, var(--wash));
+  font: 11.5px var(--font-mono);
+  color: var(--ink);
+}
+
+.w-tex-opts .w-tex-affil input {
+  flex: 1;
+  min-width: 0;
+}
+
+.w-tex-acts .w-tex-zip {
+  margin-right: auto;
+  border-color: var(--ink);
+  background: var(--ink);
+  color: var(--surface);
+  box-shadow: none;
+}
+
+.w-tex-acts .w-tex-zip:hover:not(:disabled) {
+  opacity: 0.88;
+  color: var(--surface);
+}
+
 .w-matrix :focus-visible,
 .w-tex :focus-visible {
   outline: 2px solid var(--accent, var(--ink));

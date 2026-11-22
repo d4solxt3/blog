@@ -21,6 +21,19 @@ export const DEFAULT_LATEX_MACROS = Object.freeze({
   '\\eps': '\\varepsilon',
   '\\T': '^{\\mathsf{T}}',
   '\\ind': '\\mathbf{1}',
+  '\\softmax': '\\operatorname{softmax}',
+  '\\ReLU': '\\operatorname{ReLU}',
+  '\\GELU': '\\operatorname{GELU}',
+  '\\LN': '\\operatorname{LN}',
+  '\\Attn': '\\operatorname{Attn}',
+  '\\MLP': '\\operatorname{MLP}',
+  '\\Loss': '\\mathcal{L}',
+  '\\doop': '\\operatorname{do}',
+  '\\sg': '\\operatorname{sg}',
+  '\\Tr': '\\operatorname{Tr}',
+  '\\diag': '\\operatorname{diag}',
+  '\\simcos': '\\operatorname{cos}',
+  '\\bigo': '\\mathcal{O}',
 });
 
 /** Skip spaces, tabs, newlines, and LaTeX `% ...` comments. */

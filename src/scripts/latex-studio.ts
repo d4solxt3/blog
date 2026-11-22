@@ -26,7 +26,7 @@ import {
   type LatexCatalogItem,
   type LatexCategory,
 } from './latex-catalog';
-import { exportArxivLatex } from './latex-export';
+import { exportArxivLatex, type ExportVenue, type LatexExportResult } from './latex-export';
 
 export type LatexDiagnostic = { line: number; message: string; hint: string; tex: string; display: boolean };
 
@@ -119,6 +119,7 @@ const ROW_BREAK_ENVS = new Set([
 ]);
 
 const THEOREM_ENVS = new Set([
+  'finding', 'hypothesis', 'experiment', 'takeaway',
   'theorem', 'lemma', 'proposition', 'corollary', 'definition',
   'assumption', 'example', 'remark', 'proof', 'algorithm',
 ]);
@@ -1193,7 +1194,7 @@ export function initLatexStudio(host: LatexStudioHost): LatexStudioAPI {
   paletteEl.classList.add('w-latex-palette');
 
   const glyphCache = new Map<string, string>();
-  let activePaletteTab: LatexCategory | 'recent' | 'macros' = 'greek';
+  let activePaletteTab: LatexCategory | 'recent' | 'macros' = 'ml';
   let paletteBuilt = false;
 
   function cachedGlyph(tex: string, macros: Record<string, string>, useCache = true): string {
@@ -1208,7 +1209,7 @@ export function initLatexStudio(host: LatexStudioHost): LatexStudioAPI {
     paletteBuilt = true;
     paletteEl.innerHTML =
       `<div class="w-lp-head">` +
-      `<input type="search" class="w-lp-search" data-lp-search placeholder="search 300+ symbols, environments, macros (e.g. approx, sum, norm, theorem)…" aria-label="Filter LaTeX symbols" autocomplete="off" />` +
+      `<input type="search" class="w-lp-search" data-lp-search placeholder="search ML/interp formulas, Greek, ops, macros (e.g. attention, sae, patching, kl)…" aria-label="Filter LaTeX symbols" autocomplete="off" />` +
       `<label class="w-lp-opt" title="Show instant KaTeX popover below formulas even in split view"><input type="checkbox" data-lp-peek-split /> live popover</label>` +
       `<button type="button" class="bevel w-lp-btn" data-lp-matrix>matrix.exe</button>` +
       `<button type="button" class="bevel w-lp-close" data-lp-close aria-label="Close math drawer">×</button>` +
@@ -1501,6 +1502,11 @@ export function initLatexStudio(host: LatexStudioHost): LatexStudioAPI {
       `<button type="button" class="bevel w-lp-close" data-bm-close aria-label="Close bibliography & macros">×</button>` +
       `</div>` +
       `<div class="w-bm-pane" data-bm-pane="bib">` +
+      `<div class="w-bm-arxiv">` +
+      `<input type="text" class="w-bm-arxiv-in" data-bm-arxiv-in placeholder="arXiv ID or URL (e.g. 1706.03762) → fetch BibTeX" aria-label="Fetch BibTeX from arXiv ID or URL" autocomplete="off" spellcheck="false" />` +
+      `<button type="button" class="bevel" data-bm-arxiv-go>+ fetch arXiv</button>` +
+      `<span class="w-bm-arxiv-status" data-bm-arxiv-status role="status"></span>` +
+      `</div>` +
       `<div class="w-bm-actions">` +
       `<button type="button" class="bevel" data-bm-add="article">+ @article</button>` +
       `<button type="button" class="bevel" data-bm-add="inproceedings">+ @inproceedings</button>` +
@@ -1522,6 +1528,40 @@ export function initLatexStudio(host: LatexStudioHost): LatexStudioAPI {
 
     const bibTa = bmEl.querySelector<HTMLTextAreaElement>('[data-bm-bib]')!;
     const macTa = bmEl.querySelector<HTMLTextAreaElement>('[data-bm-macros]')!;
+    const arxivIn = bmEl.querySelector<HTMLInputElement>('[data-bm-arxiv-in]')!;
+    const arxivBtn = bmEl.querySelector<HTMLButtonElement>('[data-bm-arxiv-go]')!;
+    const arxivStatus = bmEl.querySelector<HTMLElement>('[data-bm-arxiv-status]')!;
+
+    async function fetchArxivBib() {
+      const q = arxivIn.value.trim();
+      if (!q) return arxivIn.focus();
+      arxivBtn.disabled = true;
+      arxivStatus.textContent = 'fetching…';
+      try {
+        const res = await fetch(`/api/write/arxiv-bib?id=${encodeURIComponent(q)}`, { headers: { accept: 'application/json' } });
+        const d = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(d.error ?? `Error ${res.status}`);
+        const sep = bibTa.value.trim() ? '\n\n' : '';
+        bibTa.value = `${bibTa.value.trimEnd()}${sep}${d.bibtex}\n`;
+        host.setPostBib(bibTa.value);
+        host.onEdited();
+        renderBibList();
+        arxivIn.value = '';
+        arxivStatus.textContent = `added ${d.key} ✓`;
+      } catch (err) {
+        arxivStatus.textContent = err instanceof Error ? err.message : 'lookup failed';
+      } finally {
+        arxivBtn.disabled = false;
+      }
+    }
+
+    on(arxivBtn, 'click', fetchArxivBib);
+    on(arxivIn, 'keydown', (e: KeyboardEvent) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        fetchArxivBib();
+      }
+    });
 
     on(bibTa, 'input', () => {
       host.setPostBib(bibTa.value);
@@ -1960,42 +2000,87 @@ export function initLatexStudio(host: LatexStudioHost): LatexStudioAPI {
     })();
 
   let texBuilt = false;
-  let exportResult = { tex: '', bib: '' };
-  let texTab: 'tex' | 'bib' = 'tex';
+  let exportResult: LatexExportResult = { tex: '', bib: '', assets: [], warnings: [] };
+  let texTab: 'tex' | 'bib' | 'check' = 'tex';
+  const VENUE_KEY = 'write:latex:venue';
+  const AFFIL_KEY = 'write:latex:affil';
+  let exportVenue: ExportVenue = (['arxiv', 'neurips', 'icml', 'iclr'].includes(safeStore.get(VENUE_KEY) ?? '') ? safeStore.get(VENUE_KEY) : 'arxiv') as ExportVenue;
+  let exportAffil = safeStore.get(AFFIL_KEY) ?? '';
+
+  function regenerateExport(bundleMode = false): LatexExportResult {
+    const meta = host.getMeta();
+    return exportArxivLatex({
+      ...meta,
+      affiliation: exportAffil,
+      venue: exportVenue,
+      bundleMode,
+      body: ta.value,
+      citationStyle: meta.citationStyle || host.defaultCitationStyle,
+      globalMacros: host.globalMacros,
+    });
+  }
 
   function buildTexDialog() {
     if (texBuilt) return;
     texBuilt = true;
     texDlg.innerHTML =
       `<div class="win-bar">` +
-      `<h2 class="win-title" id="w-tex-title">export.exe · arXiv LaTeX &amp; BibTeX</h2>` +
+      `<h2 class="win-title" id="w-tex-title">export.exe · arXiv / Venue LaTeX &amp; Overleaf Bundle</h2>` +
       `<button type="button" class="w-chart-x bevel" data-tx-close aria-label="Close export dialog">×</button>` +
       `</div>` +
       `<div class="w-tex-body">` +
+      `<div class="w-tex-opts">` +
+      `<label>venue <select data-tx-venue>` +
+      `<option value="arxiv">arXiv preprint</option>` +
+      `<option value="neurips">NeurIPS (preprint)</option>` +
+      `<option value="icml">ICML</option>` +
+      `<option value="iclr">ICLR</option>` +
+      `</select></label>` +
+      `<label class="w-tex-affil">affiliation <input type="text" data-tx-affil placeholder="optional (e.g. University / Independent)" autocomplete="organization" /></label>` +
+      `</div>` +
       `<div class="w-tex-tabs" role="tablist">` +
-      `<button type="button" class="bevel w-tex-tab" role="tab" data-tx-tab="tex" aria-selected="true">paper.tex</button>` +
+      `<button type="button" class="bevel w-tex-tab" role="tab" data-tx-tab="tex" aria-selected="true">main.tex</button>` +
       `<button type="button" class="bevel w-tex-tab" role="tab" data-tx-tab="bib" aria-selected="false">references.bib</button>` +
+      `<button type="button" class="bevel w-tex-tab" role="tab" data-tx-tab="check" aria-selected="false" data-tx-check-tab>pre-flight</button>` +
       `<span class="w-tex-status" data-tx-status role="status"></span>` +
       `</div>` +
       `<pre class="w-tex-code well" data-tx-code tabindex="0"></pre>` +
       `<div class="w-tex-acts">` +
+      `<button type="button" class="bevel w-tex-zip" data-tx-zip><span class="br" aria-hidden="true">[ </span>download .zip (arXiv/Overleaf)<span class="br" aria-hidden="true"> ]</span></button>` +
       `<button type="button" class="bevel" data-tx-copy><span class="br" aria-hidden="true">[ </span>copy .tex<span class="br" aria-hidden="true"> ]</span></button>` +
-      `<button type="button" class="bevel" data-tx-dl="tex"><span class="br" aria-hidden="true">[ </span>download .tex<span class="br" aria-hidden="true"> ]</span></button>` +
-      `<button type="button" class="bevel" data-tx-dl="bib"><span class="br" aria-hidden="true">[ </span>download .bib<span class="br" aria-hidden="true"> ]</span></button>` +
+      `<button type="button" class="bevel" data-tx-dl="tex"><span class="br" aria-hidden="true">[ </span>.tex<span class="br" aria-hidden="true"> ]</span></button>` +
+      `<button type="button" class="bevel" data-tx-dl="bib"><span class="br" aria-hidden="true">[ </span>.bib<span class="br" aria-hidden="true"> ]</span></button>` +
       `<button type="button" class="bevel" data-tx-close><span class="br" aria-hidden="true">[ </span>close<span class="br" aria-hidden="true"> ]</span></button>` +
       `</div>` +
       `</div>`;
+
+    const venueSel = texDlg.querySelector<HTMLSelectElement>('[data-tx-venue]')!;
+    const affilIn = texDlg.querySelector<HTMLInputElement>('[data-tx-affil]')!;
+    venueSel.value = exportVenue;
+    affilIn.value = exportAffil;
+
+    on(venueSel, 'change', () => {
+      exportVenue = venueSel.value as ExportVenue;
+      safeStore.set(VENUE_KEY, exportVenue);
+      exportResult = regenerateExport(false);
+      renderTexTab();
+    });
+    on(affilIn, 'input', () => {
+      exportAffil = affilIn.value;
+      safeStore.set(AFFIL_KEY, exportAffil);
+      exportResult = regenerateExport(false);
+      renderTexTab();
+    });
 
     const status = texDlg.querySelector<HTMLElement>('[data-tx-status]')!;
     const setStatus = (msg: string) => {
       status.textContent = msg;
       window.setTimeout(() => {
         if (status.textContent === msg) status.textContent = '';
-      }, 2200);
+      }, 2800);
     };
 
-    const downloadFile = (name: string, content: string) => {
-      const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+    const downloadBlob = (name: string, blob: Blob) => {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -2004,20 +2089,47 @@ export function initLatexStudio(host: LatexStudioHost): LatexStudioAPI {
       window.setTimeout(() => URL.revokeObjectURL(url), 1000);
     };
 
+    const downloadFile = (name: string, content: string) => {
+      downloadBlob(name, new Blob([content], { type: 'text/plain;charset=utf-8' }));
+    };
+
     on(texDlg, 'click', async (e: MouseEvent) => {
       const t = e.target as HTMLElement;
       if (t.closest('[data-tx-close]')) return texDlg.close();
       const tab = t.closest<HTMLButtonElement>('[data-tx-tab]');
       if (tab) {
-        texTab = tab.dataset.txTab as 'tex' | 'bib';
+        texTab = tab.dataset.txTab as 'tex' | 'bib' | 'check';
         renderTexTab();
+        return;
+      }
+      if (t.closest('[data-tx-zip]')) {
+        const zipBtn = texDlg.querySelector<HTMLButtonElement>('[data-tx-zip]')!;
+        const slug = host.getMeta().slug || 'paper';
+        const bundled = regenerateExport(true);
+        zipBtn.disabled = true;
+        status.textContent = 'building .zip…';
+        try {
+          const res = await fetch('/api/write/arxiv-bundle', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ slug, tex: bundled.tex, bib: bundled.bib, assets: bundled.assets }),
+          });
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const blob = await res.blob();
+          downloadBlob(`${slug}-arxiv.zip`, blob);
+          setStatus(`downloaded ${slug}-arxiv.zip (${bundled.assets.length} fig${bundled.assets.length === 1 ? '' : 's'}) ✓`);
+        } catch (err) {
+          setStatus(err instanceof Error ? err.message : 'bundle failed');
+        } finally {
+          zipBtn.disabled = false;
+        }
         return;
       }
       if (t.closest('[data-tx-copy]')) {
         const text = texTab === 'bib' ? exportResult.bib : exportResult.tex;
         try {
           await navigator.clipboard.writeText(text);
-          setStatus(`copied ${texTab === 'bib' ? 'references.bib' : 'paper.tex'} ✓`);
+          setStatus(`copied ${texTab === 'bib' ? 'references.bib' : 'main.tex'} ✓`);
         } catch {
           setStatus('could not copy to clipboard');
         }
@@ -2042,22 +2154,33 @@ export function initLatexStudio(host: LatexStudioHost): LatexStudioAPI {
     const code = texDlg.querySelector<HTMLElement>('[data-tx-code]')!;
     const copyBtn = texDlg.querySelector<HTMLButtonElement>('[data-tx-copy]')!;
     const bibDlBtn = texDlg.querySelector<HTMLButtonElement>('[data-tx-dl="bib"]')!;
+    const checkTab = texDlg.querySelector<HTMLButtonElement>('[data-tx-check-tab]')!;
     const hasBib = !!exportResult.bib.trim();
     bibDlBtn.disabled = !hasBib;
-    code.textContent = texTab === 'bib' ? exportResult.bib || '% No BibTeX references in this post yet.' : exportResult.tex;
-    copyBtn.innerHTML = `<span class="br" aria-hidden="true">[ </span>copy .${texTab}<span class="br" aria-hidden="true"> ]</span>`;
+    checkTab.textContent = exportResult.warnings.length ? `pre-flight (${exportResult.warnings.length})` : 'pre-flight ✓';
+    if (texTab === 'check') {
+      const lines: string[] = [
+        `Venue preset: ${exportVenue}`,
+        `Bundled local images (${exportResult.assets.length}): ${exportResult.assets.length ? exportResult.assets.map((a) => 'figures/' + a.split('/').pop()).join(', ') : '(none)'}`,
+        `BibTeX: ${hasBib ? 'included as references.bib' : '(none)'}`,
+        '',
+        exportResult.warnings.length
+          ? `Warnings (${exportResult.warnings.length}):\n${exportResult.warnings.map((w, idx) => `  ${idx + 1}. ${w}`).join('\n')}`
+          : '✓ Zero pre-flight warnings — ready to upload .zip to Overleaf or arXiv.',
+      ];
+      code.textContent = lines.join('\n');
+      copyBtn.disabled = true;
+    } else {
+      copyBtn.disabled = false;
+      code.textContent = texTab === 'bib' ? exportResult.bib || '% No BibTeX references in this post yet.' : exportResult.tex;
+      copyBtn.innerHTML = `<span class="br" aria-hidden="true">[ </span>copy .${texTab}<span class="br" aria-hidden="true"> ]</span>`;
+    }
   }
 
   function openTexExport() {
     buildTexDialog();
     closePopups();
-    const meta = host.getMeta();
-    exportResult = exportArxivLatex({
-      ...meta,
-      body: ta.value,
-      citationStyle: meta.citationStyle || host.defaultCitationStyle,
-      globalMacros: host.globalMacros,
-    });
+    exportResult = regenerateExport(false);
     texTab = 'tex';
     renderTexTab();
     texDlg.showModal();

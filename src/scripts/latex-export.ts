@@ -4,18 +4,30 @@
  */
 import { parseBibTeX, parseLatexPreamble } from '../../plugins/latex-core.mjs';
 
+export type ExportVenue = 'arxiv' | 'neurips' | 'icml' | 'iclr';
+
 export interface LatexExportDoc {
   title: string;
   subtitle?: string;
   description?: string;
   date?: string;
   author?: string;
+  affiliation?: string;
   slug?: string;
   body: string;
   macros?: string;
   bibliography?: string;
   citationStyle?: '' | 'numeric' | 'author-year';
   globalMacros?: Record<string, string>;
+  venue?: ExportVenue;
+  bundleMode?: boolean;
+}
+
+export interface LatexExportResult {
+  tex: string;
+  bib: string;
+  assets: string[];
+  warnings: string[];
 }
 
 type PreambleEntry = { name: string; args: number; body: string; kind: 'command' | 'operator' | 'operator*' };
@@ -27,6 +39,7 @@ const MATH_ENVS = new Set([
 ]);
 
 const PROSE_ENVS = new Set([
+  'finding', 'hypothesis', 'experiment', 'takeaway',
   'theorem', 'lemma', 'proposition', 'corollary', 'definition',
   'assumption', 'example', 'remark', 'proof', 'algorithm',
 ]);
@@ -285,10 +298,11 @@ function convertTable(tableLines: string[], footnotes: Map<string, string>, cite
     .join('');
 
   const rows = tableLines.slice(2).map(splitRow);
-  const fmt = (cells: string[]) => cells.map((c) => convertInline(c, footnotes, citeCmd)).join(' & ') + ' \\\\';
+  const fmtCell = (c: string) => convertInline(c, footnotes, citeCmd).replace(/±/g, '$\\pm$').replace(/↑/g, '$\\uparrow$').replace(/↓/g, '$\\downarrow$');
+  const fmt = (cells: string[]) => cells.map(fmtCell).join(' & ') + ' \\\\';
 
   return [
-    '\\begin{table}[htbp]',
+    '\\begin{table}[t]',
     '\\centering',
     `\\begin{tabular}{${colSpec || 'l'.repeat(header.length)}}`,
     '\\toprule',
@@ -301,7 +315,30 @@ function convertTable(tableLines: string[], footnotes: Map<string, string>, cite
   ].join('\n');
 }
 
-function convertBody(body: string, footnotes: Map<string, string>, citeCmd: string): string {
+type ConvertCtx = {
+  assets: string[];
+  warnings: string[];
+  bundleMode: boolean;
+  tldrAbstract: string;
+};
+
+function rewriteAssetPath(rawPath: string, ctx: ConvertCtx): string {
+  const clean = rawPath.trim();
+  const isLocal = /^\/(?:images|api\/media)\//i.test(clean);
+  if (isLocal) {
+    if (!ctx.assets.includes(clean)) ctx.assets.push(clean);
+    if (/\.(?:gif|webp|svg)$/i.test(clean)) {
+      ctx.warnings.push(`Image "${clean.split('/').pop()}" is ${clean.split('.').pop()?.toUpperCase()}: pdflatex/arXiv prefers PNG or PDF.`);
+    }
+    if (ctx.bundleMode) {
+      const file = clean.split('/').pop() ?? 'figure.png';
+      return `figures/${file}`;
+    }
+  }
+  return clean;
+}
+
+function convertBody(body: string, footnotes: Map<string, string>, citeCmd: string, ctx: ConvertCtx): string {
   const lines = body.replace(/\r\n?/g, '\n').split('\n');
   const out: string[] = [];
   let i = 0;
@@ -335,12 +372,13 @@ function convertBody(body: string, footnotes: Map<string, string>, citeCmd: stri
         const capMatch = blockLines.join('\n').match(/^caption:\s*(.+)$/m);
         const idMatch = meta.match(/\bid=([a-z0-9_-]+)/i);
         const cap = capMatch ? capMatch[1].replace(/^["']|["']$/g, '') : `${lang} figure`;
+        ctx.warnings.push(`Interactive \`\`\`${lang} block ("${cap}") exported as a placeholder — attach a static PNG/PDF for arXiv.`);
         out.push(
           [
-            '\\begin{figure}[htbp]',
+            '\\begin{figure}[t]',
             '\\centering',
             `% TODO: replace with exported vector graphic for ${lang}${idMatch ? ` (${idMatch[1]})` : ''}`,
-            `\\fbox{\\parbox{0.8\\linewidth}{\\centering\\vspace{1.5em}\\textit{[${escLatexText(cap)}]}\\vspace{1.5em}}}`,
+            `\\fbox{\\parbox{0.85\\linewidth}{\\centering\\vspace{1.5em}\\textit{[${escLatexText(cap)}]}\\vspace{1.5em}}}`,
             `\\caption{${convertInline(cap, footnotes, citeCmd)}}`,
             ...(idMatch ? [`\\label{fig:${idMatch[1]}}`] : []),
             '\\end{figure}',
@@ -410,7 +448,7 @@ function convertBody(body: string, footnotes: Map<string, string>, citeCmd: stri
         } else {
           const inner = restFirst.replace(endRe, '').trim();
           if (env === 'algorithm') out.push(formatAlgorithmEnv(optTitle, inner, footnotes, citeCmd));
-          else out.push(`\\begin{${env}}${optTitle ? `[${convertInline(optTitle, footnotes, citeCmd)}]` : ''}\n${convertBody(inner, footnotes, citeCmd)}\n\\end{${env}}`);
+          else out.push(`\\begin{${env}}${optTitle ? `[${convertInline(optTitle, footnotes, citeCmd)}]` : ''}\n${convertBody(inner, footnotes, citeCmd, ctx)}\n\\end{${env}}`);
         }
         i++;
         continue;
@@ -440,7 +478,7 @@ function convertBody(body: string, footnotes: Map<string, string>, citeCmd: stri
         out.push(formatAlgorithmEnv(optTitle, inner, footnotes, citeCmd));
       } else {
         // Keep \label{...} lines verbatim inside theorem-like environments
-        const converted = convertBody(inner, footnotes, citeCmd);
+        const converted = convertBody(inner, footnotes, citeCmd, ctx);
         const titleOpt = optTitle ? `[${convertInline(optTitle, footnotes, citeCmd)}]` : '';
         out.push(`\\begin{${env}}${titleOpt}\n${converted}\n\\end{${env}}`);
       }
@@ -465,7 +503,7 @@ function convertBody(body: string, footnotes: Map<string, string>, citeCmd: stri
         out.push(formatAlgorithmEnv(optTitle, inner, footnotes, citeCmd));
       } else {
         const titleOpt = optTitle ? `[${convertInline(optTitle, footnotes, citeCmd)}]` : '';
-        out.push(`\\begin{${env}}${titleOpt}\n${convertBody(inner, footnotes, citeCmd)}\n\\end{${env}}`);
+        out.push(`\\begin{${env}}${titleOpt}\n${convertBody(inner, footnotes, citeCmd, ctx)}\n\\end{${env}}`);
       }
       continue;
     }
@@ -500,12 +538,13 @@ function convertBody(body: string, footnotes: Map<string, string>, citeCmd: stri
     // 9. Standalone image paragraph ![alt](src "title")
     const imgMatch = trimmed.match(/^!\[([^\]]*)\]\(([^)\s]+)(?:\s+"([^"]*)")?\)$/);
     if (imgMatch) {
-      const cap = imgMatch[3] || imgMatch[1];
+      const cap = (imgMatch[3] || imgMatch[1]).replace(/\s*\{w=\d+%\}\s*$/, '').trim();
+      const imgPath = rewriteAssetPath(imgMatch[2], ctx);
       out.push(
         [
-          '\\begin{figure}[htbp]',
+          '\\begin{figure}[t]',
           '\\centering',
-          `\\includegraphics[width=0.85\\linewidth]{${escUrl(imgMatch[2])}}`,
+          `\\includegraphics[width=0.85\\linewidth]{${escUrl(imgPath)}}`,
           ...(cap ? [`\\caption{${convertInline(cap, footnotes, citeCmd)}}`] : []),
           '\\end{figure}',
         ].join('\n'),
@@ -529,18 +568,24 @@ function convertBody(body: string, footnotes: Map<string, string>, citeCmd: stri
     // 11. Blockquotes & callouts (> [!TLDR] ...)
     if (/^\s*>\s?/.test(line)) {
       const qLines: string[] = [];
+      let calloutKind = '';
       let calloutTitle = '';
       while (i < lines.length && /^\s*>\s?/.test(lines[i])) {
         const inner = lines[i].replace(/^\s*>\s?/, '');
         const cm = qLines.length === 0 ? inner.match(/^\[!([A-Z]+)\]\s*(.*)$/) : null;
         if (cm) {
+          calloutKind = cm[1].toUpperCase();
           calloutTitle = cm[2].trim() || cm[1];
         } else {
           qLines.push(inner);
         }
         i++;
       }
-      const qBody = convertBody(qLines.join('\n'), footnotes, citeCmd);
+      const qBody = convertBody(qLines.join('\n'), footnotes, citeCmd, ctx);
+      if (calloutKind === 'TLDR' && !ctx.tldrAbstract && qBody.trim()) {
+        ctx.tldrAbstract = qBody.trim();
+        continue;
+      }
       out.push(
         calloutTitle
           ? `\\begin{quote}\n\\textbf{${escLatexText(calloutTitle)}.} ${qBody}\n\\end{quote}`
@@ -590,14 +635,23 @@ function convertBody(body: string, footnotes: Map<string, string>, citeCmd: stri
   return out.join('\n\n').replace(/\n{3,}/g, '\n\n').trim();
 }
 
-export function exportArxivLatex(doc: LatexExportDoc): { tex: string; bib: string } {
+export function exportArxivLatex(doc: LatexExportDoc): LatexExportResult {
+  const venue: ExportVenue = doc.venue ?? 'arxiv';
+  const ctx: ConvertCtx = {
+    assets: [],
+    warnings: [],
+    bundleMode: doc.bundleMode === true,
+    tldrAbstract: '',
+  };
+
   const { body: withoutBib, bib } = extractBibBlocks(doc.body || '', doc.bibliography || '');
   const { body: withoutPreamble, preamble: inlinePreamble } = stripInlinePreamble(withoutBib);
   const { body: cleanBody, footnotes } = extractFootnotes(withoutPreamble);
 
   const bibEntries = bib.trim() ? (parseBibTeX(bib) as Array<{ key: string }>) : [];
+  const bibKeySet = new Set(bibEntries.map((b) => b.key));
   const hasBib = bibEntries.length > 0 || bib.trim().length > 0;
-  const authorYear = doc.citationStyle === 'author-year';
+  const authorYear = doc.citationStyle === 'author-year' || venue === 'icml' || venue === 'iclr';
   const citeCmd = authorYear ? '\\citep' : '\\cite';
 
   // Collect macros: post + inline (always emit), plus any global macros referenced
@@ -610,7 +664,6 @@ export function exportArxivLatex(doc: LatexExportDoc): { tex: string; bib: strin
 
   const globalMap = doc.globalMacros ?? {};
   const macroDefs: string[] = [];
-  // Transitive check for which global macros appear in body or explicit macro bodies
   const scanPool = [cleanBody, ...[...explicitEntries.values()].map((e) => e.body)].join('\n');
   const usedGlobals = new Set<string>();
   let changed = true;
@@ -637,43 +690,106 @@ export function exportArxivLatex(doc: LatexExportDoc): { tex: string; bib: strin
     macroDefs.push(formatMacroDef(entry));
   }
 
-  const convertedBody = convertBody(cleanBody, footnotes, citeCmd);
-  const convertedAbstract = doc.description?.trim() ? convertInline(doc.description.trim(), footnotes, citeCmd) : '';
+  const convertedBody = convertBody(cleanBody, footnotes, citeCmd, ctx);
+  const descAbstract = doc.description?.trim() ? convertInline(doc.description.trim(), footnotes, citeCmd) : '';
+  const convertedAbstract = ctx.tldrAbstract || descAbstract;
+  if (!convertedAbstract) {
+    ctx.warnings.push('No abstract found — add a description in [ details ] or a > [!TLDR] callout.');
+  }
+
+  // Pre-flight checks: undefined \cite keys and \ref/\eqref/\cref labels
+  const definedLabels = new Set([...convertedBody.matchAll(/\\label\{([^}]+)\}/g)].map((m) => m[1].trim()));
+  for (const m of convertedBody.matchAll(/\\(?:eq|c|C)?ref\{([^}]+)\}/g)) {
+    for (const lbl of m[1].split(',').map((s) => s.trim()).filter(Boolean)) {
+      if (!definedLabels.has(lbl)) ctx.warnings.push(`Undefined reference \\ref{${lbl}}.`);
+    }
+  }
+  for (const m of `${convertedAbstract}\n${convertedBody}`.matchAll(/\\cite[pt]?\{([^}]+)\}/g)) {
+    for (const key of m[1].split(',').map((s) => s.trim()).filter(Boolean)) {
+      if (!bibKeySet.has(key)) ctx.warnings.push(`Undefined citation key "${key}" (add it in [ bib ]).`);
+    }
+  }
+
   const needsListings = /\\begin\{lstlisting\}/.test(convertedBody);
   const usesNatbibCmds = /\\cite[pt]\b/.test(`${convertedAbstract}\n${convertedBody}`);
+  const usesAlgo = /\\begin\{algorithm\}/.test(convertedBody);
 
   const titleText = escLatexText(doc.title?.trim() || doc.slug || 'Untitled');
   const subtitleText = doc.subtitle?.trim() ? ` \\\\\n  \\large ${escLatexText(doc.subtitle.trim())}` : '';
+  const authorLine = doc.author?.trim()
+    ? escLatexText(doc.author.trim()) + (doc.affiliation?.trim() ? ` \\\\\n  \\small ${escLatexText(doc.affiliation.trim())}` : '')
+    : '';
+
+  const envDefs: string[] = [
+    '% ML & research environments',
+    '\\newtheorem{finding}{Finding}',
+    '\\newtheorem{hypothesis}{Hypothesis}',
+    '\\newtheorem{theorem}{Theorem}',
+    '\\newtheorem{lemma}{Lemma}',
+    '\\newtheorem{proposition}{Proposition}',
+    '\\newtheorem{corollary}{Corollary}',
+    '\\theoremstyle{definition}',
+    '\\newtheorem{experiment}{Experiment}',
+    '\\newtheorem{definition}{Definition}',
+    '\\newtheorem{assumption}{Assumption}',
+    '\\newtheorem{example}{Example}',
+    '\\theoremstyle{remark}',
+    '\\newtheorem{remark}{Remark}',
+    '\\newenvironment{takeaway}[1][Takeaway]{\\begin{quote}\\textbf{#1.} }{\\end{quote}}',
+  ];
+
+  const venueHeader: Record<ExportVenue, string[]> = {
+    arxiv: [
+      '% Exported from heartcache /write — arXiv preprint (pdflatex / Overleaf ready)',
+      '\\documentclass[11pt]{article}',
+      '',
+      '\\usepackage[margin=1in]{geometry}',
+      '\\usepackage[T1]{fontenc}',
+      '\\usepackage[utf8]{inputenc}',
+      '\\usepackage{microtype}',
+    ],
+    neurips: [
+      '% Exported from heartcache /write — NeurIPS preprint template',
+      '% Add neurips_2025.sty to your Overleaf / arXiv folder (or swap for geometry for standalone compile)',
+      '\\documentclass{article}',
+      '\\usepackage[preprint]{neurips_2025}',
+      '\\usepackage[T1]{fontenc}',
+      '\\usepackage[utf8]{inputenc}',
+      '\\usepackage{microtype}',
+    ],
+    icml: [
+      '% Exported from heartcache /write — ICML template',
+      '% Add icml2025.sty to your Overleaf / arXiv folder',
+      '\\documentclass{article}',
+      '\\usepackage{icml2025}',
+      '\\usepackage[T1]{fontenc}',
+      '\\usepackage[utf8]{inputenc}',
+      '\\usepackage{microtype}',
+    ],
+    iclr: [
+      '% Exported from heartcache /write — ICLR template',
+      '% Add iclr2025_conference.sty to your Overleaf / arXiv folder',
+      '\\documentclass{article}',
+      '\\usepackage{iclr2025_conference,times}',
+      '\\usepackage[T1]{fontenc}',
+      '\\usepackage[utf8]{inputenc}',
+      '\\usepackage{microtype}',
+    ],
+  };
 
   const preamble: string[] = [
-    '% Exported from writing studio — ready for arXiv / pdflatex / Overleaf',
-    '\\documentclass[11pt]{article}',
-    '',
-    '\\usepackage[margin=1in]{geometry}',
-    '\\usepackage[T1]{fontenc}',
-    '\\usepackage[utf8]{inputenc}',
+    ...venueHeader[venue],
     '\\usepackage{amsmath, amssymb, amsthm, mathtools}',
     '\\usepackage{graphicx}',
     '\\usepackage{booktabs}',
-    '\\usepackage{algorithm}',
-    '\\usepackage{algpseudocode}',
+    ...(usesAlgo ? ['\\usepackage{algorithm}', '\\usepackage{algpseudocode}'] : []),
     '\\usepackage{xcolor}',
     ...(needsListings ? ['\\usepackage{listings}', '\\lstset{basicstyle=\\ttfamily\\small, breaklines=true, frame=single}'] : []),
     ...(hasBib && authorYear ? ['\\usepackage[round]{natbib}'] : hasBib && usesNatbibCmds ? ['\\usepackage[numbers]{natbib}'] : []),
     '\\usepackage[colorlinks=true, linkcolor=blue, citecolor=blue, urlcolor=blue]{hyperref}',
     '\\usepackage[nameinlink, capitalize]{cleveref}',
     '',
-    '% Theorem environments',
-    '\\newtheorem{theorem}{Theorem}',
-    '\\newtheorem{lemma}{Lemma}',
-    '\\newtheorem{proposition}{Proposition}',
-    '\\newtheorem{corollary}{Corollary}',
-    '\\theoremstyle{definition}',
-    '\\newtheorem{definition}{Definition}',
-    '\\newtheorem{assumption}{Assumption}',
-    '\\newtheorem{example}{Example}',
-    '\\theoremstyle{remark}',
-    '\\newtheorem{remark}{Remark}',
+    ...envDefs,
   ];
 
   if (macroDefs.length) {
@@ -683,7 +799,7 @@ export function exportArxivLatex(doc: LatexExportDoc): { tex: string; bib: strin
   preamble.push(
     '',
     `\\title{${titleText}${subtitleText}}`,
-    ...(doc.author?.trim() ? [`\\author{${escLatexText(doc.author.trim())}}`] : ['\\author{}']),
+    `\\author{${authorLine}}`,
     `\\date{${doc.date?.trim() ? escLatexText(doc.date.trim()) : '\\today'}}`,
     '',
     '\\begin{document}',
@@ -699,9 +815,10 @@ export function exportArxivLatex(doc: LatexExportDoc): { tex: string; bib: strin
   docParts.push(convertedBody);
 
   if (hasBib) {
+    const bibStyle = venue === 'iclr' ? 'iclr2025_conference' : venue === 'icml' ? 'icml2025' : authorYear ? 'plainnat' : 'plain';
     docParts.push(
       [
-        `\\bibliographystyle{${authorYear ? 'plainnat' : 'plain'}}`,
+        `\\bibliographystyle{${bibStyle}}`,
         '\\bibliography{references}',
       ].join('\n'),
     );
@@ -712,5 +829,7 @@ export function exportArxivLatex(doc: LatexExportDoc): { tex: string; bib: strin
   return {
     tex: docParts.filter(Boolean).join('\n\n'),
     bib: bib.trim() ? `${bib.trim()}\n` : '',
+    assets: ctx.assets,
+    warnings: ctx.warnings,
   };
 }

@@ -3,7 +3,7 @@
  * and arXiv environments for the /write LaTeX studio palette & autocomplete.
  */
 
-export type LatexCategory = 'greek' | 'ops' | 'arrows' | 'sets' | 'fonts' | 'structures' | 'envs';
+export type LatexCategory = 'ml' | 'greek' | 'ops' | 'arrows' | 'sets' | 'fonts' | 'structures' | 'envs';
 
 export interface LatexCatalogItem {
   cmd: string;
@@ -19,6 +19,7 @@ export interface LatexCatalogItem {
 }
 
 export const LATEX_CATEGORIES: Array<{ id: LatexCategory | 'recent' | 'macros'; label: string }> = [
+  { id: 'ml', label: 'ml / interp' },
   { id: 'recent', label: 'recent' },
   { id: 'greek', label: 'greek' },
   { id: 'ops', label: 'ops & rel' },
@@ -84,6 +85,38 @@ const envItem = (
 });
 
 export const LATEX_CATALOG: LatexCatalogItem[] = [
+  // ---- ML & MECHANISTIC INTERPRETABILITY ----
+  fn('ml', '\\operatorname{softmax}', '\\operatorname{softmax}\\left($1\\right)', 'softmax', '\\operatorname{softmax}(z)', ['ml', 'attention', 'logits', 'probability']),
+  fn('ml', '\\operatorname{Attn}', '\\operatorname{softmax}\\!\\left(\\frac{${1:Q}${2:K}^{\\mathsf{T}}}{\\sqrt{d_k}}\\right)${3:V}', 'scaled dot-product attention', '\\operatorname{softmax}\\!\\left(\\frac{QK^\\top}{\\sqrt{d_k}}\\right)V', ['ml', 'transformer', 'attention', 'qkv', 'interp'], 3),
+  fn('ml', 'x^{(\\ell+1)}', 'x^{(\\ell+1)} = x^{(\\ell)} + \\operatorname{Attn}^{(\\ell)}(x^{(\\ell)}) + \\operatorname{MLP}^{(\\ell)}(x^{(\\ell)})', 'residual stream update', 'x^{(\\ell+1)} = x^{(\\ell)} + \\operatorname{Attn}^{(\\ell)} + \\operatorname{MLP}^{(\\ell)}', ['ml', 'transformer', 'residual', 'stream', 'interp', 'layer'], 0),
+  fn('ml', 'W_{OV}', 'W_{OV}^{${1:h}} = W_O^{${1:h}} W_V^{${1:h}}', 'OV circuit matrix', 'W_{OV}^h = W_O^h W_V^h', ['interp', 'circuit', 'transformer', 'ov', 'attention'], 1),
+  fn('ml', 'W_{QK}', 'W_{QK}^{${1:h}} = (W_Q^{${1:h}})^{\\mathsf{T}} W_K^{${1:h}}', 'QK circuit matrix', 'W_{QK}^h = (W_Q^h)^\\top W_K^h', ['interp', 'circuit', 'transformer', 'qk', 'attention'], 1),
+  fn('ml', '\\text{LogitLens}', '\\operatorname{Logit}(${1:h}) = W_U \\operatorname{LN}(${1:h})', 'logit lens projection', 'W_U \\operatorname{LN}(h)', ['interp', 'logit', 'lens', 'unembed', 'residual'], 1),
+  fn('ml', '\\text{SAE enc}', 'f(${1:x}) = \\operatorname{ReLU}(W_{\\text{enc}} ${1:x} + b_{\\text{enc}})', 'SAE encoder', 'f(x) = \\operatorname{ReLU}(W_{\\text{enc}} x + b_{\\text{enc}})', ['interp', 'sae', 'sparse', 'autoencoder', 'encoder', 'nla'], 1),
+  fn('ml', '\\text{SAE dec}', '\\hat{${1:x}} = W_{\\text{dec}} f(${1:x}) + b_{\\text{dec}}', 'SAE decoder', '\\hat{x} = W_{\\text{dec}} f(x) + b_{\\text{dec}}', ['interp', 'sae', 'sparse', 'autoencoder', 'decoder', 'nla'], 1),
+  fn('ml', '\\mathcal{L}_{\\text{SAE}}', '\\mathcal{L}(${1:x}) = \\left\\lVert ${1:x} - \\hat{${1:x}} \\right\\rVert_2^2 + \\lambda \\left\\lVert f(${1:x}) \\right\\rVert_1', 'SAE L1 loss', '\\|x - \\hat{x}\\|_2^2 + \\lambda \\|f(x)\\|_1', ['interp', 'sae', 'loss', 'l1', 'sparsity'], 1),
+  fn('ml', '\\operatorname{IE}', '\\operatorname{IE} = \\mathcal{M}(x_{\\text{clean}} \\mid \\operatorname{do}(${1:h} = ${2:h_{\\text{corrupt}}})) - \\mathcal{M}(x_{\\text{clean}})', 'activation patching / indirect effect', '\\mathcal{M}(x \\mid \\operatorname{do}(h = h\')) - \\mathcal{M}(x)', ['interp', 'patching', 'causal', 'mediation', 'intervention', 'do'], 2),
+  fn('ml', 'h\' = h + \\alpha v', '${1:h}\' = ${1:h} + ${2:\\alpha} ${3:v}', 'steering vector intervention', 'h\' = h + \\alpha v', ['interp', 'steering', 'vector', 'activation', 'addition'], 3),
+  fn('ml', 'p(y \\mid h)', 'p(${1:y} \\mid ${2:h}) = \\sigma(${3:w}^{\\mathsf{T}} ${2:h} + b)', 'linear probe', 'p(y \\mid h) = \\sigma(w^\\top h + b)', ['interp', 'probe', 'linear', 'classifier'], 3),
+  fn('ml', '\\operatorname{cos}', '\\operatorname{cos}(${1:u}, ${2:v}) = \\frac{${1:u}^{\\mathsf{T}} ${2:v}}{\\left\\lVert ${1:u} \\right\\rVert_2 \\left\\lVert ${2:v} \\right\\rVert_2}', 'cosine similarity', '\\frac{u^\\top v}{\\|u\\|_2 \\|v\\|_2}', ['ml', 'interp', 'cosine', 'similarity', 'geometry', 'angle'], 2),
+  fn('ml', '\\mathcal{L}_{\\text{CE}}', '\\mathcal{L}_{\\text{CE}}(\\theta) = -\\mathbb{E}_{(x, y)} \\left[ \\log p_\\theta(y \\mid x) \\right]', 'cross-entropy loss', '-\\mathbb{E}[\\log p_\\theta(y \\mid x)]', ['ml', 'loss', 'cross entropy', 'nll', 'language model'], 0),
+  fn('ml', '\\operatorname{D}_{\\mathrm{KL}}', '\\operatorname{D}_{\\mathrm{KL}}\\left(${1:p} \\,\\middle\\|\\, ${2:q}\\right)', 'KL divergence', 'D_{\\mathrm{KL}}(p \\,\\|\\, q)', ['ml', 'kl', 'divergence', 'information', 'entropy'], 2),
+  fn('ml', '\\text{ELBO}', '\\mathbb{E}_{q_\\phi(z \\mid x)}[\\log p_\\theta(x \\mid z)] - \\operatorname{D}_{\\mathrm{KL}}(q_\\phi(z \\mid x) \\,\\|\\, p(z))', 'VAE / ELBO objective', '\\mathbb{E}_q[\\log p(x|z)] - D_{\\mathrm{KL}}(q \\| p)', ['ml', 'vae', 'elbo', 'variational', 'autoencoder'], 0),
+  fn('ml', '\\mathcal{L}_{\\text{DPO}}', '-\\mathbb{E}\\left[\\log \\sigma\\left(\\beta \\log \\frac{\\pi_\\theta(y_w \\mid x)}{\\pi_{\\text{ref}}(y_w \\mid x)} - \\beta \\log \\frac{\\pi_\\theta(y_l \\mid x)}{\\pi_{\\text{ref}}(y_l \\mid x)}\\right)\\right]', 'DPO loss', '-\\mathbb{E}[\\log \\sigma(\\beta \\log \\frac{\\pi_\\theta}{\\pi_{\\text{ref}}})]', ['ml', 'rlhf', 'dpo', 'alignment', 'preference'], 0),
+  fn('ml', '\\mathcal{L}_{\\text{InfoNCE}}', '-\\log \\frac{\\exp(\\operatorname{sim}(${1:z_i}, ${2:z_j})/\\tau)}{\\sum_{k} \\exp(\\operatorname{sim}(${1:z_i}, z_k)/\\tau)}', 'InfoNCE / contrastive loss', '-\\log \\frac{e^{s(z_i,z_j)/\\tau}}{\\sum_k e^{s(z_i,z_k)/\\tau}}', ['ml', 'contrastive', 'infonce', 'clip', 'representation'], 2),
+  fn('ml', '\\nabla_\\theta \\mathcal{L}', '\\nabla_{${1:\\theta}} \\mathcal{L}(${1:\\theta})', 'gradient wrt parameters', '\\nabla_\\theta \\mathcal{L}(\\theta)', ['ml', 'gradient', 'backprop', 'optimization'], 1),
+  fn('ml', '\\theta_{t+1}', '\\theta_{t+1} = \\theta_t - \\eta \\nabla_\\theta \\mathcal{L}(\\theta_t)', 'gradient descent step', '\\theta_{t+1} = \\theta_t - \\eta \\nabla \\mathcal{L}', ['ml', 'sgd', 'adam', 'optimizer', 'update'], 0),
+  fn('ml', '\\operatorname{sg}', '\\operatorname{sg}\\left($1\\right)', 'stop-gradient', '\\operatorname{sg}(x)', ['ml', 'stopgrad', 'straight through', 'detach'], 1),
+  fn('ml', '\\operatorname{do}', '\\operatorname{do}(${1:h} = ${2:h\'})', 'do-operator (intervention)', '\\operatorname{do}(h = h\')', ['interp', 'causal', 'intervention', 'patching', 'pearl'], 2),
+  fn('ml', '\\operatorname{LN}', '\\operatorname{LN}(${1:x}) = \\frac{${1:x} - \\mu}{\\sqrt{\\sigma^2 + \\varepsilon}} \\odot \\gamma + \\beta', 'LayerNorm', '\\operatorname{LN}(x)', ['ml', 'layernorm', 'norm', 'transformer'], 1),
+  fn('ml', '\\operatorname{RMSNorm}', '\\operatorname{RMSNorm}(${1:x}) = \\frac{${1:x}}{\\sqrt{\\frac{1}{d}\\|${1:x}\\|_2^2 + \\varepsilon}} \\odot \\gamma', 'RMSNorm', '\\operatorname{RMSNorm}(x)', ['ml', 'rmsnorm', 'norm', 'llama', 'transformer'], 1),
+  fn('ml', '\\operatorname{ReLU}', '\\operatorname{ReLU}(${1:x}) = \\max(0, ${1:x})', 'ReLU activation', '\\operatorname{ReLU}(x)', ['ml', 'activation', 'relu'], 1),
+  fn('ml', '\\operatorname{GELU}', '\\operatorname{GELU}(${1:x})', 'GELU activation', '\\operatorname{GELU}(x)', ['ml', 'activation', 'gelu', 'transformer'], 1),
+  fn('ml', '\\mathbb{E}_{x \\sim p}', '\\mathbb{E}_{${1:x} \\sim ${2:p}}\\left[${3:f(x)}\\right]', 'expectation over distribution', '\\mathbb{E}_{x \\sim p}[f(x)]', ['ml', 'expectation', 'average', 'probability'], 3),
+  fn('ml', '\\left\\lVert \\cdot \\right\\rVert_2', '\\left\\lVert ${1:x} \\right\\rVert_{${2:2}}', 'Lp / L2 norm', '\\|x\\|_2', ['ml', 'norm', 'l2', 'l1', 'magnitude'], 2),
+  fn('ml', 'U \\Sigma V^{\\mathsf{T}}', '${1:W} = U \\Sigma V^{\\mathsf{T}}', 'SVD decomposition', 'W = U \\Sigma V^\\top', ['ml', 'interp', 'svd', 'pca', 'low rank', 'lora'], 1),
+  fn('ml', '\\mathcal{N}(\\mu, \\Sigma)', '\\mathcal{N}\\left(${1:\\mu}, ${2:\\Sigma}\\right)', 'Gaussian distribution', '\\mathcal{N}(\\mu, \\Sigma)', ['ml', 'gaussian', 'normal', 'distribution'], 2),
+
   // ---- GREEK (lowercase, variants, uppercase) ----
   sym('greek', '\\alpha', 'alpha', ['greek', 'a', 'learning rate']),
   sym('greek', '\\beta', 'beta', ['greek', 'b']),
@@ -582,6 +615,34 @@ export const LATEX_CATALOG: LatexCatalogItem[] = [
     ['arxiv', 'paper', 'qed', 'derivation'],
   ),
   envItem(
+    'finding',
+    'Finding (numbered empirical result)',
+    '\\begin{finding}[$1]\n\\label{find:$2}\n$3\n\\end{finding}',
+    '\\textbf{Finding 1.}',
+    ['ml', 'interp', 'arxiv', 'paper', 'result', 'observation'],
+  ),
+  envItem(
+    'hypothesis',
+    'Hypothesis (numbered testable claim)',
+    '\\begin{hypothesis}[$1]\n\\label{hyp:$2}\n$3\n\\end{hypothesis}',
+    '\\textbf{Hypothesis 1.}',
+    ['ml', 'interp', 'arxiv', 'paper', 'claim', 'experiment'],
+  ),
+  envItem(
+    'experiment',
+    'Experiment setup / protocol',
+    '\\begin{experiment}[$1]\n\\label{exp:$2}\n- **Model:** $3\n- **Dataset / Eval:** $4\n- **Control / Baseline:** $5\n\\end{experiment}',
+    '\\textbf{Experiment 1.}',
+    ['ml', 'interp', 'arxiv', 'paper', 'setup', 'protocol', 'eval'],
+  ),
+  envItem(
+    'takeaway',
+    'Takeaway summary box',
+    '\\begin{takeaway}\n$1\n\\end{takeaway}',
+    '\\textbf{Takeaway.}',
+    ['ml', 'interp', 'summary', 'tldr', 'callout'],
+  ),
+  envItem(
     'algorithm',
     'Algorithm pseudocode block',
     '\\begin{algorithm}[$1]\n\\label{alg:$2}\nInput: $3\nOutput: $4\nInitialize $5\nfor $t = 1, \\dots, T$ do\n  Update $6\nreturn $7\n\\end{algorithm}',
@@ -625,6 +686,10 @@ export const LATEX_ENVIRONMENTS: Array<{ name: string; label: string; insert: st
   { name: 'example', label: 'Example block', insert: '\\begin{example}[$1]\n\\label{ex:$2}\n$3\n\\end{example}', previewTex: '\\textbf{Example 1.}', math: false },
   { name: 'remark', label: 'Remark block', insert: '\\begin{remark}\n$1\n\\end{remark}', previewTex: '\\textit{Remark 1.}', math: false },
   { name: 'proof', label: 'Proof block (ends with QED)', insert: '\\begin{proof}\n$1\n\\end{proof}', previewTex: '\\textit{Proof.}\\;\\blacksquare', math: false },
+  { name: 'finding', label: 'Finding (empirical result)', insert: '\\begin{finding}[$1]\n\\label{find:$2}\n$3\n\\end{finding}', previewTex: '\\textbf{Finding 1.}', math: false },
+  { name: 'hypothesis', label: 'Hypothesis (testable claim)', insert: '\\begin{hypothesis}[$1]\n\\label{hyp:$2}\n$3\n\\end{hypothesis}', previewTex: '\\textbf{Hypothesis 1.}', math: false },
+  { name: 'experiment', label: 'Experiment setup / protocol', insert: '\\begin{experiment}[$1]\n\\label{exp:$2}\n- **Model:** $3\n- **Eval:** $4\n- **Control:** $5\n\\end{experiment}', previewTex: '\\textbf{Experiment 1.}', math: false },
+  { name: 'takeaway', label: 'Takeaway summary', insert: '\\begin{takeaway}\n$1\n\\end{takeaway}', previewTex: '\\textbf{Takeaway.}', math: false },
   { name: 'algorithm', label: 'Algorithm pseudocode', insert: '\\begin{algorithm}[$1]\n\\label{alg:$2}\nInput: $3\nOutput: $4\nfor $t = 1, \\dots, T$ do\n  $5\nreturn $6\n\\end{algorithm}', previewTex: '\\textbf{Algorithm 1.}', math: false },
 ];
 

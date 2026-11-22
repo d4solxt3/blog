@@ -1318,6 +1318,35 @@
   color: var(--muted);
 }
 
+/* ML / Interpretability research blocks: Finding, Hypothesis, Experiment, Takeaway */
+.prose .math-env--finding {
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--accent, var(--ink));
+  background: var(--wash);
+}
+
+.prose .math-env--finding .math-env-kind {
+  color: var(--accent, var(--ink));
+}
+
+.prose .math-env--hypothesis {
+  border: 1px dashed var(--line);
+  border-left: 3px solid var(--muted);
+  background: var(--surface);
+}
+
+.prose .math-env--experiment {
+  border: 1px solid var(--rule);
+  border-top: 2px solid var(--line);
+  background: var(--surface);
+}
+
+.prose .math-env--takeaway {
+  border: 1px dotted var(--line);
+  border-left: 3px solid var(--ink);
+  background: var(--wash);
+}
+
 /* Proofs: quiet hairline left rule, classic italic "Proof." and right QED ∎. */
 .prose .math-env--proof {
   display: flow-root;

@@ -38,6 +38,9 @@ const ROW_ENVS = new Set([
 ]);
 
 const NUMBERED_THEOREM_ENVS = new Map([
+  ['finding', 'Finding'],
+  ['hypothesis', 'Hypothesis'],
+  ['experiment', 'Experiment'],
   ['theorem', 'Theorem'],
   ['lemma', 'Lemma'],
   ['proposition', 'Proposition'],
@@ -49,7 +52,7 @@ const NUMBERED_THEOREM_ENVS = new Map([
   ['algorithm', 'Algorithm'],
 ]);
 
-const ALL_PROSE_ENVS = new Set([...NUMBERED_THEOREM_ENVS.keys(), 'proof']);
+const ALL_PROSE_ENVS = new Set([...NUMBERED_THEOREM_ENVS.keys(), 'proof', 'takeaway']);
 
 // ---------------------------------------------------- Global Config (Node fs)
 
@@ -865,20 +868,36 @@ function matchEnvOpen(node) {
   return null;
 }
 
-/** Check if a paragraph node ends with (or contains a closing line for) the matching environment. */
+/** Check if a paragraph (or a list whose last listItem ends with a paragraph) ends with the matching close marker. */
 function matchEnvCloseAtEnd(node, syntax, kind) {
-  if (!node || node.type !== 'paragraph' || !node.children?.length) return null;
-  const last = node.children[node.children.length - 1];
-  if (!last || last.type !== 'text') return null;
-
+  if (!node || !node.children?.length) return null;
   const closeRe =
     syntax === 'latex'
       ? new RegExp(`(?:^|\\r?\\n)[ \\t]*\\\\end\\{${kind}\\}[ \\t]*$`, 'i')
       : /(?:^|\r?\n)[ \t]*:::[ \t]*$/;
 
-  const m = closeRe.exec(last.value);
-  if (!m) return null;
-  return { matchIndex: m.index, matchLen: m[0].length };
+  if (node.type === 'paragraph') {
+    const last = node.children[node.children.length - 1];
+    if (!last || last.type !== 'text') return null;
+    const m = closeRe.exec(last.value);
+    if (!m) return null;
+    return { matchIndex: m.index, matchLen: m[0].length, inList: false };
+  }
+
+  // CommonMark lazy continuation puts `\end{env}` on the last line of a preceding bullet list's final item!
+  if (node.type === 'list') {
+    const lastItem = node.children[node.children.length - 1];
+    const lastChild = lastItem?.children?.[lastItem.children.length - 1];
+    if (lastChild?.type === 'paragraph' && lastChild.children?.length) {
+      const last = lastChild.children[lastChild.children.length - 1];
+      if (last?.type === 'text') {
+        const m = closeRe.exec(last.value);
+        if (m) return { matchIndex: m.index, matchLen: m[0].length, inList: true };
+      }
+    }
+  }
+
+  return null;
 }
 
 /** Parse a single pseudocode line inside an Algorithm block into mdast inline nodes (with math + keywords). */
@@ -1061,6 +1080,7 @@ function buildAlgorithmNode({ num, title, label, id, lines, position }) {
 /** Build a `<div class="math-env math-env--<kind>">` mdast container node. */
 function buildTheoremNode({ kind, displayKind, num, title, label, id, bodyNodes, position }) {
   const isProof = kind === 'proof';
+  const isTakeaway = kind === 'takeaway';
   const headChildren = [];
 
   if (isProof) {
@@ -1068,6 +1088,12 @@ function buildTheoremNode({ kind, displayKind, num, title, label, id, bodyNodes,
       type: 'latexSpan',
       data: { hName: 'span', hProperties: { className: ['math-env-kind'] } },
       children: [{ type: 'text', value: title ? title : 'Proof.' }],
+    });
+  } else if (isTakeaway) {
+    headChildren.push({
+      type: 'latexSpan',
+      data: { hName: 'span', hProperties: { className: ['math-env-kind'] } },
+      children: [{ type: 'text', value: title ? `Takeaway — ${title}` : 'Takeaway' }],
     });
   } else {
     headChildren.push({
@@ -1211,10 +1237,23 @@ function transformEnvironments(container, state, rawSource) {
         bodyNodes.push(children[k]);
       }
 
-      const lastClone = { ...closeNode, children: closeNode.children.map((c) => ({ ...c })) };
-      const lastTxt = lastClone.children[lastClone.children.length - 1];
-      lastTxt.value = lastTxt.value.slice(0, closeMatch.matchIndex);
-      if (cleanParagraph(lastClone)) bodyNodes.push(lastClone);
+      if (closeMatch.inList) {
+        const listClone = { ...closeNode, children: closeNode.children.map((li) => ({ ...li })) };
+        const lastLi = listClone.children[listClone.children.length - 1];
+        lastLi.children = lastLi.children.map((c) => ({ ...c }));
+        const lastP = lastLi.children[lastLi.children.length - 1];
+        lastP.children = lastP.children.map((c) => ({ ...c }));
+        const lastTxt = lastP.children[lastP.children.length - 1];
+        lastTxt.value = lastTxt.value.slice(0, closeMatch.matchIndex);
+        if (!cleanParagraph(lastP)) lastLi.children.pop();
+        if (!lastLi.children.length) listClone.children.pop();
+        if (listClone.children.length) bodyNodes.push(listClone);
+      } else {
+        const lastClone = { ...closeNode, children: closeNode.children.map((c) => ({ ...c })) };
+        const lastTxt = lastClone.children[lastClone.children.length - 1];
+        lastTxt.value = lastTxt.value.slice(0, closeMatch.matchIndex);
+        if (cleanParagraph(lastClone)) bodyNodes.push(lastClone);
+      }
     }
 
     let label = open.label;
