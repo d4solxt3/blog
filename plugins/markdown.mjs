@@ -3,8 +3,9 @@
 import { rehypeHeadingIds } from '@astrojs/markdown-remark';
 import rehypeAutolinkHeadings from 'rehype-autolink-headings';
 import remarkMath from 'remark-math';
-import rehypeKatex from 'rehype-katex';
 import { createCssVariablesTheme } from 'shiki';
+import remarkLatex from './remark-latex.mjs';
+import rehypeLatex from './rehype-latex.mjs';
 import remarkWikiLinks from './remark-wikilinks.mjs';
 import rehypeCallouts from './rehype-callouts.mjs';
 import rehypeFigures from './rehype-figures.mjs';
@@ -47,7 +48,7 @@ export const shikiConfig = {
 
 // remarkCharts first: chart/diagram fences must become figures before Shiki
 // (which runs ahead of the rehype plugins) turns them into code blocks.
-export const remarkPlugins = [remarkCharts, remarkMath, remarkWikiLinks];
+export const remarkPlugins = [remarkCharts, remarkMath, remarkLatex, remarkWikiLinks];
 
 export const remarkRehype = { footnoteLabel: 'Notes', footnoteBackContent: '↑' };
 
@@ -59,15 +60,16 @@ export const rehypePlugins = [
     rehypeAutolinkHeadings,
     {
       behavior: 'append',
-      test: (/** @type {any} */ el) => ['h2', 'h3'].includes(el.tagName) && el.properties?.id !== 'footnote-label',
+      test: (/** @type {any} */ el) =>
+        ['h2', 'h3'].includes(el.tagName) && !['footnote-label', 'references-heading'].includes(el.properties?.id),
       properties: { className: ['heading-anchor'], ariaHidden: 'true', tabIndex: -1 },
       // Empty on purpose: the "#" is drawn with CSS so it never leaks into the ToC text.
       content: [],
     },
   ],
-  [rehypeKatex, { strict: false }],
   rehypeCallouts,
   rehypeFigures,
-  // After figures exist: number them and fill in [[fig:id]] references.
+  // After figures exist: number them, then render KaTeX & resolve deferred figure refs.
   rehypeFigureNumbers,
+  rehypeLatex,
 ];

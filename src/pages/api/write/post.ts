@@ -28,6 +28,7 @@ const text = (v: unknown, max: number) => (typeof v === 'string' ? v.slice(0, ma
 function cleanFields(f: Record<string, unknown> = {}): Fields {
   const order = Number(f.seriesOrder);
   const font = text(f.font, 8);
+  const citationStyle = text(f.citationStyle, 16);
   return {
     title: text(f.title, 300),
     subtitle: text(f.subtitle, 500),
@@ -39,6 +40,9 @@ function cleanFields(f: Record<string, unknown> = {}): Fields {
     pinned: f.pinned === true,
     font: (['sans', 'serif', 'mono'].includes(font) ? font : '') as Fields['font'],
     draft: f.draft !== false,
+    macros: text(f.macros, 50_000),
+    bibliography: text(f.bibliography, 200_000),
+    citationStyle: (['numeric', 'author-year'].includes(citationStyle) ? citationStyle : '') as Fields['citationStyle'],
   };
 }
 

@@ -15,6 +15,7 @@
 import { waitForLocalRelease } from './local-release';
 import { initPreviews } from './previews';
 import { initSpelling } from './studio-spelling';
+import { initLatexStudio, type LatexStudioAPI } from './latex-studio';
 
 type Fields = {
   title: string;
@@ -27,6 +28,9 @@ type Fields = {
   pinned: boolean;
   font: '' | 'sans' | 'serif' | 'mono';
   draft: boolean;
+  macros: string;
+  bibliography: string;
+  citationStyle: '' | 'numeric' | 'author-year';
 };
 type Doc = { slug: string; ext: 'md' | 'mdx'; fields: Fields; body: string; extra: Record<string, unknown> };
 type Draft = Doc & { savedAt: number; basis: string | null };
@@ -36,6 +40,9 @@ type Data = {
   published: { doc: Doc; sha: string } | null;
   draft: Draft | null;
   siteFont: string;
+  authorName?: string;
+  globalMacros?: Record<string, string>;
+  defaultCitationStyle?: 'numeric' | 'author-year';
   posts: { slug: string; title: string }[];
   meta: { tags: { name: string; count: number }[]; series: { name: string; parts: number; maxPart: number }[] };
 };
@@ -142,6 +149,7 @@ export function initWriter(signal: AbortSignal) {
   const seriesPicks = q('[data-series-picks]');
   const subtitle = field<HTMLTextAreaElement>('subtitle');
   const slug = data.slug;
+  let latexStudio: LatexStudioAPI | null = null;
   if (MOD === '⌘') root.querySelectorAll('[data-mod]').forEach((dt) => (dt.textContent = (dt.textContent ?? '').replace(/^ctrl/, '⌘')));
 
   // ---- which version to open ----------------------------------------------
@@ -179,6 +187,9 @@ export function initWriter(signal: AbortSignal) {
       pinned: field('pinned').checked,
       font: field<HTMLSelectElement>('font').value as Fields['font'],
       draft: !q<HTMLInputElement>('[data-f="draft"][value="published"]').checked,
+      macros: field<HTMLTextAreaElement>('macros').value,
+      bibliography: field<HTMLTextAreaElement>('bibliography').value,
+      citationStyle: field<HTMLSelectElement>('citationStyle').value as Fields['citationStyle'],
     };
   }
 
@@ -192,6 +203,9 @@ export function initWriter(signal: AbortSignal) {
     field('series').value = f.series;
     field('seriesOrder').value = f.seriesOrder === null ? '' : String(f.seriesOrder);
     field<HTMLSelectElement>('font').value = f.font;
+    field<HTMLSelectElement>('citationStyle').value = f.citationStyle ?? '';
+    field<HTMLTextAreaElement>('macros').value = f.macros ?? '';
+    field<HTMLTextAreaElement>('bibliography').value = f.bibliography ?? '';
     root.querySelectorAll<HTMLInputElement>('[data-f="draft"]').forEach((r) => (r.checked = (r.value === 'draft') === f.draft));
     field('pinned').checked = f.pinned;
     if (undoable && ta.value !== body) {
@@ -206,6 +220,7 @@ export function initWriter(signal: AbortSignal) {
     queueGutter();
     renderPicks();
     refreshSpelling?.();
+    latexStudio?.handleInput();
   }
 
   // ---- existing tags & series ------------------------------------------------------
@@ -308,6 +323,9 @@ export function initWriter(signal: AbortSignal) {
       f.pinned,
       f.font,
       f.draft,
+      (f.macros ?? '').trim(),
+      (f.bibliography ?? '').trim(),
+      f.citationStyle ?? '',
       body.replace(/\s+$/, ''),
     ]);
 
@@ -531,6 +549,7 @@ export function initWriter(signal: AbortSignal) {
   let menu: { el: HTMLElement; items: Item[]; active: number } | null = null;
 
   function openMenu(el: HTMLElement, head: string, items: Item[], at: number) {
+    latexStudio?.closePopups();
     if (menu && menu.el !== el) menu.el.hidden = true;
     el.innerHTML =
       `<div class="w-pop-head">${esc(head)}</div>` +
@@ -632,6 +651,20 @@ export function initWriter(signal: AbortSignal) {
     insertTemplate(le, le, `\n\n${tpl}`);
   }
 
+  function jumpToLine(line: number) {
+    if (layout === 'preview') setLayout(editLayout());
+    let off = 0;
+    for (let n = 1; n < line; n++) {
+      const i = ta.value.indexOf('\n', off);
+      if (i < 0) break;
+      off = i + 1;
+    }
+    ta.focus({ preventScroll: true });
+    ta.setSelectionRange(off, off);
+    const y = wrap.getBoundingClientRect().top + window.scrollY + caret(off).y;
+    window.scrollTo({ top: Math.max(0, y - stickyTop() - window.innerHeight / 4), behavior: 'instant' });
+  }
+
   /** Rewrite the selected lines (or the caret's line), keeping the caret on its line. */
   function editLines(transform: (lines: string[]) => string[]) {
     const { selectionStart: s, selectionEnd: e } = ta;
@@ -706,9 +739,139 @@ export function initWriter(signal: AbortSignal) {
     { id: 'ol', label: 'numbered list', icon: '1.', keys: 'list numbered ordered ol', hint: '1.', shortcut: 'mod+shift+7', ribbon: 'main', slash: true, run: (via) => list('ol', via) },
     { id: 'quote', label: 'quote', icon: '“', keys: 'quote blockquote', hint: '>', ribbon: 'main', phone: true, slash: true, run: (via) => quoteLines(via) },
     { id: 'code', label: 'inline code', icon: '</>', keys: 'code inline', ribbon: 'main', run: () => wrapSelection('`', '`', 'code') },
+    { id: 'math', label: 'inline math $', icon: '$', keys: 'math inline latex', shortcut: 'mod+m', ribbon: 'main', phone: true, run: () => wrapSelection('$', '$', 'x^2') },
+    { id: 'mathblock', label: 'Math block $$', icon: '$$', keys: 'math equation latex block display', shortcut: 'mod+shift+m', ribbon: 'main', slash: true, run: (via) => blockInsert(`$$\n${SEL_START}${SEL_END}\n$$\n`, via) },
+    { id: 'math-palette', label: 'math symbols & environments', icon: 'Σ', keys: 'math symbols palette greek latex', ribbon: 'main', phone: true, run: () => latexStudio?.togglePalette() },
     { id: 'footnote', label: 'footnote', icon: 'fn', keys: 'footnote note', shortcut: 'mod+shift+f', ribbon: 'main', slash: true, run: (via) => (via === 'slash' && clearSlash(), openFootnote()) },
     { id: 'image', label: 'image / GIF', icon: 'img', keys: 'image gif picture upload', hint: 'upload', ribbon: 'main', phone: true, slash: true, run: (via) => (via === 'slash' && clearSlash(), pickFile()) },
     { id: 'chart', label: 'chart', icon: 'chart', keys: 'chart graph plot data csv line bar area scatter', hint: 'from data', ribbon: 'main', phone: true, slash: true, run: (via) => openChart(via) },
+    {
+      id: 'equation',
+      label: 'Equation (numbered)',
+      icon: 'eq',
+      keys: 'equation numbered latex math label',
+      hint: '\\begin{equation}',
+      ribbon: 'more',
+      slash: true,
+      run: (via) => blockInsert(`\\begin{equation}\n\\label{eq:${SEL_START}name${SEL_END}}\n\n\\end{equation}\n`, via),
+    },
+    {
+      id: 'align',
+      label: 'Align equations',
+      icon: 'align',
+      keys: 'align equations multiline latex math',
+      hint: '\\begin{align}',
+      ribbon: 'more',
+      slash: true,
+      run: (via) => blockInsert(`\\begin{align}\n${SEL_START}a &= b${SEL_END} \\\\\n  &= c\n\\end{align}\n`, via),
+    },
+    {
+      id: 'cases',
+      label: 'Cases (piecewise)',
+      icon: '{…',
+      keys: 'cases piecewise function latex math',
+      hint: '\\begin{cases}',
+      slash: true,
+      run: (via) => blockInsert(`$$\nf(x) = \\begin{cases}\n  ${SEL_START}x${SEL_END}, & x \\ge 0 \\\\\n  -x, & x < 0\n\\end{cases}\n$$\n`, via),
+    },
+    {
+      id: 'matrix',
+      label: 'Matrix builder (matrix.exe)',
+      icon: '[M]',
+      keys: 'matrix pmatrix bmatrix array vector latex',
+      hint: 'matrix.exe',
+      ribbon: 'more',
+      slash: true,
+      run: (via) => {
+        if (via === 'slash') clearSlash();
+        latexStudio?.openMatrixBuilder(via);
+      },
+    },
+    {
+      id: 'theorem',
+      label: 'Theorem',
+      icon: 'Thm',
+      keys: 'theorem math arxiv env',
+      hint: '\\begin{theorem}',
+      ribbon: 'more',
+      slash: true,
+      run: (via) => blockInsert(`\\begin{theorem}[${SEL_START}Title${SEL_END}]\n\\label{thm:name}\nStatement here.\n\\end{theorem}\n`, via),
+    },
+    {
+      id: 'lemma',
+      label: 'Lemma',
+      icon: 'Lem',
+      keys: 'lemma math arxiv env',
+      hint: '\\begin{lemma}',
+      slash: true,
+      run: (via) => blockInsert(`\\begin{lemma}[${SEL_START}Title${SEL_END}]\n\\label{lem:name}\nStatement here.\n\\end{lemma}\n`, via),
+    },
+    {
+      id: 'definition',
+      label: 'Definition',
+      icon: 'Def',
+      keys: 'definition math arxiv env',
+      hint: '\\begin{definition}',
+      slash: true,
+      run: (via) => blockInsert(`\\begin{definition}[${SEL_START}Term${SEL_END}]\n\\label{def:name}\nDefinition here.\n\\end{definition}\n`, via),
+    },
+    {
+      id: 'proposition',
+      label: 'Proposition',
+      icon: 'Prop',
+      keys: 'proposition math arxiv env',
+      hint: '\\begin{proposition}',
+      slash: true,
+      run: (via) => blockInsert(`\\begin{proposition}[${SEL_START}Title${SEL_END}]\n\\label{prop:name}\nStatement here.\n\\end{proposition}\n`, via),
+    },
+    {
+      id: 'proof',
+      label: 'Proof',
+      icon: '∎',
+      keys: 'proof qed math arxiv env',
+      hint: '\\begin{proof}',
+      ribbon: 'more',
+      slash: true,
+      run: (via) => blockInsert(`\\begin{proof}\n${SEL_START}Proof goes here.${SEL_END}\n\\end{proof}\n`, via),
+    },
+    {
+      id: 'algorithm',
+      label: 'Algorithm (pseudocode)',
+      icon: 'Alg',
+      keys: 'algorithm pseudocode procedure arxiv env',
+      hint: '\\begin{algorithm}',
+      ribbon: 'more',
+      slash: true,
+      run: (via) =>
+        blockInsert(
+          `\\begin{algorithm}[${SEL_START}Algorithm Title${SEL_END}]\n\\label{alg:name}\nInput: $x \\in \\R^d$\nOutput: $y$\nfor $t = 1, \\dots, T$ do\n  $x \\gets x - \\eta \\nabla f(x)$\nreturn $x$\n\\end{algorithm}\n`,
+          via,
+        ),
+    },
+    {
+      id: 'bib',
+      label: 'BibTeX references',
+      icon: 'bib',
+      keys: 'bib bibtex citations references literature',
+      hint: 'drawer',
+      slash: true,
+      run: (via) => {
+        if (via === 'slash') clearSlash();
+        latexStudio?.toggleBibMacros('bib', true);
+      },
+    },
+    {
+      id: 'macros',
+      label: 'LaTeX preamble macros',
+      icon: '\\def',
+      keys: 'macros newcommand preamble operator latex',
+      hint: 'drawer',
+      slash: true,
+      run: (via) => {
+        if (via === 'slash') clearSlash();
+        latexStudio?.toggleBibMacros('macros', true);
+      },
+    },
     { id: 'tldr', label: 'TL;DR box', icon: 'tl;dr', keys: 'tldr summary box callout', ribbon: 'more', slash: true, run: (via) => blockInsert('> [!TLDR]\n> ', via) },
     { id: 'epistemic', label: 'Epistemic status', icon: 'status', keys: 'epistemic status confidence callout', ribbon: 'more', slash: true, run: (via) => blockInsert('> [!EPISTEMIC] Epistemic status\n> ', via) },
     { id: 'pullquote', label: 'Pull quote', icon: 'pull', keys: 'quote pull callout', ribbon: 'more', slash: true, run: (via) => blockInsert('> [!QUOTE] Who said it\n> ', via) },
@@ -722,7 +885,6 @@ export function initWriter(signal: AbortSignal) {
       run: (via) => blockInsert(`<details>\n<summary>${SEL_START}Title${SEL_END}</summary>\n\nHidden text goes here.\n\n</details>\n`, via),
     },
     { id: 'codeblock', label: 'code block', icon: '{ }', keys: 'code block fence pre', hint: '```', ribbon: 'more', slash: true, run: (via) => blockInsert(`\`\`\`\n${SEL_START}${SEL_END}\n\`\`\`\n`, via) },
-    { id: 'mathblock', label: 'Math block $$', icon: '$$', keys: 'math equation latex block', ribbon: 'more', slash: true, run: (via) => blockInsert(`$$\n${SEL_START}${SEL_END}\n$$\n`, via) },
     {
       id: 'diagram',
       label: 'diagram',
@@ -748,7 +910,6 @@ export function initWriter(signal: AbortSignal) {
           via,
         ),
     },
-    { id: 'math', label: 'inline math $', icon: '$', keys: 'math inline latex', ribbon: 'more', run: () => wrapSelection('$', '$', 'x^2') },
     { id: 'strike', label: 'strikethrough', icon: 'del', keys: 'strike strikethrough delete', ribbon: 'more', run: () => wrapSelection('~~', '~~', 'text') },
     { id: 'hr', label: 'divider', icon: '—', keys: 'divider rule hr line', hint: '---', ribbon: 'more', slash: true, run: (via) => blockInsert('---\n', via) },
   ];
@@ -815,21 +976,55 @@ export function initWriter(signal: AbortSignal) {
   bubble.setAttribute('role', 'toolbar');
   bubble.setAttribute('aria-label', 'Format selection');
   bubble.hidden = true;
-  bubble.innerHTML = ['bold', 'italic', 'code', 'link', 'math', 'quote']
+  const proseBubbleHtml = ['bold', 'italic', 'code', 'link', 'math', 'quote']
     .map((id) => {
       const c = cmd(id);
       return `<button type="button" data-cmd="${c.id}" title="${esc(c.label)}${c.shortcut ? ` (${keyLabel(c.shortcut)})` : ''}" aria-label="${esc(c.label)}">${esc(c.icon)}</button>`;
     })
     .join('');
+  bubble.innerHTML = proseBubbleHtml;
+  let mathBubbleActions: Array<{ id: string; icon: string; label: string; run: () => void }> = [];
   wrap.append(bubble);
   on(bubble, 'mousedown', (e: MouseEvent) => e.preventDefault());
   on(bubble, 'click', (e: MouseEvent) => {
-    const b = (e.target as HTMLElement).closest<HTMLElement>('[data-cmd]');
-    if (b) runCmd(cmd(b.dataset.cmd!), 'bubble');
+    const b = (e.target as HTMLElement).closest<HTMLElement>('[data-cmd], [data-math-act]');
+    if (!b) return;
+    if (b.dataset.mathAct !== undefined) {
+      const act = mathBubbleActions[Number(b.dataset.mathAct)];
+      if (act) {
+        if (document.activeElement !== ta) ta.focus({ preventScroll: true });
+        act.run();
+        requestAnimationFrame(showBubble);
+      }
+      return;
+    }
+    if (b.dataset.cmd) runCmd(cmd(b.dataset.cmd), 'bubble');
   });
 
   function showBubble() {
     if (document.activeElement !== ta || ta.selectionStart === ta.selectionEnd || menu || coarse()) return hideBubble();
+    const inMath = latexStudio?.isInMath(ta.selectionStart) ?? false;
+    if (inMath) {
+      mathBubbleActions = latexStudio?.getMathBubbleActions() ?? [];
+      if (mathBubbleActions.length) {
+        bubble.dataset.mode = 'math';
+        bubble.innerHTML = mathBubbleActions
+          .map(
+            (a, i) =>
+              `<button type="button" data-math-act="${i}" title="${esc(a.label)}" aria-label="${esc(a.label)}">${esc(a.icon)}</button>`,
+          )
+          .join('');
+      } else if (bubble.dataset.mode === 'math') {
+        delete bubble.dataset.mode;
+        bubble.innerHTML = proseBubbleHtml;
+      }
+    } else {
+      mathBubbleActions = [];
+      if (bubble.dataset.mode === 'math') {
+        delete bubble.dataset.mode;
+        bubble.innerHTML = proseBubbleHtml;
+      }
+    }
     const c = caret(ta.selectionStart);
     bubble.hidden = false;
     const above = c.y - bubble.offsetHeight - 6;
@@ -1552,10 +1747,17 @@ export function initWriter(signal: AbortSignal) {
     liveCtl?.abort();
     liveCtl = new AbortController();
     try {
+      const f = collect();
       const res = await fetch('/api/write/preview', {
         method: 'POST',
         headers: { 'content-type': 'application/json', accept: 'application/json' },
-        body: JSON.stringify({ slug, body: ta.value }),
+        body: JSON.stringify({
+          slug,
+          body: ta.value,
+          macros: f.macros,
+          bibliography: f.bibliography,
+          citationStyle: f.citationStyle,
+        }),
         signal: liveCtl.signal,
       });
       const d = await res.json().catch(() => ({}));
@@ -1564,6 +1766,7 @@ export function initWriter(signal: AbortSignal) {
       const keep = previewScroll.scrollTop;
       preview.innerHTML = d.html || '<p class="studio-note">nothing to preview yet.</p>';
       previewScroll.scrollTop = keep;
+      latexStudio?.setDiagnostics(Array.isArray(d.diagnostics) ? d.diagnostics : []);
       afterRender();
     } catch (err) {
       if ((err as Error).name === 'AbortError' || seq !== liveSeq) return;
@@ -1735,18 +1938,7 @@ export function initWriter(signal: AbortSignal) {
     const block = (e.target as Element).closest<HTMLElement>('[data-line]');
     if (!block || !preview.contains(block)) return;
     window.getSelection()?.removeAllRanges();
-    if (layout === 'preview') setLayout(editLayout());
-    const line = Number(block.dataset.line);
-    let off = 0;
-    for (let n = 1; n < line; n++) {
-      const i = ta.value.indexOf('\n', off);
-      if (i < 0) break;
-      off = i + 1;
-    }
-    ta.focus({ preventScroll: true });
-    ta.setSelectionRange(off, off);
-    const y = wrap.getBoundingClientRect().top + window.scrollY + caret(off).y;
-    window.scrollTo({ top: Math.max(0, y - stickyTop() - window.innerHeight / 4), behavior: 'instant' });
+    jumpToLine(Number(block.dataset.line));
   });
 
   // ---- counts + bar height -------------------------------------------------------------------
@@ -1884,6 +2076,57 @@ export function initWriter(signal: AbortSignal) {
     }
   }
 
+  // ---- LaTeX studio (autocomplete, math peek, symbol palette, matrix.exe, outline, bib/macros, .tex export) ----
+  latexStudio = initLatexStudio({
+    root,
+    ta,
+    wrap,
+    preview,
+    signal,
+    globalMacros: data.globalMacros ?? {},
+    defaultCitationStyle: data.defaultCitationStyle ?? 'numeric',
+    replace,
+    insertTemplate,
+    blockInsert,
+    caret,
+    place,
+    getMeta: () => {
+      const f = collect();
+      return {
+        title: f.title,
+        subtitle: f.subtitle,
+        description: f.description,
+        date: f.date,
+        author: data.authorName || '',
+        slug,
+        macros: f.macros,
+        bibliography: f.bibliography,
+        citationStyle: f.citationStyle,
+      };
+    },
+    setPostMacros: (v: string) => {
+      const el = field<HTMLTextAreaElement>('macros');
+      if (el.value !== v) {
+        el.value = v;
+        edited();
+        queueLive();
+      }
+    },
+    setPostBib: (v: string) => {
+      const el = field<HTMLTextAreaElement>('bibliography');
+      if (el.value !== v) {
+        el.value = v;
+        edited();
+        queueLive();
+      }
+    },
+    jumpToLine,
+    onEdited: () => {
+      edited();
+      queueLive();
+    },
+  });
+
   // ---- wiring ---------------------------------------------------------------------------------
   root.querySelectorAll<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>('[data-f]').forEach((el) => {
     const instant = el.tagName === 'SELECT' || el.type === 'radio' || el.type === 'checkbox';
@@ -1892,6 +2135,10 @@ export function initWriter(signal: AbortSignal) {
       if (el.dataset.f === 'draft') syncPublishLabel();
       if (el.dataset.f === 'tags' || el.dataset.f === 'series') renderPicks();
       if (el === subtitle) sizeSubtitle();
+      if (el.dataset.f === 'macros' || el.dataset.f === 'bibliography' || el.dataset.f === 'citationStyle') {
+        latexStudio?.handleInput();
+        queueLive();
+      }
       edited();
     });
   });
@@ -1909,6 +2156,7 @@ export function initWriter(signal: AbortSignal) {
     autosize();
     edited();
     detect();
+    latexStudio?.handleInput();
     queueGutter();
     hideBubble();
     paintCount();
@@ -1916,9 +2164,13 @@ export function initWriter(signal: AbortSignal) {
     queueLive();
     queueSync(true);
   });
-  on(ta, 'click', detect);
+  on(ta, 'click', () => {
+    detect();
+    latexStudio?.handleSelection();
+  });
   on(ta, 'mouseup', () => window.setTimeout(showBubble, 0));
   on(ta, 'keyup', (e: KeyboardEvent) => {
+    latexStudio?.handleSelection();
     if (e.shiftKey || ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'a')) showBubble();
     else if (ta.selectionStart === ta.selectionEnd) hideBubble();
   });
@@ -1927,6 +2179,7 @@ export function initWriter(signal: AbortSignal) {
       if (document.activeElement === ta || footEl.contains(document.activeElement)) return;
       closeMenu();
       hideBubble();
+      latexStudio?.handleBlur();
     }, 120),
   );
   on(ta, 'keydown', (e: KeyboardEvent) => {
@@ -1936,6 +2189,7 @@ export function initWriter(signal: AbortSignal) {
       if ((e.key === 'Enter' || e.key === 'Tab') && menu.items.length) return e.preventDefault(), pickMenu();
       if (e.key === 'Escape') return e.preventDefault(), closeMenu();
     }
+    if (latexStudio?.handleKeydown(e)) return;
     if (!(e.ctrlKey || e.metaKey)) return;
     // (No Ctrl+E for code: browsers use it for the address bar. The ribbon has a code button.)
     const digit = /^Digit(\d)$/.exec(e.code)?.[1];
@@ -1950,8 +2204,8 @@ export function initWriter(signal: AbortSignal) {
   on(document, 'keydown', (e: KeyboardEvent) => {
     if (e.defaultPrevented || !(e.ctrlKey || e.metaKey) || e.altKey) return;
     const k = e.key.toLowerCase();
-    // Behind the chart dialog only "save now" makes sense.
-    if (chartDlg.open && k !== 's') return;
+    // Behind a modal dialog only "save now" makes sense.
+    if ((chartDlg.open || !!root.querySelector('dialog[open]')) && k !== 's') return;
     if (k === 'p' && !e.shiftKey) {
       e.preventDefault();
       togglePreview();
@@ -1963,6 +2217,34 @@ export function initWriter(signal: AbortSignal) {
       save();
     }
   });
+
+  const latexPaletteBtn = root.querySelector<HTMLButtonElement>('[data-act="latex-palette"]');
+  const latexOutlineBtn = root.querySelector<HTMLButtonElement>('[data-act="latex-outline"]');
+  const latexBibBtn = root.querySelector<HTMLButtonElement>('[data-act="latex-bib"]');
+  const latexExportBtn = root.querySelector<HTMLButtonElement>('[data-act="latex-export"]');
+  if (latexPaletteBtn) on(latexPaletteBtn, 'click', () => latexStudio?.togglePalette());
+  if (latexOutlineBtn) on(latexOutlineBtn, 'click', () => latexStudio?.toggleOutline());
+  if (latexBibBtn) on(latexBibBtn, 'click', () => latexStudio?.toggleBibMacros());
+  if (latexExportBtn) on(latexExportBtn, 'click', () => latexStudio?.openTexExport());
+
+  // Keep studio-bar aria-expanded in sync with each LaTeX drawer's hidden state.
+  const drawerPairs: Array<[HTMLButtonElement | null, HTMLElement | null]> = [
+    [latexPaletteBtn, root.querySelector<HTMLElement>('[data-latex-palette]')],
+    [latexOutlineBtn, root.querySelector<HTMLElement>('[data-latex-outline]')],
+    [latexBibBtn, root.querySelector<HTMLElement>('[data-latex-bibmacros]')],
+  ];
+  if ('MutationObserver' in window) {
+    const syncDrawerAria = () => {
+      for (const [btn, panel] of drawerPairs) {
+        if (btn && panel) btn.setAttribute('aria-expanded', String(!panel.hidden));
+      }
+    };
+    const mo = new MutationObserver(syncDrawerAria);
+    for (const [, panel] of drawerPairs) {
+      if (panel) mo.observe(panel, { attributes: true, attributeFilter: ['hidden'] });
+    }
+    signal.addEventListener('abort', () => mo.disconnect());
+  }
 
   modeBtns.forEach((b) => on(b, 'click', () => setLayout(b.dataset.mode as Layout)));
   on(q('[data-act="focus"]'), 'click', () => toggleFocus());
@@ -2008,7 +2290,12 @@ export function initWriter(signal: AbortSignal) {
     clearTimeout(placeTimer);
     placeTimer = window.setTimeout(savePlace, 300);
   };
-  on(document, 'selectionchange', () => document.activeElement === ta && queuePlace());
+  on(document, 'selectionchange', () => {
+    if (document.activeElement === ta) {
+      queuePlace();
+      latexStudio?.handleSelection();
+    }
+  });
   on(window, 'scroll', queuePlace);
   on(window, 'pagehide', savePlace);
   on(document, 'astro:before-preparation', savePlace);

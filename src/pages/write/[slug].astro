@@ -7,6 +7,7 @@ import { SITE } from '../../site.config';
 import { studioSpellingLanguage } from '../../scripts/spelling-words';
 import { isOwner } from '../../lib/auth';
 import { listPosts, metaIndex, MODE, parsePost, readDraft, readForEditing, SLUG } from '../../lib/content';
+import { readGlobalLatexConfig } from '../api/write/latex-macros';
 
 export const prerender = false;
 const slug = Astro.params.slug ?? '';
@@ -30,12 +31,16 @@ if (!error && !published && !draft) return Astro.redirect('/write/');
 
 const current = draft ?? published?.doc;
 const title = current?.fields.title || slug;
+const latexConfig = readGlobalLatexConfig();
 const data = {
   slug,
   mode: tokenRejected ? 'off' : MODE,
   published,
   draft,
   siteFont: SITE.defaultFont,
+  authorName: SITE.authorName || SITE.authorHandle,
+  globalMacros: latexConfig.macros,
+  defaultCitationStyle: latexConfig.citationStyle,
   posts: listPosts().map((p) => ({ slug: p.slug, title: p.title })),
   meta: metaIndex(),
 };
@@ -65,6 +70,18 @@ const json = JSON.stringify(data).replace(/</g, '\\u003c');
             <span class="sb-local" data-local title="Every keystroke is also kept in this browser" hidden>kept in this browser</span>
           </span>
           <span class="sb-tools">
+            <button type="button" data-act="latex-palette" aria-expanded="false" aria-controls="latex-palette" title="Math symbols, structures &amp; environments">
+              <span class="br" aria-hidden="true">[ </span>Σ math<span class="br" aria-hidden="true"> ]</span>
+            </button>
+            <button type="button" data-act="latex-outline" aria-expanded="false" aria-controls="latex-outline" title="Document outline, equations &amp; theorems">
+              <span class="br" aria-hidden="true">[ </span>outline<span class="br" aria-hidden="true"> ]</span>
+            </button>
+            <button type="button" data-act="latex-bib" aria-expanded="false" aria-controls="latex-bibmacros" title="BibTeX references &amp; preamble macros">
+              <span class="br" aria-hidden="true">[ </span>bib<span class="br" aria-hidden="true"> ]</span>
+            </button>
+            <button type="button" data-act="latex-export" title="Export arXiv-ready .tex / .bib">
+              <span class="br" aria-hidden="true">[ </span>.tex<span class="br" aria-hidden="true"> ]</span>
+            </button>
             <button type="button" data-act="keys" aria-expanded="false" aria-controls="keys">
               <span class="br" aria-hidden="true">[ </span>keys<span class="br" aria-hidden="true"> ]</span>
             </button>
@@ -114,6 +131,13 @@ const json = JSON.stringify(data).replace(/</g, '\\u003c');
             <dt>/chart</dt><dd>chart from CSV, JSON or a Markdown table, with a live preview</dd>
             <dt>/diagram</dt><dd>boxes and arrows: <code>A[Input] -&gt; B[Output]</code></dd>
             <dt>/figure</dt><dd>images side by side with one caption</dd>
+            <dt>\</dt><dd>LaTeX autocomplete (commands, symbols, <code>\begin&#123;...&#125;</code>, macros) with live KaTeX glyphs</dd>
+            <dt>Tab / Shift+Tab</dt><dd>jump between math snippet placeholders</dd>
+            <dt data-mod>ctrl+m</dt><dd>inline math <code>$...$</code></dd>
+            <dt data-mod>ctrl+shift+m</dt><dd>display math block <code>$$...$$</code></dd>
+            <dt>/equation /align /matrix</dt><dd>numbered equations, multiline align &amp; visual <code>matrix.exe</code> builder</dd>
+            <dt>/theorem /proof /algorithm</dt><dd>arXiv theorem/lemma/definition/proposition/proof environments &amp; pseudocode</dd>
+            <dt>\eqref&#123; / \cite&#123;</dt><dd>autocomplete equation/theorem labels &amp; BibTeX citation keys</dd>
           </dl>
         </div>
 
@@ -177,6 +201,14 @@ const json = JSON.stringify(data).replace(/</g, '\\u003c');
               <option value="mono">mono</option>
             </select>
           </label>
+          <label>
+            citation style
+            <select data-f="citationStyle">
+              <option value="">site default ({latexConfig.citationStyle})</option>
+              <option value="numeric">numeric [1]</option>
+              <option value="author-year">author-year (Author, Year)</option>
+            </select>
+          </label>
           <fieldset>
             <legend>status</legend>
             <div class="row">
@@ -186,6 +218,14 @@ const json = JSON.stringify(data).replace(/</g, '\\u003c');
           </fieldset>
           <label class="row">
             <input type="checkbox" data-f="pinned" /> pin to the top
+          </label>
+          <label class="wide">
+            LaTeX preamble macros (<code>\newcommand</code>, <code>\DeclareMathOperator</code> — merged with <a href="/write/settings/">site defaults</a>)
+            <textarea data-f="macros" rows="3" spellcheck="false" autocomplete="off" placeholder={'\\newcommand{\\loss}{\\mathcal{L}}\n\\DeclareMathOperator{\\Tr}{Tr}'}></textarea>
+          </label>
+          <label class="wide">
+            BibTeX references (<code>.bib</code> entries for <code>\cite&#123;key&#125;</code>)
+            <textarea data-f="bibliography" rows="4" spellcheck="false" autocomplete="off" placeholder={'@article{vaswani2017attention,\n  title={Attention Is All You Need},\n  author={Vaswani, Ashish and Shazeer, Noam},\n  year={2017}\n}'}></textarea>
           </label>
         </div>
 
@@ -202,6 +242,9 @@ const json = JSON.stringify(data).replace(/</g, '\\u003c');
                 <span class="w-pane-meta"><span data-count></span> <span class="w-pane-dim" aria-hidden="true">·</span> <span class="w-pane-status" data-pane-status>saved</span></span>
               </div>
               <div class="w-ribbon-slot" data-ribbon-slot></div>
+              <div class="w-latex-palette" id="latex-palette" data-latex-palette hidden></div>
+              <div class="w-latex-bibmacros" id="latex-bibmacros" data-latex-bibmacros hidden></div>
+              <div class="w-latex-outline" id="latex-outline" data-latex-outline hidden></div>
             </div>
           <div class="canvas">
             <input class="w-title" data-spelling spellcheck="true" autocorrect="off" data-f="title" type="text" placeholder="Title" aria-label="Title" autocomplete="off" />
@@ -227,6 +270,7 @@ const json = JSON.stringify(data).replace(/</g, '\\u003c');
             <div class="w-pane-bar">
               <span class="w-pane-title">preview <span class="w-pane-dim">//</span> live</span>
               <span class="w-pane-tools">
+                <button type="button" class="bevel w-diag-btn" data-latex-diag-btn aria-expanded="false" aria-controls="latex-diag-panel" hidden></button>
                 <span class="w-aa" role="group" aria-label="Preview font">
                   <span class="w-pane-dim" aria-hidden="true">Aa:</span>
                   <button type="button" class="bevel" data-preview-font="sans" aria-pressed="false">Sans</button><button type="button" class="bevel" data-preview-font="serif" aria-pressed="false">Serif</button><button type="button" class="bevel" data-preview-font="mono" aria-pressed="false">Mono</button>
@@ -234,6 +278,7 @@ const json = JSON.stringify(data).replace(/</g, '\\u003c');
                 <button type="button" class="bevel w-sync" data-sync aria-pressed="true" title="The preview follows the part of the source you're looking at">sync: <span data-sync-label>on</span></button>
               </span>
             </div>
+            <div class="w-diag-panel" id="latex-diag-panel" data-latex-diag-panel hidden></div>
             <div class="w-preview-scroll" data-preview-scroll tabindex="0" aria-label="Rendered post (double-click a block to jump to its source)">
               <header class="w-preview-head" data-preview-head></header>
               <div class="w-preview prose" data-preview></div>
@@ -308,6 +353,10 @@ const json = JSON.stringify(data).replace(/</g, '\\u003c');
             </div>
           </form>
         </dialog>
+
+        <!-- Visual matrix / structure builder (matrix.exe) and arXiv .tex/.bib exporter (export.exe). -->
+        <dialog class="win w-matrix" data-matrix-dialog aria-labelledby="w-matrix-title"></dialog>
+        <dialog class="win w-tex" data-tex-dialog aria-labelledby="w-tex-title"></dialog>
       </div>
     )
   }

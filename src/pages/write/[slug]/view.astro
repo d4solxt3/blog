@@ -13,6 +13,7 @@ import { renderPreview } from '../../../../plugins/preview.mjs';
 import { isOwner, DEV } from '../../../lib/auth';
 import { parsePost, readDraft, readMedia, readForEditing, SLUG } from '../../../lib/content';
 import { entryCode, getPostsByDate, readingTime } from '../../../utils/posts';
+import { readGlobalLatexConfig } from '../../api/write/latex-macros';
 
 export const prerender = false;
 const slug = Astro.params.slug ?? '';
@@ -25,7 +26,13 @@ const doc = draft ?? (pub ? parsePost(slug, pub.ext, pub.source) : null);
 if (!doc) return Astro.redirect('/write/');
 const f = doc.fields;
 
-let html = await renderPreview(doc.body);
+const globalLatex = readGlobalLatexConfig();
+let html = await renderPreview(doc.body, {
+  macros: f.macros,
+  bibliography: f.bibliography,
+  citationStyle: f.citationStyle || globalLatex.citationStyle,
+  globalMacros: globalLatex.macros,
+});
 // On the live site, images uploaded since the last deploy are served from the server's disk.
 if (!DEV) {
   html = html.replace(/(src=")\/images\/posts\/([a-z0-9-]+)\/([a-z0-9][a-z0-9-]*\.(?:png|jpg|gif|webp|svg))"/g, (m: string, pre: string, s: string, file: string) =>

@@ -3,7 +3,7 @@
  * hover previews and copy-code buttons. Called on every page load; all
  * window/document listeners use `signal` so they're dropped on navigation.
  */
-import { initPreviews } from './previews';
+import { findTargetById, initPreviews, pulseTarget } from './previews';
 
 export function initPostPage(signal: AbortSignal) {
   const body = document.querySelector<HTMLElement>('[data-post-body]');
@@ -258,4 +258,62 @@ export function initPostPage(signal: AbortSignal) {
     });
     label.append(btn);
   });
+
+  // Tactile [copy tex] button on every rendered display equation block.
+  document.querySelectorAll<HTMLElement>('.prose .math-block[data-raw-tex]').forEach((block) => {
+    const rawTex = block.dataset.rawTex?.trim();
+    if (!rawTex || block.querySelector('.copy-tex')) return;
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'copy-tex';
+    btn.textContent = '[copy tex]';
+    btn.setAttribute('aria-label', 'Copy LaTeX source to clipboard');
+    let resetTimer = 0;
+    btn.addEventListener(
+      'click',
+      async () => {
+        const tex = block.dataset.rawTex ?? rawTex;
+        let ok = false;
+        try {
+          await navigator.clipboard.writeText(tex);
+          ok = true;
+        } catch {
+          try {
+            const ta = document.createElement('textarea');
+            ta.value = tex;
+            ta.setAttribute('readonly', '');
+            ta.style.cssText = 'position:fixed;top:-9999px;left:-9999px;opacity:0;';
+            document.body.append(ta);
+            ta.select();
+            ok = document.execCommand('copy');
+            ta.remove();
+          } catch {
+            ok = false;
+          }
+        }
+        window.clearTimeout(resetTimer);
+        btn.textContent = ok ? '[copied ✓]' : '[copy failed]';
+        btn.classList.toggle('is-copied', ok);
+        resetTimer = window.setTimeout(() => {
+          btn.textContent = '[copy tex]';
+          btn.classList.remove('is-copied');
+        }, 1600);
+      },
+      { signal },
+    );
+    signal.addEventListener('abort', () => window.clearTimeout(resetTimer));
+    block.append(btn);
+  });
+
+  // Pulse jumped-to equations, theorems, algorithms, figures and references
+  // on hash navigation (and initial load with a hash).
+  const pulseHash = () => {
+    if (!window.location.hash) return;
+    const target = findTargetById(body, window.location.hash);
+    if (target?.matches('.math-block, .math-env, .algorithm-block, .references li, .figure, .chart, .diagram')) {
+      pulseTarget(target);
+    }
+  };
+  window.addEventListener('hashchange', pulseHash, { signal });
+  if (window.location.hash) requestAnimationFrame(pulseHash);
 }

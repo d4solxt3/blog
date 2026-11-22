@@ -4,6 +4,7 @@ import '../../styles/write.css';
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import { DEV, isOwner, MIN_PASSWORD, passwordChangedAt, passwordSource } from '../../lib/auth';
 import { MODE, PUBLISHING } from '../../lib/content';
+import { readGlobalLatexConfig } from '../api/write/latex-macros';
 
 export const prerender = false;
 if (!isOwner(Astro.request)) return Astro.redirect('/?auth=1&next=/write/settings/');
@@ -18,6 +19,18 @@ const sourceLabel =
       : DEV
         ? 'none needed while running npm run dev'
         : 'not set';
+
+const latexCfg = readGlobalLatexConfig();
+const formatMacros = (macros: Record<string, string>) =>
+  Object.entries(macros)
+    .map(([name, body]) => {
+      const args = [...body.matchAll(/(?<!\\)#([1-9])/g)].map((m) => Number(m[1]));
+      const arity = args.length ? Math.max(...args) : 0;
+      return arity > 0 ? `\\newcommand{${name}}[${arity}]{${body}}` : `\\newcommand{${name}}{${body}}`;
+    })
+    .join('\n');
+const initialPreamble = formatMacros(latexCfg.macros);
+const initialMacroCount = Object.keys(latexCfg.macros).length;
 ---
 
 <BaseLayout title="Settings" description="Owner settings." banner={false}>
@@ -76,6 +89,60 @@ const sourceLabel =
       </div>
     </section>
 
+    <section class="panel" aria-labelledby="latex-h">
+      <div class="panel-bar">
+        <h2 class="panel-title" id="latex-h">latex macros &amp; citations</h2>
+        <span data-latex-meta>
+          {initialMacroCount} {initialMacroCount === 1 ? 'macro' : 'macros'} · {latexCfg.source === 'override' ? 'server override' : 'site.config.json'}
+        </span>
+      </div>
+      <div class="panel-body">
+        <form class="latex-form" data-latex-form>
+          <fieldset class="latex-fieldset">
+            <legend>default citation style</legend>
+            <div class="latex-radios">
+              <label class="latex-radio">
+                <input type="radio" name="citationStyle" value="numeric" checked={latexCfg.citationStyle === 'numeric'} />
+                <span>numeric <code>[1]</code></span>
+              </label>
+              <label class="latex-radio">
+                <input type="radio" name="citationStyle" value="author-year" checked={latexCfg.citationStyle === 'author-year'} />
+                <span>author-year <code>(Author, Year)</code></span>
+              </label>
+            </div>
+          </fieldset>
+
+          <div class="latex-field">
+            <label for="latex-macros-input">
+              global macros (one <code>\newcommand</code> / <code>\DeclareMathOperator</code> per line, or JSON)
+            </label>
+            <textarea
+              id="latex-macros-input"
+              name="macros"
+              class="latex-textarea well"
+              rows={Math.min(22, Math.max(10, initialMacroCount + 2))}
+              spellcheck="false"
+              autocomplete="off"
+              autocorrect="off"
+              autocapitalize="off"
+            >{initialPreamble}</textarea>
+          </div>
+
+          <div class="latex-actions">
+            <button type="submit" class="cm-submit" data-latex-save>[ save latex settings ]</button>
+            <button type="button" class="bevel" data-latex-reset>[ reset defaults ]</button>
+            <span class="studio-note" data-latex-status role="status" aria-live="polite"></span>
+          </div>
+        </form>
+        <p class="studio-note" style="margin-top: 8px">
+          Shared across every post and the <code>/write</code> studio preview. Per-post frontmatter <code>macros</code> and <code>citationStyle</code> override these defaults.
+          {DEV
+            ? <> Saves directly into <code>site.config.json</code> while running <code>npm run dev</code>.</>
+            : <> Saves to the server's persistent disk (<code>latex-macros.json</code>) and takes effect immediately without redeploying.</>}
+        </p>
+      </div>
+    </section>
+
     <section class="panel" aria-labelledby="more-h">
       <div class="panel-bar"><h2 class="panel-title" id="more-h">more</h2></div>
       <div class="panel-body">
@@ -90,10 +157,197 @@ const sourceLabel =
   </div>
 </BaseLayout>
 
+<style>
+  .latex-form {
+    display: grid;
+    gap: 10px;
+  }
+
+  .latex-fieldset {
+    margin: 0;
+    padding: 8px 10px;
+    border: 1px solid var(--rule);
+    background: var(--wash);
+  }
+
+  .latex-fieldset legend {
+    padding: 0 4px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  .latex-radios {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 18px;
+    margin-top: 2px;
+  }
+
+  .latex-radio {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--ink);
+    cursor: pointer;
+  }
+
+  .latex-radio input {
+    margin: 0;
+    accent-color: var(--accent);
+  }
+
+  .latex-field {
+    display: grid;
+    gap: 4px;
+  }
+
+  .latex-field label {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  .latex-textarea {
+    width: 100%;
+    min-height: 11rem;
+    padding: 8px;
+    border: 1px solid var(--line);
+    border-radius: 0;
+    background: var(--surface);
+    font: 12px/1.55 var(--font-mono);
+    color: var(--ink);
+    resize: vertical;
+    tab-size: 2;
+  }
+
+  .latex-textarea:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: -1px;
+  }
+
+  .latex-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .latex-actions [data-latex-status][data-state='error'] {
+    color: var(--signal, var(--ink));
+    font-weight: 600;
+  }
+
+  .latex-actions [data-latex-status][data-state='ok'] {
+    color: var(--ink);
+  }
+</style>
+
 <script>
   import { navigate } from 'astro:transitions/client';
+  import { DEFAULT_LATEX_MACROS, parseLatexPreamble } from '../../../plugins/latex-core.mjs';
   import { onPage } from '../../scripts/lifecycle';
   import { forgetOwner } from '../../scripts/owner-ui';
+
+  const formatMacros = (macros: Record<string, string>) =>
+    Object.entries(macros)
+      .map(([name, body]) => {
+        const args = [...body.matchAll(/(?<!\\)#([1-9])/g)].map((m) => Number(m[1]));
+        const arity = args.length ? Math.max(...args) : 0;
+        return arity > 0 ? `\\newcommand{${name}}[${arity}]{${body}}` : `\\newcommand{${name}}{${body}}`;
+      })
+      .join('\n');
+
+  function parseMacrosInput(raw: string): Record<string, string> {
+    const trimmed = raw.trim();
+    if (!trimmed) return {};
+    if (trimmed.startsWith('{')) {
+      const obj = JSON.parse(trimmed);
+      if (!obj || typeof obj !== 'object' || Array.isArray(obj)) {
+        throw new Error('JSON must be an object mapping "\\cmd" to definition.');
+      }
+      const out: Record<string, string> = {};
+      for (const [k, v] of Object.entries(obj)) {
+        if (typeof v !== 'string') throw new Error(`Macro "${k}" must map to a string.`);
+        out[k] = v;
+      }
+      return out;
+    }
+    const { macros } = parseLatexPreamble(trimmed);
+    if (Object.keys(macros).length === 0) {
+      const hasCode = trimmed.split(/\r?\n/).some((line) => line.trim() && !line.trim().startsWith('%'));
+      if (hasCode) {
+        throw new Error('Could not parse any \\newcommand or \\DeclareMathOperator definitions.');
+      }
+    }
+    return macros;
+  }
+
+  // [ save latex settings ] / [ reset defaults ]
+  onPage((signal) => {
+    const form = document.querySelector<HTMLFormElement>('[data-latex-form]');
+    if (!form) return;
+    const ta = form.querySelector<HTMLTextAreaElement>('textarea[name="macros"]')!;
+    const saveBtn = form.querySelector<HTMLButtonElement>('[data-latex-save]')!;
+    const resetBtn = form.querySelector<HTMLButtonElement>('[data-latex-reset]')!;
+    const status = form.querySelector<HTMLElement>('[data-latex-status]')!;
+    const meta = document.querySelector<HTMLElement>('[data-latex-meta]');
+
+    resetBtn.addEventListener(
+      'click',
+      () => {
+        ta.value = formatMacros(DEFAULT_LATEX_MACROS);
+        const numericRadio = form.querySelector<HTMLInputElement>('input[name="citationStyle"][value="numeric"]');
+        if (numericRadio) numericRadio.checked = true;
+        status.textContent = 'loaded starter defaults — click [ save latex settings ] to save.';
+        status.dataset.state = '';
+      },
+      { signal },
+    );
+
+    form.addEventListener(
+      'submit',
+      async (e) => {
+        e.preventDefault();
+        let macros: Record<string, string>;
+        try {
+          macros = parseMacrosInput(ta.value);
+        } catch (err) {
+          status.textContent = `× ${err instanceof Error ? err.message : 'Could not parse macros.'}`;
+          status.dataset.state = 'error';
+          return;
+        }
+        const checked = form.querySelector<HTMLInputElement>('input[name="citationStyle"]:checked');
+        const citationStyle = checked?.value === 'author-year' ? 'author-year' : 'numeric';
+
+        saveBtn.disabled = true;
+        status.textContent = 'saving…';
+        status.dataset.state = '';
+        try {
+          const res = await fetch('/api/write/latex-macros', {
+            method: 'PUT',
+            headers: { 'content-type': 'application/json', accept: 'application/json' },
+            body: JSON.stringify({ macros, citationStyle }),
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) throw new Error(data.error ?? 'Could not save LaTeX settings.');
+          const count = Object.keys(data.macros ?? macros).length;
+          const srcLabel = data.source === 'override' ? 'server override' : 'site.config.json';
+          if (meta) meta.textContent = `${count} ${count === 1 ? 'macro' : 'macros'} · ${srcLabel}`;
+          status.textContent = `✓ saved ${count} ${count === 1 ? 'macro' : 'macros'} (${data.citationStyle ?? citationStyle}) to ${srcLabel}.`;
+          status.dataset.state = 'ok';
+        } catch (err) {
+          status.textContent = `× ${err instanceof Error ? err.message : 'Could not save LaTeX settings.'}`;
+          status.dataset.state = 'error';
+        } finally {
+          saveBtn.disabled = false;
+        }
+      },
+      { signal },
+    );
+  });
 
   // [ test connection ]: a read-only GitHub check of the publishing setup.
   onPage((signal) => {

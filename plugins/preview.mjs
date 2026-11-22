@@ -105,28 +105,83 @@ export async function renderArticleChart(props) {
   return code;
 }
 
+/** Build renderOpts.frontmatter carrying per-post LaTeX options + optional diagnostic sink. */
+function latexRenderOpts(opts = {}, diagSink) {
+  const frontmatter = {};
+  if (opts?.macros) frontmatter.macros = opts.macros;
+  if (opts?.bibliography) frontmatter.bibliography = opts.bibliography;
+  if (opts?.citationStyle) frontmatter.citationStyle = opts.citationStyle;
+  if (opts?.globalMacros && typeof opts.globalMacros === 'object') {
+    frontmatter.__globalMacros = opts.globalMacros;
+  }
+  if (Array.isArray(diagSink)) {
+    frontmatter.__latexDiagnostics = diagSink;
+  }
+  return { frontmatter };
+}
+
+/** Map a 0-based offset in `original` to a 1-based line number. */
+function buildLineLocator(original) {
+  const starts = [0];
+  for (let i = 0; i < original.length; i++) if (original[i] === '\n') starts.push(i + 1);
+  return (offset) => {
+    let lo = 0;
+    let hi = starts.length - 1;
+    while (lo < hi) {
+      const mid = (lo + hi + 1) >> 1;
+      if (starts[mid] <= offset) lo = mid;
+      else hi = mid - 1;
+    }
+    return lo + 1;
+  };
+}
+
+/**
+ * The studio's split preview with diagnostics: returns `{ html, diagnostics }`
+ * where blocks carry `data-line="n"` (1-based line in `src`) and diagnostics
+ * carry `{ line, message, hint, tex, display }`.
+ * @param {string} src
+ * @param {{ macros?: string | Record<string, string>, bibliography?: string, citationStyle?: string, globalMacros?: Record<string, string> }} [opts]
+ */
+export async function renderStudioPreviewFull(src, opts = {}) {
+  const md = await getStudioProcessor();
+  const original = String(src ?? '');
+  const mapped = mdxToPreviewMapped(original);
+  const rawDiags = [];
+  const { code } = await md.render(mapped.text, latexRenderOpts(opts, rawDiags));
+  const html = offsetsToLines(code, mapped, original);
+  const lineOf = buildLineLocator(original);
+  const diagnostics = rawDiags.map((d) => ({
+    line: d.offset !== undefined ? lineOf(mapped.origin(d.offset)) : d.line,
+    message: d.message,
+    hint: d.hint,
+    tex: d.tex,
+    display: Boolean(d.display),
+  }));
+  return { html, diagnostics };
+}
+
 /**
  * The studio's split preview: identical HTML to renderPreview, plus
  * data-line="n" on each top-level block (n = 1-based line in `src`).
  * @param {string} src
+ * @param {Record<string, any>} [opts]
  */
-export async function renderStudioPreview(src) {
-  const md = await getStudioProcessor();
-  const mapped = mdxToPreviewMapped(src);
-  const { code } = await md.render(mapped.text);
-  return offsetsToLines(code, mapped, String(src));
+export async function renderStudioPreview(src, opts = {}) {
+  const { html } = await renderStudioPreviewFull(src, opts);
+  return html;
 }
 
 /** Render a snapshot body for the public article and its table of contents. */
-export async function renderLiveArticle(body, ext) {
+export async function renderLiveArticle(body, ext, opts = {}) {
   const md = await getProcessor();
-  const { code, metadata } = await md.render(ext === 'mdx' ? mdxToPreview(body) : body);
+  const { code, metadata } = await md.render(ext === 'mdx' ? mdxToPreview(body) : body, latexRenderOpts(opts));
   return { html: code, headings: metadata.headings };
 }
 
-/** @param {string} src Markdown/MDX source. @returns {Promise<string>} */
-export async function renderPreview(src) {
+/** @param {string} src Markdown/MDX source. @param {Record<string, any>} [opts] @returns {Promise<string>} */
+export async function renderPreview(src, opts = {}) {
   const md = await getProcessor();
-  const { code } = await md.render(mdxToPreview(src));
+  const { code } = await md.render(mdxToPreview(src), latexRenderOpts(opts));
   return code;
 }

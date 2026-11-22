@@ -50,12 +50,15 @@ export type Fields = {
   pinned: boolean;
   font: '' | 'sans' | 'serif' | 'mono';
   draft: boolean;
+  macros: string;
+  bibliography: string;
+  citationStyle: '' | 'numeric' | 'author-year';
 };
 
 export type Doc = { slug: string; ext: 'md' | 'mdx'; fields: Fields; body: string; extra: Record<string, unknown> };
 export type Draft = Doc & { savedAt: number; basis: string | null };
 
-const KNOWN = ['title', 'subtitle', 'description', 'date', 'tags', 'series', 'seriesOrder', 'pinned', 'font', 'draft'];
+const KNOWN = ['title', 'subtitle', 'description', 'date', 'tags', 'series', 'seriesOrder', 'pinned', 'font', 'draft', 'macros', 'bibliography', 'citationStyle'];
 
 export const today = () => {
   const d = new Date();
@@ -75,6 +78,7 @@ export function parsePost(slug: string, ext: 'md' | 'mdx', source: string): Doc 
   const extra: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(data)) if (!KNOWN.includes(k)) extra[k] = v;
   const font = String(data.font ?? '');
+  const citationStyle = String(data.citationStyle ?? '');
   return {
     slug,
     ext,
@@ -91,6 +95,9 @@ export function parsePost(slug: string, ext: 'md' | 'mdx', source: string): Doc 
       pinned: data.pinned === true,
       font: (['sans', 'serif', 'mono'].includes(font) ? font : '') as Fields['font'],
       draft: data.draft === true,
+      macros: typeof data.macros === 'string' ? data.macros : '',
+      bibliography: typeof data.bibliography === 'string' ? data.bibliography : '',
+      citationStyle: (['numeric', 'author-year'].includes(citationStyle) ? citationStyle : '') as Fields['citationStyle'],
     },
   };
 }
@@ -110,6 +117,9 @@ export function serializePost(doc: Pick<Doc, 'fields' | 'body' | 'extra'>): stri
   if (f.pinned) data.pinned = true;
   if (f.font) data.font = f.font;
   data.draft = f.draft;
+  if (f.citationStyle) data.citationStyle = f.citationStyle;
+  if (f.macros?.trim()) data.macros = f.macros.trimEnd();
+  if (f.bibliography?.trim()) data.bibliography = f.bibliography.trimEnd();
   for (const [k, v] of Object.entries(doc.extra)) if (k !== 'updated') data[k] = v;
 
   const ydoc = new YAML.Document(data);
@@ -190,7 +200,13 @@ const draftFile = (slug: string) => join(DRAFTS_DIR, `${slug}.json`);
 export function readDraft(slug: string): Draft | null {
   if (retiredOnServer(slug)) return null;
   try {
-    return JSON.parse(readFileSync(draftFile(slug), 'utf8')) as Draft;
+    const d = JSON.parse(readFileSync(draftFile(slug), 'utf8')) as Draft;
+    if (d?.fields) {
+      d.fields.macros ??= '';
+      d.fields.bibliography ??= '';
+      d.fields.citationStyle ??= '';
+    }
+    return d;
   } catch {
     return null;
   }
@@ -354,7 +370,21 @@ export function newDoc(slug: string, title: string): Doc {
     ext: 'md',
     extra: {},
     body: '',
-    fields: { title, subtitle: '', description: '', date: today(), tags: [], series: '', seriesOrder: null, pinned: false, font: '', draft: true },
+    fields: {
+      title,
+      subtitle: '',
+      description: '',
+      date: today(),
+      tags: [],
+      series: '',
+      seriesOrder: null,
+      pinned: false,
+      font: '',
+      draft: true,
+      macros: '',
+      bibliography: '',
+      citationStyle: '',
+    },
   };
 }
 
@@ -623,7 +653,13 @@ export async function publish(doc: Doc, options: { expectedSha?: string | null; 
 
   const media = referencedMedia(doc.slug, doc.body);
   const { renderLiveArticle } = await import('../../plugins/preview.mjs');
-  const rendered = doc.fields.draft ? { html: '', headings: [] } : await renderLiveArticle(doc.body, ext);
+  const rendered = doc.fields.draft
+    ? { html: '', headings: [] }
+    : await renderLiveArticle(doc.body, ext, {
+        macros: doc.fields.macros ?? '',
+        bibliography: doc.fields.bibliography ?? '',
+        citationStyle: doc.fields.citationStyle ?? '',
+      });
   const sha = blobSha(source);
   const staged = stageLivePost({
     doc: parsePost(doc.slug, ext, source), source, sha, ...rendered, media: media.map(m => m.file),

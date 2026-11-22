@@ -632,6 +632,8 @@
   z-index: 40;
   display: grid;
   min-width: 15rem;
+  max-height: min(65vh, 26rem);
+  overflow-y: auto;
   padding: 2px;
   border: 1px solid var(--line);
   background: var(--surface);
@@ -1817,5 +1819,1094 @@
     width: 28px;
     height: 28px;
     right: -10px;
+  }
+}
+
+/* ==========================================================================
+   LaTeX Studio UI (src/scripts/latex-studio.ts)
+   Tactile 2003-portal chrome using theme tokens for both paper and cyber.
+   ========================================================================== */
+
+/* ---- math-mode selection bubble ---- */
+.w-bubble[data-mode='math'] {
+  border-color: var(--accent, var(--line));
+}
+
+/* ---- LaTeX autocomplete popup (.w-pop.w-latex-ac) ---- */
+.w-latex-ac {
+  min-width: 17rem;
+  max-width: min(28rem, 100%);
+}
+
+.w-latex-ac li {
+  align-items: center;
+  gap: 10px;
+  padding: 4px 8px;
+}
+
+.w-ac-main {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+  flex: 1;
+}
+
+.w-ac-cmd {
+  font-weight: 600;
+  color: inherit;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.w-ac-desc {
+  font-size: 10px;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.w-latex-ac li[aria-selected='true'] .w-ac-desc {
+  color: inherit;
+  opacity: 0.78;
+}
+
+.w-ac-preview {
+  flex: none;
+  min-width: 2rem;
+  max-width: 8rem;
+  overflow: hidden;
+  text-align: right;
+  font-size: 12px;
+  line-height: 1.2;
+}
+
+.w-ac-preview .katex {
+  font-size: 1em;
+}
+
+.w-ac-tag {
+  display: inline-block;
+  padding: 0 4px;
+  border: 1px solid var(--rule);
+  background: var(--wash);
+  font-size: 9.5px;
+  color: var(--muted);
+}
+
+.w-latex-ac li[aria-selected='true'] .w-ac-tag {
+  border-color: currentColor;
+  background: transparent;
+  color: inherit;
+}
+
+/* ---- instant floating KaTeX popover (.w-math-peek) ---- */
+.w-math-peek {
+  position: absolute;
+  z-index: 28;
+  min-width: 12rem;
+  max-width: min(34rem, calc(100% - 8px));
+  border: 1px solid var(--line);
+  background: var(--surface);
+  box-shadow: 3px 3px 0 var(--rule);
+  font-family: var(--font-mono);
+  color: var(--ink);
+}
+
+.w-math-peek.is-error {
+  border-color: var(--signal);
+  border-style: dashed;
+}
+
+.w-math-peek-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 2px 6px;
+  border-bottom: 1px solid var(--rule);
+  background: linear-gradient(var(--strip-top), var(--strip-bottom));
+  box-shadow: inset 0 1px 0 var(--bevel-highlight);
+  font-size: 10px;
+  color: var(--muted);
+}
+
+.w-math-peek-kind {
+  font-weight: 600;
+  color: var(--ink-2);
+}
+
+.w-math-peek-acts {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.w-math-peek-pin,
+.w-math-peek-close {
+  height: 16px;
+  padding: 0 5px;
+  border: 1px solid var(--border-hairline);
+  background: var(--surface);
+  font: 10px/1 var(--font-mono);
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.w-math-peek-pin:hover,
+.w-math-peek-close:hover {
+  border-color: var(--line);
+  color: var(--ink);
+}
+
+.w-math-peek-pin[aria-pressed='true'] {
+  border-color: var(--ink);
+  background: var(--ink);
+  color: var(--surface);
+}
+
+.w-math-peek-body {
+  padding: 8px 12px;
+  max-height: 12rem;
+  overflow: auto;
+  text-align: center;
+  font-family: var(--font-read);
+}
+
+.w-math-peek-body .katex-display {
+  margin: 0.2em 0;
+}
+
+.w-math-peek-err {
+  padding: 5px 8px;
+  border-top: 1px dashed var(--signal);
+  background: var(--wash);
+  font: 10.5px/1.45 var(--font-mono);
+  color: var(--signal);
+}
+
+.w-math-peek-err strong {
+  display: block;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.w-math-peek-hint {
+  display: block;
+  margin-top: 2px;
+  color: var(--ink-2);
+}
+
+/* ---- shared source-pane drawers: [ Σ math ], [ outline ], [ bib & macros ] ---- */
+.w-latex-palette,
+.w-latex-outline,
+.w-latex-bibmacros {
+  border: 1px solid var(--line);
+  border-top: 0;
+  background: var(--wash);
+  padding: 7px 8px 8px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--ink);
+}
+
+.w-lp-close {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  font: 600 12px/1 var(--font-mono);
+  color: var(--ink);
+}
+
+.w-lp-empty {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: 8px 4px;
+  font: 11px/1.45 var(--font-mono);
+  color: var(--muted);
+}
+
+/* ---- [ Σ math ] searchable symbol palette ---- */
+.w-lp-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.w-lp-search {
+  flex: 1 1 12rem;
+  min-width: 0;
+  height: 24px;
+  padding: 2px 6px;
+  border: 1px solid var(--line);
+  border-radius: 0;
+  background: var(--surface);
+  font: 11.5px var(--font-mono);
+  color: var(--ink);
+}
+
+.w-lp-search::placeholder {
+  color: var(--muted);
+  opacity: 1;
+}
+
+.w-lp-opt {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--muted);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.w-lp-opt input {
+  margin: 0;
+  accent-color: var(--ink);
+}
+
+.w-lp-btn {
+  height: 24px;
+  padding: 0 7px;
+  font: 600 10.5px/1 var(--font-mono);
+  color: var(--ink);
+}
+
+.w-lp-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  margin-bottom: 6px;
+}
+
+.w-lp-tab {
+  height: 22px;
+  padding: 0 7px;
+  font: 10.5px/1 var(--font-mono);
+  color: var(--muted);
+}
+
+.w-lp-tab[aria-selected='true'],
+.w-bm-tab[aria-selected='true'],
+.w-tex-tab[aria-selected='true'] {
+  border-color: var(--ink);
+  background: var(--ink);
+  color: var(--surface);
+  box-shadow: none;
+}
+
+.w-lp-macros-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  margin-bottom: 6px;
+  padding: 4px 6px;
+  border: 1px dotted var(--rule);
+  background: var(--surface);
+  color: var(--muted);
+}
+
+.w-lp-macros-bar button {
+  height: 20px;
+  padding: 0 6px;
+  font: 10.5px var(--font-mono);
+  color: var(--ink);
+}
+
+.w-lp-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(5.2rem, 1fr));
+  gap: 4px;
+  max-height: 13.5rem;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+.w-lp-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-height: 44px;
+  padding: 4px 4px 3px;
+  color: var(--ink);
+  text-align: center;
+  overflow: hidden;
+}
+
+.w-lp-tile--wide {
+  grid-column: span 2;
+}
+
+.w-lp-glyph {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  max-width: 100%;
+  overflow: hidden;
+  font-size: 13px;
+  line-height: 1.15;
+}
+
+.w-lp-glyph .katex {
+  font-size: 0.95em;
+}
+
+.w-lp-cmd {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font: 9.5px/1.2 var(--font-mono);
+  color: var(--muted);
+}
+
+.w-lp-tile:hover .w-lp-cmd {
+  color: var(--ink);
+}
+
+/* ---- [ outline ] document & equations navigator ---- */
+.w-lo-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.w-lo-title {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.w-lo-filters {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  margin-right: auto;
+}
+
+.w-lo-filter {
+  height: 20px;
+  padding: 0 6px;
+  font: 10px/1 var(--font-mono);
+  color: var(--muted);
+}
+
+.w-lo-filter[aria-pressed='true'] {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.w-lo-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  max-height: 14rem;
+  overflow-y: auto;
+  border: 1px solid var(--rule);
+  background: var(--surface);
+}
+
+.w-lo-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding-left: calc(var(--lo-depth, 0) * 14px);
+  border-bottom: 1px dotted var(--rule);
+}
+
+.w-lo-item:last-child {
+  border-bottom: 0;
+}
+
+.w-lo-jump {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+}
+
+.w-lo-jump:hover {
+  background: var(--wash);
+}
+
+.w-lo-badge {
+  flex: none;
+  padding: 0 4px;
+  border: 1px solid var(--rule);
+  background: var(--wash);
+  font-size: 9.5px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.w-lo-item--equation .w-lo-badge,
+.w-lo-item--theorem .w-lo-badge {
+  border-color: var(--accent, var(--line));
+  color: var(--accent, var(--ink));
+}
+
+.w-lo-body {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.w-lo-tex {
+  font-size: 11px;
+}
+
+.w-lo-tex .katex {
+  font-size: 0.92em;
+}
+
+.w-lo-label {
+  color: var(--ink);
+}
+
+.w-lo-line {
+  flex: none;
+  font-size: 10px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.w-lo-ref {
+  flex: none;
+  margin-right: 6px;
+  height: 20px;
+  padding: 0 5px;
+  font: 10px/1 var(--font-mono);
+  color: var(--ink);
+}
+
+/* ---- [ bib & macros ] drawer ---- */
+.w-bm-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.w-bm-tabs {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.w-bm-tab {
+  height: 22px;
+  padding: 0 8px;
+  font: 10.5px/1 var(--font-mono);
+  color: var(--muted);
+}
+
+.w-bm-pane {
+  display: grid;
+  gap: 6px;
+}
+
+.w-bm-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+}
+
+.w-bm-actions button {
+  height: 22px;
+  padding: 0 7px;
+  font: 10.5px var(--font-mono);
+  color: var(--ink);
+}
+
+.w-bm-ta {
+  width: 100%;
+  min-width: 0;
+  padding: 5px 6px;
+  border: 1px solid var(--line);
+  border-radius: 0;
+  background: var(--surface);
+  font: 11.5px/1.45 var(--font-mono);
+  color: var(--ink);
+  resize: vertical;
+  tab-size: 2;
+}
+
+.w-bm-list {
+  display: grid;
+  gap: 4px;
+  max-height: 11rem;
+  overflow-y: auto;
+}
+
+.w-bm-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 5px 8px;
+  border: 1px solid var(--rule);
+  background: var(--surface);
+}
+
+.w-bm-info {
+  min-width: 0;
+  flex: 1;
+}
+
+.w-bm-key {
+  font-weight: 600;
+  color: var(--accent, var(--ink));
+}
+
+.w-bm-meta {
+  font-size: 10px;
+  color: var(--muted);
+}
+
+.w-bm-title {
+  font-family: var(--font-sans);
+  font-size: 11.5px;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.w-bm-cite {
+  flex: none;
+  height: 22px;
+  padding: 0 7px;
+  font: 600 10.5px var(--font-mono);
+  color: var(--ink);
+}
+
+.w-bm-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  max-height: 7.5rem;
+  overflow-y: auto;
+}
+
+.w-bm-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  border: 1px solid var(--rule);
+  background: var(--surface);
+  font-size: 10.5px;
+  color: var(--muted);
+}
+
+.w-bm-pill code {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.w-bm-katex {
+  color: var(--ink);
+}
+
+.w-bm-katex .katex {
+  font-size: 0.92em;
+}
+
+.w-bm-global summary {
+  padding: 2px 0;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.w-bm-global .w-bm-pills {
+  margin-top: 4px;
+}
+
+/* ---- Preview KaTeX diagnostics badge & error log ---- */
+.w-pane-tools .w-diag-btn {
+  border-color: var(--signal);
+  color: var(--signal);
+  font-weight: 600;
+}
+
+.w-pane-tools .w-diag-btn[aria-expanded='true'] {
+  border-color: var(--signal);
+  background: var(--signal);
+  color: var(--surface);
+  box-shadow: none;
+}
+
+.w-diag-panel {
+  flex: none;
+  max-height: 13rem;
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-top: 0;
+  border-bottom: 1px dashed var(--signal);
+  background: var(--wash);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--ink);
+}
+
+.w-diag-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 4px 10px;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--rule);
+  background: var(--bar);
+  font-weight: 600;
+  color: var(--signal);
+}
+
+.w-diag-sub {
+  font-weight: 400;
+  color: var(--muted);
+}
+
+.w-diag-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.w-diag-item {
+  border-bottom: 1px dotted var(--rule);
+}
+
+.w-diag-item:last-child {
+  border-bottom: 0;
+}
+
+.w-diag-jump {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 8px;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+}
+
+.w-diag-jump:hover {
+  background: var(--surface);
+}
+
+.w-diag-line {
+  flex: none;
+  padding: 0 5px;
+  border: 1px solid var(--signal);
+  color: var(--signal);
+  font-size: 10px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.w-diag-info {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.w-diag-msg {
+  font-weight: 600;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+
+.w-diag-hint {
+  font-size: 10.5px;
+  color: var(--muted);
+}
+
+.w-diag-tex {
+  display: block;
+  padding: 2px 5px;
+  border: 1px solid var(--rule);
+  background: var(--surface);
+  font-size: 10.5px;
+  color: var(--ink-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---- matrix.exe & export.exe modal dialogs ---- */
+.w-matrix,
+.w-tex {
+  width: min(58rem, calc(100% - 2rem));
+  max-width: none;
+  max-height: calc(100% - 2rem);
+  margin: auto;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  box-shadow: 4px 4px 0 var(--line);
+  color: var(--ink);
+}
+
+.w-matrix[open],
+.w-tex[open] {
+  display: flex;
+  flex-direction: column;
+}
+
+.w-matrix::backdrop,
+.w-tex::backdrop {
+  background: color-mix(in srgb, var(--canvas) 65%, transparent);
+}
+
+.w-matrix .win-bar,
+.w-tex .win-bar {
+  flex: none;
+}
+
+.w-matrix .win-title,
+.w-tex .win-title {
+  margin: 0;
+}
+
+.w-matrix-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+  padding: 12px;
+  overflow-y: auto;
+  font: 11px/1.45 var(--font-mono);
+}
+
+.w-matrix-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+  color: var(--muted);
+}
+
+.w-matrix-controls label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.w-matrix-controls select,
+.w-matrix-controls input {
+  min-height: 24px;
+  padding: 2px 6px;
+  border: 1px solid var(--line);
+  border-radius: 0;
+  background: var(--surface);
+  font: 12px/1.4 var(--font-mono);
+  color: var(--ink);
+}
+
+.w-matrix-label {
+  flex: 1 1 12rem;
+}
+
+.w-matrix-label input {
+  flex: 1;
+  min-width: 8rem;
+}
+
+.w-matrix-dim {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.w-matrix-dim button {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  font: 600 12px/1 var(--font-mono);
+  color: var(--ink);
+}
+
+.w-matrix-dim strong {
+  min-width: 1.4em;
+  text-align: center;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.w-matrix-workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  gap: 12px 16px;
+  align-items: start;
+}
+
+.w-matrix-left,
+.w-matrix-right {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.w-matrix-grid {
+  display: grid;
+  grid-template-columns: repeat(var(--mx-cols, 2), minmax(0, 1fr));
+  gap: 4px;
+  padding: 8px;
+  border: 1px solid var(--rule);
+  background: var(--wash);
+}
+
+.w-matrix-cell {
+  width: 100%;
+  min-width: 0;
+  min-height: 26px;
+  padding: 3px 5px;
+  border: 1px solid var(--line);
+  border-radius: 0;
+  background: var(--surface);
+  font: 12px/1.35 var(--font-mono);
+  color: var(--ink);
+  text-align: center;
+}
+
+.w-matrix-paste {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+}
+
+.w-matrix-paste label {
+  display: grid;
+  gap: 4px;
+}
+
+.w-matrix-paste textarea {
+  width: 100%;
+  min-width: 0;
+  padding: 4px 6px;
+  border: 1px solid var(--line);
+  border-radius: 0;
+  background: var(--surface);
+  font: 11.5px/1.45 var(--font-mono);
+  color: var(--ink);
+  resize: vertical;
+}
+
+.w-matrix-paste-acts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.w-matrix-paste-acts button {
+  height: 24px;
+  padding: 0 8px;
+  font: 11px var(--font-mono);
+  color: var(--ink);
+}
+
+.w-matrix-preview {
+  display: grid;
+  place-items: center;
+  min-height: 8.5rem;
+  max-height: 18rem;
+  padding: 14px 12px;
+  overflow: auto;
+  font-family: var(--font-read);
+}
+
+.w-matrix-src summary {
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.w-matrix-src pre {
+  max-height: 10rem;
+  margin: 4px 0 0;
+  padding: 6px 8px;
+  overflow: auto;
+  border: 1px solid var(--rule);
+  background: var(--wash);
+  font: 11px/1.45 var(--font-mono);
+  color: var(--ink);
+  white-space: pre;
+}
+
+.w-matrix-acts,
+.w-tex-acts {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.w-matrix-acts button,
+.w-tex-acts button {
+  min-height: 26px;
+  padding: 0 10px;
+  font: 12px var(--font-mono);
+  color: var(--ink);
+}
+
+.w-tex-acts button:disabled {
+  color: var(--muted);
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.w-tex-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+  padding: 12px;
+  font: 11px/1.45 var(--font-mono);
+}
+
+.w-tex-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.w-tex-tab {
+  height: 24px;
+  padding: 0 10px;
+  font: 11px/1 var(--font-mono);
+  color: var(--muted);
+}
+
+.w-tex-status {
+  margin-left: auto;
+  color: var(--accent, var(--ink));
+  font-weight: 600;
+}
+
+.w-tex-code {
+  flex: 1;
+  margin: 0;
+  min-height: 18rem;
+  max-height: 58vh;
+  padding: 10px 12px;
+  overflow: auto;
+  font: 11.5px/1.5 var(--font-mono);
+  color: var(--ink);
+  white-space: pre;
+  tab-size: 2;
+}
+
+/* Focus outlines for all LaTeX studio controls */
+.w-latex-palette :focus-visible,
+.w-latex-outline :focus-visible,
+.w-latex-bibmacros :focus-visible,
+.w-diag-panel :focus-visible,
+.w-matrix :focus-visible,
+.w-tex :focus-visible {
+  outline: 2px solid var(--accent, var(--ink));
+  outline-offset: 1px;
+}
+
+/* Mobile & touch responsiveness for LaTeX studio */
+@media (max-width: 700px) {
+  .w-matrix,
+  .w-tex {
+    width: 100%;
+    height: 100%;
+    max-height: 100%;
+    margin: 0;
+    box-shadow: none;
+  }
+
+  .w-matrix-body,
+  .w-tex-body {
+    padding: 10px;
+  }
+
+  .w-matrix-workspace {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .w-tex-code {
+    max-height: none;
+  }
+
+  .w-matrix-acts,
+  .w-tex-acts {
+    position: sticky;
+    bottom: -10px;
+    margin: 0 -10px -10px;
+    padding: 8px 10px;
+    border-top: 1px solid var(--rule);
+    background: var(--surface);
+  }
+
+  .w-lp-grid {
+    grid-template-columns: repeat(auto-fill, minmax(4.5rem, 1fr));
+  }
+}
+
+@media (pointer: coarse), (max-width: 700px) {
+  .w-lp-search,
+  .w-bm-ta,
+  .w-matrix-controls select,
+  .w-matrix-controls input,
+  .w-matrix-cell,
+  .w-matrix-paste textarea {
+    min-height: 38px;
+    font-size: 16px;
+  }
+
+  .w-lp-tab,
+  .w-lp-btn,
+  .w-lo-filter,
+  .w-lo-ref,
+  .w-bm-tab,
+  .w-bm-actions button,
+  .w-bm-cite,
+  .w-matrix-dim button,
+  .w-matrix-paste-acts button,
+  .w-matrix-acts button,
+  .w-tex-tab,
+  .w-tex-acts button {
+    min-height: 36px;
+    padding-inline: 10px;
+  }
+
+  .w-lp-close {
+    width: 36px;
+    height: 36px;
+    font-size: 16px;
+  }
+
+  .w-matrix .win-bar,
+  .w-tex .win-bar {
+    height: 44px;
   }
 }

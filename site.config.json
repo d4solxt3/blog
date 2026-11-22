@@ -144,6 +144,29 @@
       "useCustomTheme": true
     }
   },
+  "latex": {
+    "citationStyle": "numeric",
+    "macros": {
+      "\\R": "\\mathbb{R}",
+      "\\N": "\\mathbb{N}",
+      "\\Z": "\\mathbb{Z}",
+      "\\C": "\\mathbb{C}",
+      "\\E": "\\mathbb{E}",
+      "\\Prob": "\\mathbb{P}",
+      "\\Var": "\\operatorname{Var}",
+      "\\Cov": "\\operatorname{Cov}",
+      "\\KL": "\\operatorname{D}_{\\mathrm{KL}}",
+      "\\argmax": "\\operatorname*{arg\\,max}",
+      "\\argmin": "\\operatorname*{arg\\,min}",
+      "\\norm": "\\left\\lVert #1 \\right\\rVert",
+      "\\abs": "\\left\\lvert #1 \\right\\rvert",
+      "\\inner": "\\left\\langle #1, #2 \\right\\rangle",
+      "\\dd": "\\mathrm{d}",
+      "\\eps": "\\varepsilon",
+      "\\T": "^{\\mathsf{T}}",
+      "\\ind": "\\mathbf{1}"
+    }
+  },
   "widgets": [
     {
       "id": "about",

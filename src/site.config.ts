@@ -102,6 +102,40 @@ function badges(v: unknown): Badge[] {
     }));
 }
 
+export type CitationStyle = 'numeric' | 'author-year';
+export const DEFAULT_LATEX_MACROS: Record<string, string> = {
+  '\\R': '\\mathbb{R}',
+  '\\N': '\\mathbb{N}',
+  '\\Z': '\\mathbb{Z}',
+  '\\C': '\\mathbb{C}',
+  '\\E': '\\mathbb{E}',
+  '\\Prob': '\\mathbb{P}',
+  '\\Var': '\\operatorname{Var}',
+  '\\Cov': '\\operatorname{Cov}',
+  '\\KL': '\\operatorname{D}_{\\mathrm{KL}}',
+  '\\argmax': '\\operatorname*{arg\\,max}',
+  '\\argmin': '\\operatorname*{arg\\,min}',
+  '\\norm': '\\left\\lVert #1 \\right\\rVert',
+  '\\abs': '\\left\\lvert #1 \\right\\rvert',
+  '\\inner': '\\left\\langle #1, #2 \\right\\rangle',
+  '\\dd': '\\mathrm{d}',
+  '\\eps': '\\varepsilon',
+  '\\T': '^{\\mathsf{T}}',
+  '\\ind': '\\mathbf{1}',
+};
+
+function latexConfig(v: any): { citationStyle: CitationStyle; macros: Record<string, string> } {
+  const citationStyle: CitationStyle = v?.citationStyle === 'author-year' ? 'author-year' : 'numeric';
+  if (!v?.macros || typeof v.macros !== 'object' || Array.isArray(v.macros)) {
+    return { citationStyle, macros: { ...DEFAULT_LATEX_MACROS } };
+  }
+  const macros: Record<string, string> = {};
+  for (const [k, val] of Object.entries(v.macros)) {
+    if (k.startsWith('\\') && typeof val === 'string') macros[k] = val;
+  }
+  return { citationStyle, macros };
+}
+
 export const SITE = {
   name,
   subtitle,
@@ -192,6 +226,8 @@ export const SITE = {
   comments: {
     provider: (r.comments?.provider === 'giscus' ? 'giscus' : 'native') as 'native' | 'giscus',
   },
+  /** Global LaTeX macro definitions and default citation style for posts and the /write studio. */
+  latex: latexConfig(r.latex),
   giscus: {
     repo: str(giscus.repo, ''),
     repoId: str(giscus.repoId, ''),

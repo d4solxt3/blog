@@ -29,6 +29,12 @@ const posts = defineCollection({
     seriesOrder: z.number().optional(),
     /** Set to false to switch off highlight-to-comment on this post. */
     annotations: z.boolean().default(true),
+    /** Per-post LaTeX preamble macros (\newcommand, \DeclareMathOperator, etc.). */
+    macros: z.string().optional(),
+    /** Per-post BibTeX bibliography entries. */
+    bibliography: z.string().optional(),
+    /** Per-post citation style override; falls back to site.config.json's latex.citationStyle. */
+    citationStyle: z.enum(['numeric', 'author-year']).optional(),
   }),
 });
 
