@@ -123,6 +123,7 @@ Only `title`, `description` and `date` are required.
 | `![A caption](/images/picture.png)` | A picture with a caption underneath |
 | Three backticks plus a language name, e.g. ```` ```python ```` | A code block with a copy button |
 | ```` ```zeta ```` on one line, `caption: Your caption` on the next, then ```` ``` ```` | A live animation of the Riemann zeta function on the critical line, drawn in your site's colours (it follows the paper / cyber switch). Optional extra lines: `tMax: 80` traces further (15–100, default 50) and `title: my_title` renames its window. In the studio it's **more ▾ → zeta animation** |
+| ```` ```takeoff ```` on one line, `caption: Your caption` on the next, then ```` ``` ```` | An animated, illustrative fast-takeoff scenario: model perplexity falls slowly, then ever faster, and each threshold it crosses gets a date and a line about what models could do by then. Optional lines: `start: 2027` (when takeoff begins), `years: 2.5` (how long until the entropy floor), `title: my_title`, and your own list to replace the built-in one: `milestones:` then lines like `  - ppl: 6.0` and `    text: what they can do` (up to 10, perplexity between 4 and 10). In the studio it's **more ▾ → takeoff animation** |
 
 Put images for posts in `public/images/` and refer to them as `/images/name.png`.
 

@@ -3,6 +3,7 @@
 import 'katex/dist/katex.min.css';
 import '../../styles/write.css';
 import '../../styles/zeta-trace.css';
+import '../../styles/takeoff.css';
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import { SITE } from '../../site.config';
 import { studioSpellingLanguage } from '../../scripts/spelling-words';
@@ -368,6 +369,7 @@ const json = JSON.stringify(data).replace(/</g, '\\u003c');
   import { initWriter } from '../../scripts/write';
   import { initImageScale } from '../../scripts/image-scale';
   import '../../scripts/zeta-trace'; // animates ```zeta figures in the preview
+  import '../../scripts/takeoff'; // and ```takeoff figures
 
   onPage((signal) => {
     initWriter(signal);

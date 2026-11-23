@@ -990,6 +990,16 @@ export function initWriter(signal: AbortSignal) {
       run: (via) => blockInsert(`\`\`\`zeta\ncaption: ${SEL_START}every pass through the origin is a nontrivial zero${SEL_END}\n\`\`\`\n`, via),
     },
     {
+      id: 'takeoff',
+      label: 'takeoff animation',
+      icon: '↘',
+      keys: 'takeoff fast singularity perplexity scenario timeline milestones agi',
+      ribbon: 'more',
+      slash: true,
+      // see plugins/remark-takeoff.mjs for the options (start, years, milestones)
+      run: (via) => blockInsert(`\`\`\`takeoff\ncaption: ${SEL_START}an illustrative fast takeoff, not a forecast${SEL_END}\nstart: 2027\n\`\`\`\n`, via),
+    },
+    {
       id: 'figure',
       label: 'figure (images side by side)',
       icon: 'figure',

@@ -1,0 +1,48 @@
+/* The fast-takeoff animation (```takeoff). It shares the window, stage, panel
+   and footer styles with the zeta figure (zeta-trace.css); these are the extras:
+   a wider milestones box and the readout + log strip along the bottom. */
+
+.tk .zt-stage {
+  aspect-ratio: 5 / 4;
+}
+
+.tk .zt-zeros {
+  width: 172px;
+}
+
+.tk-bottom {
+  position: absolute;
+  left: 18px;
+  right: 18px;
+  bottom: 10px;
+  font-size: 11px;
+  line-height: 1.6;
+  pointer-events: none;
+}
+
+.tk-log {
+  /* two lines are always reserved, so a long milestone never moves the plot */
+  min-height: 3.2em;
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px dashed var(--rule);
+  line-height: 1.5;
+  color: var(--ink);
+}
+
+@container (max-width: 540px) {
+  .tk .zt-stage {
+    aspect-ratio: 1 / 1.15;
+  }
+  .tk .zt-zeros {
+    width: auto;
+  }
+  .tk-bottom {
+    left: 12px;
+    right: 12px;
+    bottom: 8px;
+  }
+  .tk-log {
+    min-height: 4.6em; /* three lines on a phone */
+  }
+}

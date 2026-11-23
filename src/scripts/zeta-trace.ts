@@ -7,7 +7,7 @@
  * removed ones are cleaned up. Pauses off-screen; reduced-motion readers get
  * the finished picture and a play button.
  */
-import { onPage } from './lifecycle';
+import { autoMount } from './figure-mount';
 
 // one loop, in seconds: draw in, hold, erase from the start, rest on the outline
 const DRAW = 14;
@@ -411,44 +411,5 @@ function mount(fig: HTMLElement): () => void {
   };
 }
 
-// ---- find figures: on each page, and any added later (the studio preview) ----
-const SELECTOR = '[data-zeta-trace]';
-const cleanups = new Map<HTMLElement, () => void>();
-
-function mountWithin(node: Node) {
-  if (!(node instanceof Element)) return;
-  const figs = node.matches(SELECTOR) ? [node] : node.querySelectorAll(SELECTOR);
-  for (const fig of figs as Iterable<HTMLElement>) {
-    if (!cleanups.has(fig)) cleanups.set(fig, mount(fig));
-  }
-}
-
-function sweep() {
-  for (const [fig, stop] of cleanups) {
-    if (!fig.isConnected) {
-      stop();
-      cleanups.delete(fig);
-    }
-  }
-}
-
-onPage((signal) => {
-  sweep();
-  mountWithin(document.body);
-  const watch = new MutationObserver((records) => {
-    let removed = false;
-    for (const r of records) {
-      r.addedNodes.forEach(mountWithin);
-      r.removedNodes.forEach((n) => {
-        if (n instanceof Element) removed = true;
-      });
-    }
-    if (removed && cleanups.size) sweep();
-  });
-  watch.observe(document.body, { childList: true, subtree: true });
-  signal.addEventListener('abort', () => {
-    watch.disconnect();
-    for (const stop of cleanups.values()) stop();
-    cleanups.clear();
-  });
-});
+// on each page, and any added later (the studio preview)
+autoMount('[data-zeta-trace]', mount);
