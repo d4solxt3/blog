@@ -13,10 +13,12 @@ export const GAP = 3; // perplexity above the floor when takeoff starts
 export const RATE = Math.LN2 / 3; // before takeoff the gap halves every 3 years
 
 export const DEFAULT_MILESTONES = [
+  // already happened (Nov 2026); 7.09 is where the curve sits then
+  { ppl: 7.09, text: 'already here: the Riemann hypothesis is proved, checked in Lean' },
   { ppl: 7.0, text: 'takeoff: AI now does most of the research on the next AI' },
   { ppl: 6.6, text: 'builds and ships a whole product from a one-page brief' },
   { ppl: 6.2, text: "runs a lab's full experiment queue overnight, unsupervised" },
-  { ppl: 5.8, text: 'clears long-open maths problems, with proofs checked in Lean' },
+  { ppl: 5.8, text: 'the other Millennium Prize problems fall, all checked in Lean' },
   { ppl: 5.4, text: 'designs a faster AI chip and the production line to build it' },
   { ppl: 5.0, text: 'does a decade of drug-discovery work in a few months' },
   { ppl: 4.6, text: 'can do almost any job that is done at a computer' },

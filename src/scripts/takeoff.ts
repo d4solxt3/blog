@@ -273,22 +273,26 @@ function mount(fig: HTMLElement): () => void {
 
     // crossings: a square on each threshold reached, with its date where there's room
     const on = miles.map((m) => phase !== 'idle' && m.t >= lo && m.t <= hi);
-    g.fillStyle = col.ink;
-    let lastLabel = -Infinity;
+    // Dates sit to the right of their square; before takeoff they go below-left
+    // instead (clear of the rising line and of the takeoff point's label). Each
+    // side skips a label that would collide with the one above it.
+    const lastLabel = { left: -Infinity, right: -Infinity };
     miles.forEach((m, k) => {
       if (!on[k]) return;
       const x = Math.round(X(m.t));
       const y = Math.round(Y(m.ppl));
       g.fillStyle = col.ink;
       g.fillRect(x - 2, y - 2, 5, 5);
-      if (y - lastLabel < 12) return;
-      lastLabel = y;
       const label = m.date.slice(0, 7);
-      const right = x + 8 + g.measureText(label).width < R;
+      const early = m.t < start;
+      const side = early || x + 8 + g.measureText(label).width > R ? 'left' : 'right';
+      const ly = early ? y + 10 : y;
+      if (ly - lastLabel[side] < 12) return;
+      lastLabel[side] = ly;
       g.fillStyle = col.muted;
-      g.textAlign = right ? 'left' : 'right';
+      g.textAlign = side === 'left' ? 'right' : 'left';
       g.textBaseline = 'middle';
-      g.fillText(label, right ? x + 8 : x - 8, y);
+      g.fillText(label, side === 'left' ? x - 6 : x + 8, ly);
     });
     if (phase === 'tracing') {
       const recent = miles.filter((m) => tau >= m.beat && tau - m.beat < FLASH).pop();
