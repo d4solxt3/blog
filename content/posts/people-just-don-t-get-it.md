@@ -5,7 +5,7 @@ date: 2026-11-23
 tags: [ ai, politics, philosophy, hopecore ]
 series: Personal Thoughts
 seriesOrder: 1
-draft: true
+draft: false
 ---
 
 > [!TLDR]
