@@ -1,13 +1,16 @@
-// ```takeoff fences → the fast-takeoff animation (an illustrative scenario).
+// ```takeoff fences → the fast-takeoff animation: measured base-model
+// log-perplexity to Nov 2026, then an illustrative scenario.
 //
 //   ```takeoff
 //   caption: an illustrative fast takeoff, not a forecast
-//   start: 2027        (optional: the year takeoff begins)
-//   years: 2.5         (optional: how long until the entropy floor)
+//   start: 2027        (optional: when takeoff begins, Nov 2026 – mid 2028)
+//   years: 1           (optional: how long takeoff takes to reach the floor;
+//                       by default it starts at the late-2026 pace, ~11 months)
+//   floor: 0.4         (optional: the unknown floor, 0.2–0.7)
 //   title: fast_takeoff   (optional: the window title)
-//   milestones:        (optional: replaces the built-in list, up to 10)
-//     - ppl: 6.0
-//       text: what models can do once they reach this perplexity
+//   milestones:        (optional: replaces the built-in list, up to 14)
+//     - logppl: 0.65
+//       text: what models can do once they reach this log-perplexity
 //   ```
 //
 // Like remark-zeta, it runs before Shiki and emits hast, so .md, .mdx, live
