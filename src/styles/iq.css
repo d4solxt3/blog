@@ -1,0 +1,13 @@
+/* The "IQ, roughly" bar chart (```iq). It shares the window, stage and footer
+   styles with the zeta figure (zeta-trace.css) and the readout + log strip
+   with the takeoff figure (takeoff.css); this only sets its proportions. */
+
+.iq .zt-stage {
+  aspect-ratio: 16 / 10;
+}
+
+@container (max-width: 540px) {
+  .iq .zt-stage {
+    aspect-ratio: 1 / 1.05;
+  }
+}

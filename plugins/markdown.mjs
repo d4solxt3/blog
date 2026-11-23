@@ -12,6 +12,7 @@ import rehypeFigures from './rehype-figures.mjs';
 import remarkCharts from './remark-charts.mjs';
 import remarkZeta from './remark-zeta.mjs';
 import remarkTakeoff from './remark-takeoff.mjs';
+import remarkIq from './remark-iq.mjs';
 import rehypeFigureNumbers from './rehype-figure-numbers.mjs';
 
 /**
@@ -48,9 +49,9 @@ export const shikiConfig = {
   transformers: [codeFrame],
 };
 
-// remarkCharts (and remarkZeta, remarkTakeoff) first: chart/diagram/zeta/takeoff fences must
-// become figures before Shiki (which runs ahead of the rehype plugins) turns them into code blocks.
-export const remarkPlugins = [remarkCharts, remarkZeta, remarkTakeoff, remarkMath, remarkLatex, remarkWikiLinks];
+// remarkCharts (and remarkZeta, remarkTakeoff, remarkIq) first: chart/diagram/zeta/takeoff/iq fences
+// must become figures before Shiki (which runs ahead of the rehype plugins) turns them into code blocks.
+export const remarkPlugins = [remarkCharts, remarkZeta, remarkTakeoff, remarkIq, remarkMath, remarkLatex, remarkWikiLinks];
 
 export const remarkRehype = { footnoteLabel: 'Notes', footnoteBackContent: '↑' };
 

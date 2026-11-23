@@ -15,6 +15,7 @@ import SeriesNav from './SeriesNav.astro';
 import QuoteDrawer from './QuoteDrawer.astro';
 import '../styles/zeta-trace.css'; // ```zeta figures in the post body
 import '../styles/takeoff.css'; // ```takeoff figures (builds on zeta-trace.css)
+import '../styles/iq.css'; // ```iq figures (builds on both)
 import { formatDate, isoDate, tagSlug, type Post, type SeriesInfo } from '../utils/posts';
 
 type Heading = { depth: number; slug: string; text: string };
@@ -379,6 +380,7 @@ const slideIn = {
   import { initPostPage } from '../scripts/post-page';
   import '../scripts/zeta-trace'; // animates ```zeta figures in the post body
   import '../scripts/takeoff'; // animates ```takeoff figures in the post body
+  import '../scripts/iq'; // animates ```iq figures in the post body
 
   onPage((signal) => initPostPage(signal));
 </script>

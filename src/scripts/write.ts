@@ -1000,6 +1000,16 @@ export function initWriter(signal: AbortSignal) {
       run: (via) => blockInsert(`\`\`\`takeoff\ncaption: ${SEL_START}an illustrative fast takeoff, not a forecast${SEL_END}\nstart: 2027\n\`\`\`\n`, via),
     },
     {
+      id: 'iq',
+      label: 'IQ bar chart',
+      icon: '▤',
+      keys: 'iq intelligence bar chart humans cow asi models compare',
+      ribbon: 'more',
+      slash: true,
+      // see plugins/iq.mjs for the data (plugins/remark-iq.mjs for the options)
+      run: (via) => blockInsert(`\`\`\`iq\ncaption: ${SEL_START}AI scores on a public IQ test; the cow and ASI are illustrative${SEL_END}\n\`\`\`\n`, via),
+    },
+    {
       id: 'figure',
       label: 'figure (images side by side)',
       icon: 'figure',
